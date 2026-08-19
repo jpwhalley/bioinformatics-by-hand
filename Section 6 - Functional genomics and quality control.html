@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Section 6: Functional Genomics and Quality Control</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#1a2332; --panel-2:#243042;
+    --text:#e6edf3; --text-dim:#8f98a1; --accent:#58a6ff;
+    --accent-glow:rgba(88,166,255,0.25);
+    --good:#56d364; --bad:#f96760; --warn:#d29922; --gap:#9097a0;
+    --border:#30363d; --border-ctrl:#6c7989;
+    --mono:'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    line-height:1.55;padding:26px 20px 120px}
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 5px;font-weight:600}
+  h2{font-size:16px;margin:28px 0 8px;color:var(--accent)}
+  h3{font-size:14px;margin:0 0 6px}
+  .breadcrumb{color:var(--text-dim);font-size:12px;margin-bottom:8px}
+  .breadcrumb b{color:var(--accent)}
+  .breadcrumb a{color:var(--text-dim);text-decoration:underline;text-underline-offset:2px}
+  .breadcrumb a:hover{color:var(--accent)}
+  .sub{color:var(--text-dim);font-size:14px;margin:0 0 6px}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:16px 18px;margin:14px 0}
+  .prompt{background:var(--panel);border-left:3px solid var(--accent);
+    padding:14px 18px;border-radius:4px;margin:16px 0;font-size:15px}
+  .prompt b{color:var(--accent)}
+  small{color:var(--text-dim)}
+  code{background:var(--panel-2);padding:1px 5px;border-radius:4px;
+    font-family:var(--mono);font-size:.86em}
+
+  button{background:var(--panel-2);color:var(--text);border:1px solid var(--border-ctrl);
+    padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit}
+  button:hover{background:#2d3748;border-color:var(--accent)}
+  button[aria-pressed="true"]{background:var(--accent);color:#0d1117;
+    border-color:var(--accent);font-weight:600}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  button:disabled:hover{background:var(--panel-2);border-color:var(--border-ctrl)}
+  :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:3px}
+  button:focus-visible,summary:focus-visible,input:focus-visible,textarea:focus-visible,
+  [tabindex]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+  .picker{display:flex;gap:9px;flex-wrap:wrap;margin:8px 0}
+  .assay-body{font-size:14px;margin-top:2px}
+
+  /* Metric cards. Each carries the threshold, and just as importantly, who set
+     it and whether it is a rule or a recommendation. */
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(228px,1fr));
+    gap:10px;margin-top:14px}
+  .metric{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:11px 13px}
+  .metric .mname{font-size:13px;font-weight:600}
+  .metric .mval{font-size:12px;color:var(--text-dim);margin-top:3px;font-family:var(--mono)}
+  .metric .msrc{font-size:11px;color:var(--text-dim);margin-top:6px;
+    padding-top:6px;border-top:1px solid var(--border)}
+  .metric.no-standard{border-left:3px solid var(--warn)}
+  .metric.no-standard .mval{color:var(--warn)}
+
+  .tiles{display:flex;gap:12px;flex-wrap:wrap;margin:2px 0 6px}
+  .tile{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:10px 14px;min-width:150px}
+  .tile .k{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em}
+  .tile .v{font-size:23px;font-weight:600;margin-top:2px}
+  .tile.hero .v{color:var(--accent)}
+
+  .slider-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px}
+  .slider-row label{font-size:13px;color:var(--text-dim)}
+  input[type=range]{flex:1;min-width:220px;accent-color:var(--accent)}
+  .presets{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .presets button{font-size:12px;padding:6px 11px}
+
+  /* One series, so one hue for every bar. Group membership is encoded by
+     POSITION (two labelled blocks with a gap between them), not by a second
+     colour: it is the stronger encoding for "the failures are all on one side",
+     and it leaves the audited palette untouched. */
+  .chartwrap{margin-top:12px}
+  .bar{fill:var(--accent)}
+  .failtick{fill:var(--warn)}
+  .axis{stroke:var(--border-ctrl);stroke-width:1}
+  .thresh{stroke:var(--warn);stroke-width:2}
+  .axtext{fill:var(--text-dim);font-size:10px;font-family:var(--mono)}
+  .grouplab{fill:var(--text-dim);font-size:11px;letter-spacing:.05em}
+  .threshlab{fill:var(--warn);font-size:10px;font-family:var(--mono)}
+  .hit{fill:transparent}
+
+  .tip{position:fixed;background:#000;border:1px solid var(--accent);
+    border-radius:8px;padding:7px 10px;font-size:12px;font-family:var(--mono);
+    z-index:60;display:none}
+
+  .readout{margin-top:12px;padding:12px 15px;border-radius:6px;background:var(--panel-2);
+    border-left:3px solid var(--accent);font-size:13.5px}
+  .readout.alarm{border-left-color:var(--warn)}
+  .readout b{color:var(--text)}
+
+  .tvscroll{overflow-x:auto;margin-top:6px}
+  table.tv{width:100%;min-width:520px;border-collapse:collapse;font-size:12px}
+  table.tv th,table.tv td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)}
+  table.tv th{color:var(--text-dim);font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+  table.tv td{font-variant-numeric:tabular-nums;font-family:var(--mono)}
+  table.tv td.word{font-family:inherit}
+  table.tv tr:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+
+  details{margin:8px 0;border:1px solid var(--border);border-radius:8px;background:var(--panel-2)}
+  details>summary{cursor:pointer;padding:9px 12px;color:var(--accent);font-size:13px;list-style:none}
+  details>summary::-webkit-details-marker{display:none}
+  details>summary::before{content:'▸ ';color:var(--text-dim)}
+  details[open]>summary::before{content:'▾ '}
+  details .body{padding:2px 14px 12px;font-size:13px;color:var(--text-dim)}
+  details .body p{margin:0 0 8px}
+  details .body p:last-child{margin-bottom:0}
+
+  .nb{max-width:1000px;margin:18px auto 0;background:var(--panel);
+    border:1px solid var(--border);border-radius:10px;padding:13px 16px}
+  .nb-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .nb h3{margin:0;font-size:14px;color:var(--accent)}
+  .nb-dl{font-size:12px;padding:6px 11px}
+  .nb-dl-hint{font-size:11px;color:var(--text-dim);margin:4px 0 0}
+  .progress-cue{font-size:12px;color:var(--text-dim);margin:8px 0 0}
+  .nb ul{list-style:none;margin:8px 0 0;padding:0;max-height:190px;overflow:auto}
+  .nb li{font-size:12px;color:var(--text-dim);padding:3px 0;border-bottom:1px solid var(--border);
+    font-family:var(--mono)}
+  .nb li.empty{color:var(--text-dim);font-style:italic;font-family:inherit}
+
+  .section-done{background:var(--panel);border:1px solid var(--accent);border-radius:8px;
+    padding:18px 22px;margin-top:22px;display:none}
+  .section-done.show{display:block}
+  .section-done h3{color:var(--accent);font-size:16px;margin:0 0 8px}
+  .section-done p{margin:0 0 10px;font-size:14px;line-height:1.6}
+  .section-done p:last-child{margin-bottom:0}
+  .section-done .nb-aside{color:var(--text-dim);font-size:12px}
+
+  .footer-note{margin-top:28px;padding-top:14px;border-top:1px solid var(--border);
+    font-size:11px;color:var(--text-dim);text-align:center}
+
+  @media (max-width:700px){
+    body{padding:14px 10px 90px}
+    h1{font-size:18px}
+    .tile{min-width:44%}
+    .picker button{flex:1 1 auto}
+    .metrics{grid-template-columns:1fr}
+  }
+
+  /* Foot navigation, added 2026-08-17. Real links, so keyboard and
+     right-click-open-in-new-tab both work without any scripting. */
+  .sectnav{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;
+    margin:26px 0 0;padding-top:18px;border-top:1px solid var(--border)}
+  .sectnav a{flex:1 1 220px;display:block;text-decoration:none;color:inherit;
+    background:var(--panel,#1a2332);border:1px solid var(--border);border-radius:8px;
+    padding:11px 14px;font-size:13px}
+  .sectnav a:hover{border-color:var(--accent);background:var(--panel-2,#243042)}
+  .sectnav a .k{display:block;font-size:11px;color:var(--text-dim);
+    text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+  .sectnav a .t{font-weight:600}
+  .sectnav a:hover .t{text-decoration:underline}
+  .sectnav a.home{flex:0 1 auto;text-align:center;display:flex;align-items:center;
+    justify-content:center;color:var(--text-dim)}
+  .sectnav a.home:hover{color:var(--accent)}
+  @media (max-width:700px){ .sectnav a{flex:1 1 100%} }
+
+  /* ---------------------------------------------------------------------
+     Added 2026-08-17 for the ATAC rebuild.
+
+     A third categorical fill was needed for the protocol chart, and the
+     existing --gap (#9097a0) could not be it: measured against --accent it
+     separates by 14.2 in OKLab under normal vision, below the floor of 15,
+     so a reader with ordinary colour vision would struggle to tell the two
+     segments apart. It is fine as a hairline, where nothing depends on
+     telling it from a fill. --neutral-series was stepped until it cleared
+     the floor: 15.8 against the accent, 17.4 against the amber, worst case
+     13.4 under simulated protanopia, contrast 7.0 against the panel.
+     --------------------------------------------------------------------- */
+  :root{ --neutral-series:#b6bdc7; --band:rgba(210,153,34,0.15); }
+
+  /* Small multiples. Four panels, identical axes, ONE hue: the comparison is
+     between shapes, so giving each panel its own colour would invite the
+     reader to compare colours instead. Each panel is a button, because
+     selecting one changes the readout and that has to work from a keyboard. */
+  /* auto-fit rather than a fixed four, and rather than a breakpoint: a fixed
+     two-column rule at 700px still overflowed a 320px screen by 53px, because
+     the breakpoint was chosen for the phone I imagined and not the narrow one. */
+  .smgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:10px;margin-top:12px}
+  .smcard{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:9px 10px 6px;text-align:left;cursor:pointer;font-family:inherit;color:inherit}
+  .smcard:hover{border-color:var(--accent)}
+  /* This was rendering at 1.64:1. The generic button[aria-pressed="true"] rule
+     sets color:#0d1117 for a filled accent button; this rule overrode the
+     BACKGROUND and inherited that near-black foreground onto a dark blue card.
+     Selection is now marked by the border and an inset ring only, so the card's
+     contents keep the contrast they were measured at. */
+  .smcard[aria-pressed="true"]{border-color:var(--accent);background:var(--panel-2);
+    color:var(--text);font-weight:400;box-shadow:inset 0 0 0 1px var(--accent)}
+  .smcard .hd{display:flex;align-items:center;gap:6px}
+  .smcard .sid{font-size:12px;font-weight:600;font-family:var(--mono)}
+  .smcard .sval{display:block;font-size:11px;color:var(--text-dim);
+    font-family:var(--mono);margin-top:2px;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis}
+  .smcard svg{display:block;margin-top:4px}
+  .chip{display:inline-block;font-size:10px;padding:1px 6px;border-radius:99px;
+    border:1px solid currentColor;letter-spacing:.03em;white-space:nowrap}
+  .chip.ideal{color:var(--good)}
+  .chip.acceptable{color:var(--accent)}
+  .chip.concerning{color:var(--warn)}
+  .chip.failed{color:#ff8a84}
+  .prof{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round}
+  .base{stroke:var(--border-ctrl);stroke-width:1}
+  .bandfill{fill:var(--band)}
+  .idealline{stroke:var(--warn);stroke-width:1.5;stroke-dasharray:4 3}
+  .smtext{fill:var(--text-dim);font-size:9px;font-family:var(--mono)}
+
+  /* Protocol chart. Three categories, so three hues, all label-backed and all
+     repeated in the table view: nothing here is carried by colour alone. */
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 2px;font-size:12px;
+    color:var(--text-dim)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .swatch{width:11px;height:11px;border-radius:2px;display:inline-block}
+  .sw-use{background:var(--accent)}
+  .sw-mito{background:var(--warn)}
+  .sw-loss{background:var(--neutral-series)}
+  .seg-use{fill:var(--accent)}
+  .seg-mito{fill:var(--warn)}
+  .seg-loss{fill:var(--neutral-series)}
+  .protolab{fill:var(--text);font-size:12px}
+  .protosub{fill:var(--text-dim);font-size:10px;font-family:var(--mono)}
+  .protoval{fill:var(--text);font-size:11px;font-family:var(--mono)}
+  .encline{stroke:var(--bad);stroke-width:1.5;stroke-dasharray:5 3}
+  .enclab{fill:var(--bad);font-size:10px;font-family:var(--mono)}
+
+  .fine{font-size:11.5px;color:var(--text-dim);margin:8px 2px 0}
+  .conseq{display:grid;gap:8px;margin-top:12px}
+  .conseq>div{display:grid;grid-template-columns:minmax(0,210px) minmax(0,1fr);gap:12px;
+    background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:9px 12px;font-size:13px}
+  .conseq b{color:var(--accent)}
+  .conseq span{color:var(--text-dim)}
+  @media (max-width:700px){ .conseq>div{grid-template-columns:1fr;gap:2px} }
+  /* The course spine, added 2026-08-17. Justin: "we are building up from the
+     simplest thing a bioinformatician can do - match a set of letters to
+     another... bioinformatics is matching a sets of letters to another,
+     usually at scale and interpreting those results!"
+     Every section states its own match in the same place, in the same words,
+     so the argument is visible from inside any one of them. */
+  .spinebar{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;
+    margin:14px 0 6px;padding:10px 14px;border-radius:6px;
+    background:var(--panel-2);border-left:3px solid var(--good);font-size:13.5px}
+  .spinebar .k{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;
+    letter-spacing:.07em;white-space:nowrap}
+  .spinebar .v{color:var(--text)}
+  /* The pipeline, with a gate at every junction. Added 2026-08-17. Justin:
+     "I also realize at this point, a good bioinformatics pipeline has multiple
+     QC points (we do talk about mapping QC, as well as QC after calling
+     variants / counting peaks)." He is right, and it corrects the impression
+     the module was giving that quality control is one step in a line. */
+  .gates{display:grid;gap:10px;margin-top:12px}
+  .gate{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:11px 13px;display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:14px}
+  .gate .g-when{font-size:12px}
+  .gate .g-when b{display:block;color:var(--accent);font-size:13px}
+  .gate .g-when span{color:var(--text-dim);font-family:var(--mono);font-size:11px}
+  .gate .g-what{font-size:13px;color:var(--text-dim)}
+  .gate .g-what .catch{display:block;margin-top:6px;padding-top:6px;
+    border-top:1px solid var(--border);color:var(--text)}
+  .gate.here{border-color:var(--accent)}
+  /* On its own line: inline after the heading it wrapped mid-phrase at the
+     column width the panel actually gets. */
+  .gate.here .g-when b::after{content:'\2190 you are here';display:block;
+    color:var(--text-dim);font-weight:400;font-size:11px;white-space:nowrap;
+    margin-top:2px}
+  @media (max-width:700px){ .gate{grid-template-columns:1fr;gap:6px} }
+  /* File names and CIGAR strings are single unbreakable tokens, and one of them
+     pushed the page 39px wide at 320 CSS px. SC 1.4.10. (2026-08-17 audit.) */
+  code{overflow-wrap:anywhere;word-break:break-word}
+  /* SC 2.1.1: without wrapping, the mono text made this list a horizontally
+     scrollable region with no focusable child at 320px, which axe correctly
+     flagged as unreachable by keyboard. Wrapping is the right fix here: a
+     checklist has no reason to scroll. */
+  .milestones{list-style:none;margin:4px 0 10px;padding:0;font-size:11px;line-height:1.6;
+              color:var(--text-dim);font-family:var(--mono);
+              overflow-wrap:anywhere;word-break:break-word}
+  .milestones li{margin-bottom:2px}
+  /* The milestone list lives inside .nb, and `.nb ul` caps its height and turns
+     on overflow for the notebook log. That made the milestone list a scrollable
+     region with no keyboard access at 320px as soon as it grew past the cap:
+     axe caught it in Section 8 on 2026-08-19 at seven milestones. `.nb ul` has
+     higher specificity than `.milestones`, so undoing it needs both classes. */
+  .nb ul.milestones{max-height:none;overflow:visible}
+  .milestones li.got{color:var(--good)}
+  .decide{margin:16px 0 0;border:1px solid var(--border-ctrl);border-radius:8px;
+          padding:10px 14px 14px;background:var(--panel-2)}
+  .decide legend{font-size:13px;font-weight:600;padding:0 6px}
+  .decide-opts{display:flex;flex-wrap:wrap;gap:8px}
+  .decide-fb{margin-top:10px;font-size:13px;line-height:1.6;color:var(--text-dim)}
+  .dq{font-size:14px;margin:4px 0 10px}
+  .ddec[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 6 of 8</b> · Functional genomics and quality control</div>
+  <h1>Quality control: what can this experiment still answer?</h1>
+  <p class="sub">Earlier sections let you inspect individual reads, alignments and variants. Here you
+  have twenty four ATAC-seq libraries, each represented by a handful of imperfect summaries. The task
+  is not to find a magic cutoff. It is to decide whether each library, <b>and the comparison it
+  belongs to</b>, is still interpretable.</p>
+  <p class="sub"><small>Simulated libraries. The thresholds, the protocol comparisons and the
+  arithmetic are real, and each is quoted with the source that set it.</small></p>
+
+  <div class="prompt">
+    Sections 4 and 5 were <b>genetics</b>: what is in this genome, and which of it matters. From here
+    the question changes. <b>Functional genomics asks what the cell is doing with the genome</b>, which
+    is a question about activity rather than sequence: which regions are open, which proteins are
+    bound, which genes are being transcribed and how much. It is a family of assays rather than one
+    assay, and they share a pipeline. This section takes the first of them, ATAC-seq, as far as
+    deciding which samples you are allowed to use. Section 7 takes RNA-seq the rest of the way.
+    <br><br>
+    <b>ATAC-seq measures where Tn5 inserts more often than background.</b> That is a statement about
+    a population of cells: accessibility is probabilistic and averaged over however many nuclei went
+    into the reaction, so an ATAC peak is evidence that a region is more often open, not proof that a
+    gene there is active.
+    <br><br>
+    The reads themselves match the genome plainly. This is DNA, so an ordinary aligner places it, with
+    none of the trouble RNA will give you in Section 7. <b>What separates a good ATAC library from a
+    bad one is not whether the reads match, but where they land, and how their distribution compares
+    with what you expected.</b> Every metric in this section measures that without looking at
+    individual reads, because at twenty four samples, let alone twenty four hundred, looking has
+    stopped being available to you.
+  </div>
+
+  <div class="spinebar"><span class="k">The match in this section</span><span class="v">Reads still match the genome. The new comparisons are distributions: insertion sites against expected background, and each library against its replicates and the design it belongs to.</span></div>
+  <h2>Quality control is not a step. It is a gate at every junction</h2>
+  <p class="sub">A pipeline is a chain of things that turn one file into another, and each link can
+  fail in a way the previous check could not have seen. So there is no single moment called quality
+  control. There are three, at least, and this section is the middle one.</p>
+
+  <div class="panel">
+    <div class="gates">
+      <div class="gate">
+        <div class="g-when"><b>On the raw reads</b><span>FASTQ</span></div>
+        <div class="g-what">Per-base quality, adapter content, duplication, whether the pool
+        demultiplexed. You did this in Section 3, by eye, and in Section 4 with FastQC.
+        <span class="catch">Catches a run that failed, a library whose inserts were shorter than the
+        read, and a pool that will not sort into samples. Nothing here knows anything about your
+        genome.</span></div>
+      </div>
+      <div class="gate here">
+        <div class="g-when"><b>Mapped and filtered fragments</b><span>BAM</span></div>
+        <div class="g-what">Alignment rate, duplicate rate, insert size distribution, mitochondrial
+        fraction, and TSS enrichment, which is the one signal-to-noise measure available at this stage
+        because it needs only an annotation of start sites.
+        <span class="catch">Catches reads that were perfectly good and landed in the wrong places, or
+        in no useful place. A library can be flawless on the first gate and dead on this one, which is
+        exactly what happened to B12 above.</span></div>
+      </div>
+      <div class="gate">
+        <div class="g-when"><b>Peaks, counts and cohort</b><span>peaks, counts, matrix</span></div>
+        <div class="g-what">How many peaks were called, <b>FRiP</b>, whether replicates agree, how the
+        samples cluster, and whether the design is balanced. FRiP belongs here and not on the gate
+        above: it is the fraction of usable reads falling inside <i>called peaks</i>, so it cannot
+        exist until peaks do, and it moves when the peak caller's settings move.
+        <span class="catch">Catches a sample that mapped beautifully and still measured almost
+        nothing, and a batch effect no per-sample metric can see, because it is a property of the
+        comparison rather than of any one sample.</span></div>
+      </div>
+    </div>
+    <div class="spine">
+      <b>Each gate exists because the one before it is blind to something.</b> Read quality cannot see
+      where a read went. Alignment rate cannot see whether the reads that aligned landed anywhere
+      informative. TSS enrichment cannot see how the samples relate to each other. And nothing
+      computed on a single sample can see a batch effect, which is why the last gate looks at the
+      samples together rather than one at a time.
+      <br><br>
+      That last point is the one this section builds to. <b>Quality is a property of the comparison as
+      well as of each sample.</b> Every library in a cohort can pass every per-sample check and the
+      experiment can still be unable to answer the question it was designed for.
+    </div>
+  </div>
+
+  <h2>What the experiment actually is</h2>
+  <p class="sub">You cannot judge data from an assay you cannot picture. This is one paragraph of bench
+  work, and every quality metric in this section follows from it.</p>
+
+  <div class="panel">
+    <p style="font-size:14px;margin:0 0 10px"><b>ATAC-seq is the "assay for transposase-accessible
+    chromatin".</b> The reagent is <b>Tn5 transposase</b>, pre-loaded with sequencing adapters. Put it
+    into permeabilised nuclei and it does two jobs in one reaction: it cuts the DNA, and it ligates
+    adapters onto the ends it just cut. Buenrostro's protocol paper puts it in one sentence: "The
+    transposase simultaneously fragments the DNA and inserts sequence handles that are then used for
+    amplification during library preparation." That combined step is called <b>tagmentation</b>, and it
+    is why an ATAC library can be made in a few hours from fifty thousand cells.</p>
+    <p style="font-size:14px;margin:0 0 10px"><b>The measurement is a consequence of the enzyme being
+    large.</b> Tn5 is a protein complex, and DNA wrapped around a nucleosome or covered by a bound
+    protein is <b>harder for it to reach</b>, so insertion there is less probable rather than
+    impossible. It cuts more often where the chromatin is open, and where it cut is the experiment.
+    Nothing is being detected; something is being reached, more often in some places than others.
+    That probabilistic wording matters: ATAC-seq measures an <b>aggregate</b> over every nucleus in
+    the reaction, so a peak means a region was open in more of those cells, not that it was open in
+    all of them.</p>
+    <div class="conseq">
+      <div><b>The library is ordinary DNA.</b><span>An ordinary aligner places it. There is no splicing
+        to allow for, which is what makes Section 7 harder rather than this.</span></div>
+      <div><b>The cut site is offset.</b><span>Tn5 works as a dimer and its two active sites cut nine
+        bases apart, so the field adds 4 bases to plus-strand read starts and subtracts 5 from
+        minus-strand ones. A published pipeline does this for you and never mentions it.</span></div>
+      <div><b>Fragment lengths come in bands.</b><span>Sub-nucleosomal fragments under about 100 bases,
+        then peaks near 200, 400 and 600 as a fragment spans one, two or three nucleosomes. The
+        distribution is a picture of chromatin, drawn by an enzyme that could not get through it.</span></div>
+      <div><b>Mitochondrial DNA is a soft target.</b><span>It carries no histone nucleosomes, though it
+        is not naked either: it is packaged into TFAM-containing nucleoids. What really drives the
+        problem is <b>copy number</b>, because a cell holds hundreds to thousands of mitochondrial
+        genomes against two copies of the nuclear one, and how much you get also depends on cell type,
+        how hard the lysis was and how cleanly the nuclei were prepared. Hold on to that: it explains
+        the second half of this section.</span></div>
+    </div>
+  </div>
+
+  <h2>The plot that decides it</h2>
+  <p class="sub">Take every transcription start site in the genome, line them up, and add up the reads
+  around them. In a library that worked, the pile is concentrated where the chromatin is open. In one
+  that did not, the reads are spread everywhere and the pile is flat.</p>
+
+  <div class="panel">
+    <p style="font-size:14px;margin:0 0 4px">Four of the twenty four libraries. Same axes, same scale.
+    <b>Select one to see what its number is worth.</b></p>
+    <div class="smgrid" id="smgrid" role="group" aria-label="Four TSS enrichment profiles"></div>
+    <p class="fine">Horizontal axis: 2000 bases either side of the start site. Vertical axis: fold
+    enrichment over the flanking background, so a library with no enrichment at all sits flat at 1 by
+    construction, and that is the solid line. Shaded band: the ENCODE4 Acceptable range, 5 to 7.
+    Dashed line: the Ideal threshold of 7.</p>
+    <div class="readout" id="prof-readout" role="status" aria-live="polite">Select a library.</div>
+
+    <details>
+      <summary>How that number is actually computed, and why two groups can disagree about it</summary>
+      <div class="body">
+        <p>ENCODE's definition: collect the reads around a reference set of transcription start sites
+        into one aggregate distribution "extending to 2000 bp in either direction (for a total of
+        4000bp)", then normalise by "the average read depth in the 100 bps at each of the end flanks
+        of the distribution (for a total of 200bp of averaged data)". That is why the flanks sit at 1.
+        A TSS enrichment of 9 means nine times the signal in <b>those flanks</b>, two kilobases either
+        side of the start site. It is a fold change over a chosen background, not over "nowhere in
+        particular", and moving the background moves the number, which is exactly what the next
+        paragraph is about.</p>
+        <p><b>The documentation and the code do not agree.</b> The portal says the metric is "the
+        signal value at the center of the distribution after this normalization". The pipeline's own
+        <code>encode_task_tss_enrich.py</code> reports <code>max(bam_array.mean(axis=0))</code>, the
+        highest point of the profile. Those two definitions coincide only when the profile's apex sits
+        exactly on the start site, and it often does not: in the simulated profiles on this page the
+        apex is slightly upstream, so the two definitions return different numbers. Do not read that
+        offset as a universal fact about real libraries. It varies with the annotation used, the
+        cell type and the Tn5 shift correction, and the point being made is about the <b>discrepancy
+        between a definition and its implementation</b>, not about which direction the peak leans.</p>
+        <p><b>And a different paper computes it differently again.</b> The Omni-ATAC paper normalises
+        against the left flank only: "the signal from bases &minus;2,000 to &minus;1,800 was used to
+        represent the background signal". Same libraries, same reads, different number. When you read
+        "TSS enrichment 6.2" in a methods section, you have not been told enough to reproduce it.</p>
+      </div>
+    </details>
+  </div>
+
+  <h2>Where the reads went instead</h2>
+  <p class="sub">The transposase cuts accessible DNA. Mitochondria have no chromatin, so their genome
+  is the most accessible DNA in the cell, and in the original protocol it dominated the run.</p>
+
+  <div class="panel">
+    <div class="tiles">
+      <div class="tile"><div class="k">chrM length</div><div class="v">16,569 bp</div></div>
+      <div class="tile"><div class="k">Share of the reference</div><div class="v">0.0005%</div></div>
+      <div class="tile hero"><div class="k">Share of a 2013 ATAC run</div><div class="v">20 to 80%</div></div>
+    </div>
+    <p style="font-size:14px;margin:12px 0 0">Half your sequencing, from one two-hundred-thousandth of
+    the reference sequence. Be careful what that fraction is: it is chrM's length against the length
+    of the haploid nuclear reference, <b>not</b> mitochondrial DNA's share of the molecules in a cell,
+    which is far higher because each cell carries hundreds to thousands of copies of it. The
+    discrepancy between those two numbers is most of the explanation. That was worth measuring, and
+    everybody measured it. <b>Then the protocol changed.</b></p>
+
+    <button type="button" id="btn-proto">Compare the three protocol generations</button>
+    <div id="proto-out" style="display:none">
+      <div class="legend" aria-hidden="true">
+        <span><i class="swatch sw-use"></i>Usable fragments</span>
+        <span><i class="swatch sw-mito"></i>Mitochondrial</span>
+        <span><i class="swatch sw-loss"></i>Duplicates and other losses</span>
+      </div>
+      <div class="chartwrap">
+        <svg id="proto" width="100%" viewBox="0 0 940 182" role="img"
+             preserveAspectRatio="xMidYMid meet" aria-label="Protocol comparison"><title>Protocol comparison</title></svg>
+      </div>
+      <div class="readout" id="proto-readout" role="status" aria-live="polite"></div>
+      <details>
+        <summary>Table view, and where each number comes from</summary>
+        <div class="body">
+          <!-- SC 2.1.1: the wrapper scrolls, so the wrapper is the focus target.
+               Previously neither wrapper was focusable while every row inside
+               carried tabindex="0", which is the wrong way round: 27 tab stops
+               on static cells, and no way to scroll the region at all. -->
+          <div class="tvscroll" tabindex="0" role="group"
+               aria-label="Protocol comparison. Scrolls sideways on a narrow screen."><table class="tv"><thead><tr>
+            <th scope="col">Protocol</th><th scope="col">Mitochondrial</th>
+            <th scope="col">Other losses</th><th scope="col">Usable</th>
+            <th scope="col">Usable fragments</th><th scope="col">Meets 25M</th>
+          </tr></thead><tbody id="proto-rows"></tbody></table></div>
+          <p style="margin-top:10px"><b>What is measured and what is arithmetic.</b> The fold
+          reductions are the published figures: Fast-ATAC "reduces the frequency of mitochondrial
+          reads by ~5 fold" (Corces et al. 2016), and Omni-ATAC generates "13-fold fewer sequencing
+          reads that map to mitochondrial DNA" (Corces et al. 2017). The 50% starting point is the
+          middle of the 20 to 80% range reported by Montefiori et al. 2017. Everything else here
+          follows from applying those factors, holding duplicates and other losses fixed so that the
+          only thing changing between the three rows is the mitochondrial fraction. Treat it as a
+          worked illustration, not as three measured libraries.</p>
+          <p><b>Omni-ATAC does not remove mitochondrial reads.</b> It reduces them. The protocol paper
+          from the same laboratory expects "less than 15% of all reads mapping to the mitochondrial
+          genome", and calls a higher figure a sign of over-lysis. Every pipeline still discards chrM,
+          because a small fraction of a large number is still a lot of reads.</p>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <h2>Now move the line</h2>
+  <p class="sub"><b>Most</b> quality control is done sample by sample. Every library gets its own set
+  of numbers and its own verdict, and a library that fails is excluded outright: it never reaches
+  Section 7, and nothing downstream will remind you it existed. So one question gets asked twenty four
+  times: is this one good enough to keep?</p>
+  <p class="sub">Keep an eye on a second question the per-sample view cannot ask, and which this
+  exercise is really about: <b>what happens to the comparison</b> as libraries leave it.</p>
+  <p class="sub">Each bar is one library. The two blocks are the two arms of the experiment. Drag the
+  threshold, or apply one of the published ENCODE bands, and watch which samples you would discard.</p>
+
+  <div class="panel">
+    <div class="tiles">
+      <div class="tile hero"><div class="k">Samples kept</div><div class="v" id="t-kept">24</div></div>
+      <div class="tile"><div class="k" id="t-a-k">Stimulated kept</div><div class="v" id="t-a">12</div></div>
+      <div class="tile"><div class="k" id="t-b-k">Unstimulated kept</div><div class="v" id="t-b">12</div></div>
+    </div>
+
+    <div class="slider-row">
+      <label for="thresh">Threshold: <span id="thresh-val">.</span></label>
+      <input type="range" id="thresh" min="0" max="100" value="0" aria-describedby="thresh-help">
+    </div>
+    <p class="nb-dl-hint" id="thresh-help">Drag it, or use the arrow keys. The buttons below are the
+    published ENCODE4 bands for GRCh38.</p>
+    <div class="presets" id="presets" role="group" aria-label="Published threshold bands"></div>
+
+    <div class="chartwrap">
+      <svg id="chart" width="100%" viewBox="0 0 940 262" role="img" aria-label="Sample quality chart"
+           preserveAspectRatio="xMidYMid meet"><title>Sample quality chart</title></svg>
+    </div>
+
+    <p class="fine">Vertical axis: TSS enrichment, from zero. The hairline at 1 is where a library
+    with no enrichment at all would sit, and the amber line is the threshold you are setting. Ticks
+    under the axis mark the libraries currently below it.</p>
+    <div class="readout" id="readout" role="status" aria-live="polite">.</div>
+
+    <fieldset class="decide" id="design-q" style="display:none">
+      <legend>The decision this section is really about</legend>
+      <p class="dq">Look at the condition column and the batch column in the table below.
+      <b>Can this experiment estimate a treatment effect?</b></p>
+      <div class="decide-opts" id="design-opts" role="group" aria-label="Can the experiment estimate a treatment effect?">
+        <button type="button" class="btn ddec" data-dq="model" aria-pressed="false">Yes, if batch is included in the model</button>
+        <button type="button" class="btn ddec" data-dq="relax" aria-pressed="false">Yes, if the threshold is relaxed</button>
+        <button type="button" class="btn ddec" data-dq="no" aria-pressed="false">No: treatment and batch are perfectly confounded</button>
+      </div>
+      <div class="decide-fb" id="design-fb" role="status" aria-live="polite">Pick one.</div>
+    </fieldset>
+
+    <details>
+      <summary>Table view: every sample, every metric</summary>
+      <div class="body">
+        <p>The same data as the chart, plus the metrics the chart does not plot. The table itself is
+        focusable, so this is also the keyboard route to any individual value. <b>Read the Condition
+        and Batch columns side by side.</b></p>
+        <div class="tvscroll" tabindex="0" role="group"
+             aria-label="All twenty four libraries as a table. Scrolls sideways on a narrow screen."><table class="tv"><thead><tr id="tv-head"></tr></thead><tbody id="tv-rows"></tbody></table></div>
+      </div>
+    </details>
+  </div>
+
+  <details>
+      <summary>The same three gates, on the other assays in this family</summary>
+      <div class="body">
+        <p><b>RNA-seq.</b> The first two gates are the same. The third asks a question this section
+        does not: <b>how many genes were detected at all?</b> A sample that mapped well and then
+        detects far fewer genes than its neighbours has low-complexity or degraded RNA, or was
+        sequenced too shallowly to see anything but the abundant transcripts. There is no published
+        number for this, and there should not be: it depends on the tissue, the depth and the
+        annotation, so it is read against the other samples in the same experiment rather than against
+        a threshold. ENCODE does set one for agreement instead, asking for a Spearman correlation
+        above 0.9 between isogenic replicates and above 0.8 between anisogenic ones.</p>
+        <p><b>ChIP-seq.</b> Same first two gates, and then the assay's own signal-to-noise measures:
+        FRiP, and the strand cross-correlation statistics NSC and RSC. It also carries a requirement
+        the other assays do not, because its third gate is a comparison rather than a measurement: an
+        <b>input control</b>, without which a peak cannot be distinguished from a region that shears
+        easily. Section 7 explains why.</p>
+        <p>The pattern is worth more than the metrics. Every assay checks the reads, then checks where
+        they landed, then checks whether what came out the far end is measuring anything. Only the
+        middle metrics are assay-specific.</p>
+      </div>
+  </details>
+
+  <h2>What a threshold actually is</h2>
+  <div class="panel">
+    <p style="font-size:14px;margin:0 0 10px">Three things are true of the number you have just been
+    moving, and none of them is visible from seeing that number on a report.</p>
+
+    <details>
+      <summary>1. ENCODE grades and audits. It does not make your inclusion decision.</summary>
+      <div class="body">
+        <p>The ATAC-seq standards have no column called "fail". They have a column called
+        <b>Resulting Data Status</b>, whose values are Ideal, Acceptable and Concerning. The wording is
+        hedged throughout, on purpose: alignment rate "should be greater than 95%, though values
+        &gt;80% may be acceptable"; FRiP "should be &gt;0.3, though values greater than 0.2 are
+        acceptable", and then, in the same sentence, "for EN-TEx tissues, FRiP scores will not be
+        enforced as QC metric".</p>
+        <p>Do not push that too far, though. ENCODE also runs <b>audits</b>, and those are less gentle
+        than the bands: a dataset with TSS enrichment below 5, or FRiP below 0.2, gets flagged as not
+        compliant. So the accurate statement is not that ENCODE never judges. It is that <b>ENCODE
+        grades and audits data against its own production standards, and does not make the scientific
+        inclusion decision for your study.</b> That decision is yours, it depends on what you are
+        asking, and nobody else can be blamed for it.</p>
+        <p>The ChIP-seq guidelines say out loud where such numbers come from. They were "constructed
+        based on the historical experiences of ENCODE ChIP-seq data production groups with the purpose
+        of balancing data quality with practical attainability", and are "routinely revised".</p>
+        <p><b>And they move under you.</b> An earlier version of this section quoted the ATAC page as
+        asking for "15 million non-duplicate, non-mitochondrial aligned reads for single-end sequencing
+        and 50 million for paired-ended sequencing", and pointed out that fifty million paired-end
+        reads is twenty five million fragments, not fifteen: the page contradicted itself. Checked
+        again on 18 August 2026, it now reads <b>"25 million non-duplicate, non-mitochondrial aligned
+        reads for single-end sequencing and 50 million for paired-ended sequencing (i.e. 25 million
+        fragments, regardless of sequencing run type)"</b>. The inconsistency is gone and the number
+        this section filters on went up by two thirds.</p>
+        <p>That is not a criticism of ENCODE, who say themselves that these are "routinely revised". It
+        is the reason to <b>record the version and the date of any standard you applied</b>, because a
+        methods section that says "libraries meeting ENCODE standards were retained" does not say which
+        standard, and the answer changed while this page was being written.</p>
+        <p>A published threshold is a consortium's working compromise, written down. Treating it as a
+        law of nature is a decision you made, not one they made for you.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>2. The number everyone quotes has no threshold, and the one with a threshold has moved.</summary>
+      <div class="body">
+        <p>Ask anyone what you check in an ATAC-seq library and you will hear "the mitochondrial
+        fraction". <b>ENCODE sets no threshold for it.</b> The word appears in the standards once,
+        inside the phrase "non-duplicate, non-mitochondrial aligned reads", and the pipeline discards
+        chrM before it counts anything: the released files are named
+        <code>...nodup.no_chrM_MT...</code>. The fraction is reported and nothing is decided on it.</p>
+        <p>Meanwhile TSS enrichment, which does have a threshold, is quoted against an annotation that
+        has moved. The ENCODE4 table labels its rows "GRCh38 Refseq TSS annotation". The file the
+        pipeline actually ships for hg38 is <code>hg38_gencode_v29_tss_unique.zero_based.bed.gz</code>,
+        which is GENCODE, not RefSeq. Between two versions of the pipeline's genome data that file was
+        also reissued in zero-based coordinates, a one base shift that moves every sample's score
+        without a single read having changed.</p>
+        <p>So the metric with no threshold is the one everybody checks, and the metric with a threshold
+        is checked against a file that is not the one the threshold names. "Everyone does this" and
+        "the standard requires this" are different claims, and they are constantly confused.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>3. A metric can expire, because it was measuring the protocol.</summary>
+      <div class="body">
+        <p>You just watched the mitochondrial fraction fall from around half a run to a few percent
+        across three protocol generations, without anybody improving their bioinformatics. A metric
+        that separated good libraries from bad ones in 2013 separates almost nothing in a laboratory
+        running Omni-ATAC in 2026, because the thing it was detecting has largely been engineered
+        away.</p>
+        <p>That is worth holding on to, because it is not special to this metric. Duplicate rate is
+        another: the Corces laboratory's own protocol paper says "we do not use this metric as a way to
+        determine library quality", and points out that it fails in both directions. A library from
+        dead cells gives you high complexity and a low duplicate rate, and is still a bad library.</p>
+        <p>A quality metric is a hypothesis about how experiments fail. When the way they fail changes,
+        the metric quietly stops being about quality and starts being about which protocol somebody
+        used. Nothing in the report says so, and the threshold stays in the pipeline for years.</p>
+      </div>
+    </details>
+  </div>
+
+  <h2>And then you test twenty thousand times</h2>
+  <div class="panel">
+    <p style="font-size:14px;margin:0 0 12px">Suppose every library passed and the design survived. You
+    are about to compare the two arms across 20,000 genes, which is what the volcano plot in Section 7
+    does.
+    At the conventional 5% threshold, the number of genes you would expect to call significant if the
+    treatment did nothing whatsoever is:</p>
+    <div class="tiles">
+      <div class="tile hero"><div class="k">False positives expected</div><div class="v">1,000</div></div>
+      <div class="tile"><div class="k">Tests run</div><div class="v">20,000</div></div>
+      <div class="tile"><div class="k">Threshold</div><div class="v">p &lt; 0.05</div></div>
+    </div>
+    <p style="font-size:14px;margin:14px 0 0">A thousand hits from an experiment where nothing happened.
+    That is not a subtle statistical point, it is arithmetic, and it is why the volcano plot in
+    Section 7 is drawn against an <b>adjusted</b> p-value rather than a raw one. Genome-wide
+    association uses a threshold near 5 times ten to the minus eight, which is roughly 0.05 divided by
+    the number of independent tests.</p>
+    <p style="font-size:14px;margin:10px 0 0">Notice what this shares with the threshold you just moved.
+    In neither case is any single number wrong. In both,
+    <b>the number of chances you gave yourself changed what the numbers mean</b>, and nothing in the
+    output says so.</p>
+  </div>
+
+  <div class="nb" id="nb">
+    <div class="nb-head">
+      <h3>🗒 Lab notebook</h3>
+      <button type="button" id="download-notebook" class="nb-dl" disabled
+              aria-describedby="nb-dl-hint">⤓ Download notebook</button>
+    </div>
+    <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 4 steps done</p>
+    <ul class="milestones" id="milestone-list6" aria-label="Steps in this section"></ul>
+    <div role="log" aria-live="polite" aria-label="Lab notebook entries">
+      <ul id="nbList" tabindex="0"><li class="empty">Your observations will appear here.</li></ul>
+    </div>
+  </div>
+
+  <div class="section-done" id="section-done" role="status" aria-live="polite">
+    <h3>✓ You have finished Section 6.</h3>
+    <p>Everything up to here was one thing at a time, and you could look at it. This section was the
+    first where you could not, so numbers stood in for looking: a profile shape, a fraction, a count of
+    fragments. You judged twenty four libraries without opening one of them.</p>
+    <p>Three things are worth carrying into the analysis sections. <b>A quality metric is a hypothesis
+    about how experiments fail</b>, so when the way they fail changes, the metric quietly stops being
+    about quality. <b>A metric is a property of your data and a file</b>, so two groups can report
+    different numbers from the same reads and neither is wrong. And <b>a threshold is a decision about
+    your experiment</b>, not a decision about your data.</p>
+    <p><b>Quality control is evidence integration across samples and across the design, not a sequence
+    of independent pass/fail verdicts.</b> A threshold turns continuous evidence into a consequential
+    decision. Record which samples were excluded, why, and what comparisons remain possible once they
+    are gone. In this experiment the honest answer to that last part was uncomfortable: condition and
+    batch were the same column, so the treatment effect was never estimable, and no threshold you
+    chose could have changed it.</p>
+    <p>Where possible, define your inclusion rules <b>before</b> you interpret the treatment result,
+    so the rules are not chosen by the answer you were hoping for. But quality control does not stop
+    at the start of the analysis: replicate agreement, clustering and batch structure are all
+    quality control, and none of them exists until after quantification. Exploratory analysis is part
+    of quality control, not a thing that happens once it is finished.</p>
+    <p>Section 7 takes the other assay in this family the rest of the way, and carries the same
+    problem with it: <b>differential analysis cannot recover information the experimental design never
+    contained.</b></p>
+    <p class="nb-aside">Your lab notebook holds what you did, kept for your own reference. Download it
+    if you want to keep it.</p>
+  </div>
+
+
+<nav class="sectnav" aria-label="Section navigation">
+  <a class="nav-prev" href="Section%205%20-%20Which%20variant%20matters.html"><span class="k">Previous</span><span class="t">5. Which variant matters</span></a>
+  <a class="home" href="index.html">All sections</a>
+  <a class="nav-next" href="Section%207%20-%20Functional%20genomics%20and%20analysis.html"><span class="k">Next</span><span class="t">7. Functional genomics and analysis</span></a>
+</nav>
+
+  <p class="footer-note">Prototype · Section 6 of the Molecular Techniques Interactive Bioinformatics
+  Module · 2026/27 cycle · simulated libraries, published thresholds</p>
+</div>
+<div class="tip" id="tip" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+
+var nbLog = [];
+var profSeen = {};          // which library profiles have been selected
+var protoRun = false;       // has the protocol comparison been run
+var brokeBalance = false;   // has the student seen what a published threshold costs
+
+/* ------------------------------------------------------------------ *
+ * Seeded generator: same seed, same twenty four libraries, so a result
+ * can be reproduced when the student comes back to it.
+ * ------------------------------------------------------------------ */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function gauss(rnd){                       // Box-Muller, one value
+  var u = 1 - rnd(), v = rnd();
+  return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+}
+
+/* ------------------------------------------------------------------ *
+ * The experiment. Twenty four ATAC-seq libraries in two arms of twelve.
+ *
+ * READ THIS BEFORE CHANGING THE THRESHOLD LESSON. Every Stimulated library is
+ * batch A and every Unstimulated library is batch B, so condition and batch are
+ * the SAME COLUMN. They were confounded the day the experiment was run, and no
+ * threshold the student picks creates that or removes it. Moving the cutoff
+ * changes how many samples survive; it cannot change the fact that treatment
+ * and batch carry identical information.
+ *
+ * This page used to say the student "creates" the confound by filtering. That
+ * was backwards, and it taught the wrong remedy: if filtering caused it, a
+ * gentler filter would fix it. The actual remedy is a balanced design or
+ * running the experiment again. It is the model-matrix-not-full-rank case, and
+ * the section now ends by asking the student to recognise it.
+ * ------------------------------------------------------------------ */
+/* The bounds are wider than the data so that nothing is clamped. A first run
+   pinned the best library at exactly 11.0, which is the ceiling: both a lie
+   about the simulation and a panel whose peak touches its own top edge.
+   ENCODE's released libraries reach 20, so 13 is not a generous ceiling. */
+var PRIMARY = { key:'tss', name:'TSS enrichment', dec:1,
+                /* start was 4, which excluded B12 before the student had touched
+                   anything: the first decision of the section had been made for
+                   them. It now starts below every library. */
+                min:1, max:13, meanA:8.4, meanB:5.9, sd:1.15, start:1 };
+var GROUP_A = 'Stimulated', GROUP_B = 'Unstimulated';
+/* The presets are the ENCODE GRCh38 band edges and nothing else. "Ideal,
+   above 7" used to apply 7.4, so five libraries were labelled ideal by
+   verdict() and then excluded by the button that claims to keep ideal ones.
+   IDEAL_MIN is shared with verdict() so the two cannot drift apart again. */
+var IDEAL_MIN = 7;
+var PRESETS = [
+  { label:'Keep everything', v:1 },
+  { label:'Acceptable and better, 5', v:5 },
+  { label:'Ideal only, above 7', v:IDEAL_MIN }
+];
+var SAMPLES = [];
+
+function buildSamples(){
+  var rnd = mulberry32(20260817), out = [];
+  for (var g = 0; g < 2; g++){
+    var weak = (g === 1);
+    for (var i = 0; i < 12; i++){
+      var v = (weak ? PRIMARY.meanB : PRIMARY.meanA) + gauss(rnd) * PRIMARY.sd;
+      v = Math.max(PRIMARY.min, Math.min(PRIMARY.max, v));
+      out.push({
+        id: (weak ? 'B' : 'A') + String(i + 1).padStart(2, '0'),
+        group: weak ? 1 : 0,
+        groupName: weak ? GROUP_B : GROUP_A,
+        // Not an independent variable. batch is a function of group, which is
+        // the whole point: these two columns are identical, so no model can
+        // tell their effects apart. Stored explicitly so the table can show it.
+        batch: weak ? 'B' : 'A',
+        v: v,
+        frip: +((weak ? 0.16 + rnd()*0.13 : 0.26 + rnd()*0.16).toFixed(2)),
+        mito: +((weak ? 11 + rnd()*7 : 6 + rnd()*6).toFixed(1)),
+        align: +((weak ? 88 + rnd()*7 : 95 + rnd()*4).toFixed(1)),
+        frags: +((weak ? 12 + rnd()*9 : 21 + rnd()*13).toFixed(1))
+      });
+    }
+  }
+  /* One library in the batch is dead. A quality-control exercise in which
+     nothing has actually failed teaches the mechanics and not the judgement,
+     and a real run of twenty four does contain one of these. It is forced
+     rather than left to the generator so the section cannot silently lose it
+     if the seed is ever changed. */
+  // B12 exists to show that a library can clear every mapping-level check and
+  // still have measured nothing. It used to be 79.2% aligned with 6.1M
+  // fragments, which is below ENCODE's acceptable alignment floor of 80% and
+  // far below the 25M fragment standard, while the page claimed "alignment rate
+  // would not have caught this". Alignment would have caught it instantly.
+  // The mapping-level numbers are now unremarkable and only the signal-level
+  // ones fail, which is the lesson the page was trying to teach.
+  var dead = out[out.length - 1];
+  dead.v = 1.6; dead.frip = 0.05; dead.mito = 9.8; dead.align = 96.4; dead.frags = 26.7;
+  return out;
+}
+
+/* The final decision. Every Stimulated library is batch A and every
+   Unstimulated one is batch B, so the two columns are identical and no model
+   can separate their effects. This is the "model matrix is not full rank" case,
+   and the remedy is a balanced design or repeating the experiment, not a
+   cleverer formula and not a gentler threshold. */
+var answeredDesign = false;
+var DESIGN_VERDICT = {
+  model: '<b>No, and this is the answer that sounds most sophisticated.</b> Adding batch to the model '
+       + 'is exactly right when batches and conditions overlap even a little. Here they do not overlap '
+       + 'at all: every stimulated library is batch A and every unstimulated one is batch B, so the two '
+       + 'columns of the design matrix are identical. A model asked to estimate both effects has no '
+       + 'unique solution, and software will either drop a term or refuse to fit. You cannot recover '
+       + 'information the design never contained.',
+  relax: '<b>No.</b> Relaxing the threshold changes how many libraries survive, and it can restore the '
+       + 'counts to twelve and twelve. It cannot change which batch each library was prepared in. The '
+       + 'confounding was fixed the day the experiment was run; the threshold only decided how visible '
+       + 'it became.',
+  no:    '<b>Correct.</b> Condition and batch carry exactly the same information, so no statistical '
+       + 'model can attribute a difference to one rather than the other. The honest report is that this '
+       + 'experiment cannot answer its own question, and the remedy is at the bench: prepare both '
+       + 'conditions in both batches, or run it again. That is an uncomfortable conclusion, and '
+       + 'reaching it before the analysis rather than after is most of what quality control is for.'
+};
+function showDesignQuestion(){
+  var el = document.getElementById('design-q');
+  if (el) el.style.display = 'block';
+}
+function wireDesignQuestion(){
+  var opts = document.querySelectorAll('#design-opts .ddec');
+  [].forEach.call(opts, function(btn){
+    btn.onclick = function(){
+      [].forEach.call(opts, function(b){ b.setAttribute('aria-pressed', String(b === btn)); });
+      var fb = document.getElementById('design-fb');
+      fb.innerHTML = DESIGN_VERDICT[btn.dataset.dq];
+      fb.style.color = 'var(--text)';
+      if (!answeredDesign){
+        answeredDesign = true;
+        nb('Asked whether the experiment can estimate a treatment effect: answered "'
+           + btn.textContent.trim() + '".');
+      }
+      updateProgress();
+    };
+  });
+}
+
+function verdict(v){
+  if (v < 2.5) return 'failed';
+  if (v < 5) return 'concerning';
+  if (v <= IDEAL_MIN) return 'acceptable';
+  return 'ideal';
+}
+var VERDICT_TEXT = {
+  ideal:      'Ideal, above 7',
+  acceptable: 'Acceptable, 5 to 7',
+  concerning: 'Concerning, below 5',
+  failed:     'Concerning, and this one has essentially no enrichment at all'
+};
+
+/* ------------------------------------------------------------------ *
+ * 1. The TSS enrichment profile.
+ *
+ * Shape, from the ENCODE pipeline's own outputs: a single peak, apex a little
+ * UPSTREAM of the start site rather than on it, a small shoulder around +200
+ * where the first nucleosome sits, and flanks that return to 1 because the
+ * profile is divided by them. It is deliberately NOT the dip-with-shoulders
+ * picture, which is what the mononucleosome fraction looks like on its own
+ * and is a common thing to draw by mistake.
+ *
+ * A weaker library does not simply give a shorter version of the same curve:
+ * the peak broadens as it falls, because what is left is background. So the
+ * width is tied to the height, and a failed library comes out as a broad low
+ * hump rather than a small sharp spike.
+ * ------------------------------------------------------------------ */
+var PROF_N = 81, PROF_SPAN = 2000;
+function profile(peak, seed){
+  var rnd = mulberry32(seed);
+  var sd = 140 + Math.max(0, 10 - peak) * 26;          // broadens as it falls
+  var shoulder = peak > 4 ? 0.13 : 0.04;
+  var raw = [], i, x, s, mx = 0;
+  for (i = 0; i < PROF_N; i++){
+    x = -PROF_SPAN + (2 * PROF_SPAN) * i / (PROF_N - 1);
+    s = Math.exp(-Math.pow(x + 50, 2) / (2 * sd * sd))
+      + shoulder * Math.exp(-Math.pow(x - 230, 2) / (2 * (sd * 0.9) * (sd * 0.9)));
+    raw.push(s);
+    if (s > mx) mx = s;
+  }
+  var out = [];
+  for (i = 0; i < PROF_N; i++){
+    var y = 1 + (peak - 1) * raw[i] / mx;
+    out.push(Math.max(0.55, y + (rnd() - 0.5) * (0.035 + 0.05 * (peak - 1) * raw[i] / mx)));
+  }
+  return out;
+}
+
+var SM = { W:236, H:150, L:26, R:8, T:10, B:26, YMAX:13 };
+var PROFILE_LIBS = [];
+
+function profileSvg(sample){
+  var y = profile(sample.v, 4100 + sample.id.charCodeAt(0) * 31 + parseInt(sample.id.slice(1), 10));
+  var plotW = SM.W - SM.L - SM.R, plotH = SM.H - SM.T - SM.B;
+  var X = function(i){ return SM.L + i / (PROF_N - 1) * plotW; };
+  var Y = function(v){ return SM.T + plotH - Math.min(v, SM.YMAX) / SM.YMAX * plotH; };
+  var g = '';
+
+  // The Acceptable band, drawn as a region rather than as two more lines: at
+  // this size a pair of dashed rules two bands apart reads as noise.
+  g += '<rect class="bandfill" x="' + SM.L + '" y="' + Y(7).toFixed(1) + '" width="' + plotW
+    +  '" height="' + (Y(5) - Y(7)).toFixed(1) + '"></rect>';
+  g += '<line class="idealline" x1="' + SM.L + '" y1="' + Y(7).toFixed(1) + '" x2="'
+    +  (SM.W - SM.R) + '" y2="' + Y(7).toFixed(1) + '"></line>';
+  g += '<line class="base" x1="' + SM.L + '" y1="' + Y(1).toFixed(1) + '" x2="'
+    +  (SM.W - SM.R) + '" y2="' + Y(1).toFixed(1) + '"></line>';
+
+  var d = '';
+  for (var i = 0; i < PROF_N; i++) d += (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(y[i]).toFixed(1);
+  g += '<path class="prof" d="' + d + '"></path>';
+
+  g += '<line class="base" x1="' + SM.L + '" y1="' + SM.T + '" x2="' + SM.L + '" y2="'
+    +  (SM.T + plotH) + '"></line>';
+  [0, 6, 12].forEach(function(v){
+    g += '<text class="smtext" x="' + (SM.L - 4) + '" y="' + (Y(v) + 3).toFixed(1)
+      +  '" text-anchor="end">' + v + '</text>';
+  });
+  [[0,'-2kb'],[(PROF_N-1)/2,'TSS'],[PROF_N-1,'+2kb']].forEach(function(t){
+    g += '<text class="smtext" x="' + X(t[0]).toFixed(1) + '" y="' + (SM.T + plotH + 13)
+      +  '" text-anchor="' + (t[0] === 0 ? 'start' : (t[0] === PROF_N - 1 ? 'end' : 'middle'))
+      +  '">' + t[1] + '</text>';
+  });
+
+  var desc = 'Aggregate read profile for library ' + sample.id + ', from 2000 bases before each '
+    + 'transcription start site to 2000 bases after, as a fold enrichment over the flanking '
+    + 'background. It ' + (sample.v >= 5 ? 'rises to a peak of ' + sample.v.toFixed(1)
+        + ' just before the start site' : 'reaches only ' + sample.v.toFixed(1)
+        + ', so it is nearly flat') + '. The ENCODE acceptable band, 5 to 7, is shaded.';
+  return '<svg viewBox="0 0 ' + SM.W + ' ' + SM.H + '" width="100%" role="img" aria-label="'
+    + desc + '"><title>' + desc + '</title>' + g + '</svg>';
+}
+
+function buildProfiles(){
+  // Four libraries drawn from the twenty four, so the panels and the bar chart
+  // below can never disagree with each other. They are chosen BY BAND rather
+  // than by rank: picking ranks 0, 8, 19 and last happened to return two Ideal
+  // libraries and no Concerning one, which is a poor set to reason from and
+  // would have gone unnoticed if the seed ever changed.
+  var sorted = SAMPLES.slice().sort(function(a, b){ return b.v - a.v; });
+  var best = function(band){
+    return sorted.filter(function(s){ return verdict(s.v) === band; })[0];
+  };
+  PROFILE_LIBS = [sorted[0], best('acceptable'), best('concerning'),
+                  sorted[sorted.length - 1]].filter(Boolean);
+
+  var host = document.getElementById('smgrid');
+  host.innerHTML = '';
+  PROFILE_LIBS.forEach(function(s){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'smcard';
+    b.id = 'prof-' + s.id;
+    b.setAttribute('aria-pressed', 'false');
+    b.innerHTML = '<span class="hd"><span class="sid">' + s.id + '</span>'
+                + '<span class="chip ' + verdict(s.v) + '">' + verdict(s.v) + '</span></span>'
+                + '<span class="sval">TSS ' + s.v.toFixed(1) + ' · ' + s.groupName + '</span>'
+                + profileSvg(s);
+    b.onclick = function(){ selectProfile(s); };
+    host.appendChild(b);
+  });
+}
+
+function selectProfile(s){
+  [].forEach.call(document.getElementById('smgrid').children, function(b){
+    b.setAttribute('aria-pressed', b.id === 'prof-' + s.id ? 'true' : 'false');
+  });
+  var r = document.getElementById('prof-readout');
+  var vd = verdict(s.v);
+  var txt = '<b>' + s.id + ', TSS enrichment ' + s.v.toFixed(1) + '.</b> ' + VERDICT_TEXT[vd] + '. ';
+  if (vd === 'ideal'){
+    txt += 'The reads are concentrated where you hoped: nine tenths of the profile is flat background '
+      + 'and the signal is in a window a few hundred bases wide. Notice the apex sits slightly before '
+      + 'the start site, not on it, and the small shoulder just after it where the first nucleosome '
+      + 'sits.';
+  } else if (vd === 'acceptable'){
+    txt += 'A real peak, in the right place, on a library nobody would be excited about. This is what '
+      + 'most of a normal batch looks like, and it is the reason the standard has a band rather than a '
+      + 'line: a consortium that failed everything below Ideal would fail most usable data.';
+  } else if (vd === 'concerning'){
+    txt += 'There is still a peak, and it is still in the right place. What has gone is the contrast: '
+      + 'the transposase cut plenty of DNA that was not open chromatin, so the background rose and the '
+      + 'ratio fell. <b>Nothing about this profile tells you whether the biology or the bench work is '
+      + 'responsible</b>, which is exactly the judgement a threshold cannot make for you.';
+  } else {
+    txt += 'This is what failure looks like: a broad low hump instead of a peak. Look at the rest of '
+      + 'this library\'s numbers before you decide what caught it. <b>' + s.align.toFixed(1)
+      + '% aligned, ' + s.mito.toFixed(1) + '% mitochondrial, ' + s.frags.toFixed(1)
+      + 'M usable fragments</b>: every mapping-level check is unremarkable, and two of them are good. '
+      + 'The reads matched the genome and were retained; they simply landed more or less anywhere. '
+      + '<b>Nothing computed before peaks were called would have caught this.</b> FRiP is '
+      + s.frip.toFixed(2) + ' and it fails too, but FRiP needs a peak caller to have run first. '
+      + 'TSS enrichment is the earliest metric that sees it, and it is the one that says what kind of '
+      + 'failure it is: not bad reads, but reads carrying no accessibility signal.';
+  }
+  r.innerHTML = txt;
+
+  if (!profSeen[s.id]){
+    profSeen[s.id] = true;
+    nb('Looked at the TSS profile for ' + s.id + ': enrichment ' + s.v.toFixed(1) + ', ' + vd + '.');
+    updateProgress();
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * 2. Protocols. The mitochondrial fold reductions are published; everything
+ * downstream is arithmetic from them, with the other losses held constant so
+ * that the only variable across the three rows is chrM. Both facts are stated
+ * on the page, because a chart whose numbers are partly derived and partly
+ * measured has to say which is which.
+ * ------------------------------------------------------------------ */
+var RAW_PAIRS = 30;            // million read pairs sequenced, the same for each
+var OTHER_LOSS = 0.18;         // duplicates, unmapped and low quality, held fixed
+/* Checked against encodeproject.org/atac-seq on 2026-08-18: "Each replicate
+   should have 25 million non-duplicate, non-mitochondrial aligned reads for
+   single-end sequencing and 50 million for paired-ended sequencing (i.e. 25
+   million fragments, regardless of sequencing run type)." This page had 15,
+   which was correct when it was written and is not correct now. */
+var ENCODE_MIN = 25;           // million usable fragments, ENCODE ATAC-seq
+var PROTOCOLS = [
+  { name:'Standard ATAC', year:'2013', mito:0.50,
+    src:'20 to 80% of reads mitochondrial, Montefiori 2017. 50% taken as the middle.' },
+  { name:'Fast-ATAC', year:'2016', mito:0.50 / 5,
+    src:'"reduces the frequency of mitochondrial reads by ~5 fold", Corces 2016.' },
+  { name:'Omni-ATAC', year:'2017', mito:0.50 / 13,
+    src:'"13-fold fewer sequencing reads that map to mitochondrial DNA", Corces 2017.' }
+];
+
+var PR = { W:940, H:182, L:150, R:96, T:26, ROW:52, BAR:30 };
+function drawProtocols(){
+  var barW = PR.W - PR.L - PR.R;
+  var X = function(f){ return PR.L + f * barW; };
+  var g = '', rows = '';
+
+  PROTOCOLS.forEach(function(p, i){
+    var usable = 1 - p.mito - OTHER_LOSS;
+    var frags = RAW_PAIRS * usable;
+    var y = PR.T + i * PR.ROW;
+
+    g += '<text class="protolab" x="' + (PR.L - 12) + '" y="' + (y + 13)
+      +  '" text-anchor="end">' + p.name + '</text>';
+    g += '<text class="protosub" x="' + (PR.L - 12) + '" y="' + (y + 27)
+      +  '" text-anchor="end">' + p.year + '</text>';
+
+    // Usable first and anchored at the left, because it is the quantity the
+    // reader is actually comparing between rows and length from a common
+    // baseline is the only encoding that compares reliably. A 2px gap between
+    // segments, so two fills never touch.
+    var segs = [['seg-use', 0, usable], ['seg-mito', usable, p.mito],
+                ['seg-loss', usable + p.mito, OTHER_LOSS]];
+    segs.forEach(function(s){
+      var x0 = X(s[1]), w = X(s[1] + s[2]) - x0;
+      g += '<rect class="' + s[0] + '" x="' + (x0 + (s[1] > 0 ? 2 : 0)).toFixed(1) + '" y="' + y
+        +  '" width="' + Math.max(1, w - (s[1] > 0 ? 2 : 0)).toFixed(1) + '" height="' + PR.BAR
+        +  '" rx="2"></rect>';
+    });
+
+    g += '<text class="protoval" x="' + (PR.W - PR.R + 10) + '" y="' + (y + 20) + '">'
+      +  frags.toFixed(1) + 'M</text>';
+
+    rows += '<tr><td class="word">' + p.name + ' (' + p.year + ')</td><td>'
+      + (p.mito * 100).toFixed(1) + '%</td><td>' + (OTHER_LOSS * 100).toFixed(0) + '%</td><td>'
+      + (usable * 100).toFixed(1) + '%</td><td>' + frags.toFixed(1) + 'M</td><td class="word">'
+      + (frags >= ENCODE_MIN ? 'yes' : 'no') + '</td></tr>';
+  });
+
+  // The ENCODE depth requirement, as a position on the same axis: 15M usable
+  // fragments out of 30M sequenced is exactly half the bar. It is drawn in the
+  // critical colour rather than the warning amber used for the movable
+  // threshold in the chart below, and the difference is deliberate: that one is
+  // a line the student chooses, this one is a requirement somebody else set and
+  // you either meet it or you do not.
+  var ex = X(ENCODE_MIN / RAW_PAIRS);
+  g += '<line class="encline" x1="' + ex.toFixed(1) + '" y1="' + (PR.T - 8) + '" x2="' + ex.toFixed(1)
+    +  '" y2="' + (PR.T + 2 * PR.ROW + PR.BAR + 6) + '"></line>';
+  g += '<text class="enclab" x="' + (ex + 6).toFixed(1) + '" y="' + (PR.T - 12)
+    +  '">ENCODE minimum, 25M usable fragments</text>';
+  g += '<text class="protosub" x="' + (PR.W - PR.R + 10) + '" y="' + (PR.T - 12) + '">usable</text>';
+
+  var std = PROTOCOLS[0], omni = PROTOCOLS[2];
+  var stdFrags = RAW_PAIRS * (1 - std.mito - OTHER_LOSS);
+  var omniFrags = RAW_PAIRS * (1 - omni.mito - OTHER_LOSS);
+  var fastFrags = RAW_PAIRS * (1 - PROTOCOLS[1].mito - OTHER_LOSS);
+  var desc = 'Three ATAC-seq protocol generations, each given the same ' + RAW_PAIRS
+    + ' million sequenced read pairs. Each bar is split into usable fragments, mitochondrial reads, '
+    + 'and duplicates and other losses. Standard ATAC-seq from 2013 yields ' + stdFrags.toFixed(1)
+    + ' million usable fragments, Fast-ATAC from 2016 yields '
+    + (RAW_PAIRS * (1 - PROTOCOLS[1].mito - OTHER_LOSS)).toFixed(1)
+    + ' million, and Omni-ATAC from 2017 yields ' + omniFrags.toFixed(1)
+    + ' million. A line marks the ENCODE requirement of 25 million. Every value is in the table view.';
+
+  var svg = document.getElementById('proto');
+  svg.innerHTML = '<title>' + desc + '</title>' + g;
+  svg.setAttribute('aria-label', desc);
+  document.getElementById('proto-rows').innerHTML = rows;
+
+  var needStd = Math.ceil(ENCODE_MIN / (1 - std.mito - OTHER_LOSS));
+  var needOmni = Math.ceil(ENCODE_MIN / (1 - omni.mito - OTHER_LOSS));
+  var passing = PROTOCOLS.filter(function(p){
+    return RAW_PAIRS * (1 - p.mito - OTHER_LOSS) >= ENCODE_MIN; }).length;
+  document.getElementById('proto-readout').innerHTML =
+    'Same sequencing, three protocols, and at ' + RAW_PAIRS + ' million read pairs <b>'
+    + (passing === 0 ? 'none of them reaches the current 25 million fragment standard'
+                     : 'only ' + passing + ' of them clears the standard') + '</b>. '
+    + 'What the protocol determines is how close you get: <b>' + stdFrags.toFixed(1) + ' million usable '
+    + 'fragments in 2013, ' + fastFrags.toFixed(1) + ' million in 2016, ' + omniFrags.toFixed(1)
+    + ' million in 2017</b>. To reach the minimum you would have to sequence about ' + needStd
+    + ' million read pairs on the old protocol against about ' + needOmni + ' million on the new one, '
+    + 'which is a bioinformatics argument as much as a bench one: the same analysis, run on more of '
+    + 'the reads you paid for.'
+    + '<br><br>Mitochondrial depletion is <b>one</b> reason newer protocols buy more biological '
+    + 'information from the same sequencing, and it is the one this chart can show. It is not the only '
+    + 'one. Omni-ATAC also reported roughly threefold higher FRiP, far more unique fragments per input '
+    + 'cell, lower background, and the ability to work on frozen tissue, none of which is visible here.'
+    + '<br><br><b>Now notice what it does to the metric.</b> The mitochondrial fraction was the number '
+    + 'everyone quoted, and three protocol generations have taken it from half the run to a few '
+    + 'percent. A universal threshold on it has stopped meaning much, because it now largely measures '
+    + 'which protocol somebody used. That does not make it useless: within a single protocol, a '
+    + 'library whose mitochondrial fraction is far above its siblings is still telling you something, '
+    + 'and the Omni protocol itself treats an unexpectedly high fraction as a sign of over-lysis. '
+    + 'What it has stopped being is a number you can compare across papers.';
+}
+
+function runProtocols(){
+  document.getElementById('proto-out').style.display = 'block';
+  drawProtocols();
+  if (!protoRun){
+    protoRun = true;
+    nb('Compared the three ATAC protocol generations: mitochondrial reads from 50% to '
+       + (PROTOCOLS[2].mito * 100).toFixed(1) + '% for the same sequencing.');
+    updateProgress();
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * 3. The threshold. One hue for every bar; group membership is POSITION,
+ * two labelled blocks with a gap, not a second colour. That is the stronger
+ * encoding for "the failures are all on one side", and it leaves the audited
+ * palette untouched.
+ * ------------------------------------------------------------------ */
+var W = 940, H = 262, PADL = 46, PADR = 16, PADT = 14, AXIS = 48;
+
+/* The bar axis starts at ZERO, not at 1.
+   It was drawn from 1 at first, on the argument that 1 is where "no
+   enrichment" sits: the profile is divided by its own flanks, so a dead
+   library lands at 1 by construction and everything below it is noise. That
+   argument is real, and it is still the wrong axis for BARS. Length from a
+   common baseline is the encoding, so a bar drawn from 1 makes a library at
+   2.0 look like a twelfth of one at 13 when the truth is closer to a sixth.
+   A truncated axis is legitimate for a dot or a line, where position carries
+   the value; it is not legitimate here. So the axis runs from zero and the
+   meaningful floor is drawn as a labelled reference line instead, which says
+   the same thing without distorting the comparison. */
+var Y_MIN = 0, Y_MAX = 13;
+
+function threshValue(){
+  return PRIMARY.min + (+document.getElementById('thresh').value) / 100 * (PRIMARY.max - PRIMARY.min);
+}
+function fmt(v){ return v.toFixed(PRIMARY.dec); }
+
+function draw(fromPreset){
+  var t = threshValue();
+  var plotH = H - PADT - AXIS;
+  var span = Y_MAX - Y_MIN;
+  var GAPW = 48;
+  var bw = (W - PADL - PADR - GAPW) / SAMPLES.length;
+
+  var keptA = 0, keptB = 0, svg = '';
+  SAMPLES.forEach(function(s, i){
+    var x = PADL + i * bw + (s.group === 1 ? GAPW : 0);
+    var h = Math.max(1, (s.v - Y_MIN) / span * plotH);
+    var y = PADT + plotH - h;
+    var below = s.v < t;
+    if (!below){ if (s.group === 0) keptA++; else keptB++; }
+    if (below){
+      svg += '<rect class="failtick" x="' + (x + 1.5).toFixed(1) + '" y="'
+          +  (PADT + plotH + 4) + '" width="' + Math.max(1, bw - 3).toFixed(1)
+          +  '" height="3" rx="1"></rect>';
+    }
+    svg += '<rect class="bar" x="' + (x + 1.5).toFixed(1)
+        +  '" y="' + y.toFixed(1) + '" width="' + Math.max(1, bw - 3).toFixed(1)
+        +  '" height="' + h.toFixed(1) + '" rx="2"></rect>';
+    svg += '<rect class="hit" data-i="' + i + '" x="' + x.toFixed(1) + '" y="' + PADT
+        +  '" width="' + bw.toFixed(1) + '" height="' + plotH.toFixed(1) + '"></rect>';
+  });
+
+  svg += '<line class="axis" x1="' + PADL + '" y1="' + PADT + '" x2="' + PADL
+      +  '" y2="' + (PADT + plotH) + '"></line>';
+  svg += '<line class="axis" x1="' + PADL + '" y1="' + (PADT + plotH) + '" x2="' + (W - PADR)
+      +  '" y2="' + (PADT + plotH) + '"></line>';
+  var Y = function(v){ return PADT + plotH - (v - Y_MIN) / span * plotH; };
+  [0, 1, 4, 8, 12].forEach(function(val){
+    svg += '<text class="axtext" x="' + (PADL - 7) + '" y="' + (Y(val) + 3.5).toFixed(1)
+        +  '" text-anchor="end">' + val + '</text>';
+  });
+  // The floor the axis no longer starts at, drawn where it belongs. The label
+  // for it lives in the caption below the chart, not on the plot: written on
+  // the plot it sat behind twenty four bars and could not be read at all.
+  svg += '<line class="base" x1="' + PADL + '" y1="' + Y(1).toFixed(1) + '" x2="' + (W - PADR)
+      +  '" y2="' + Y(1).toFixed(1) + '"></line>';
+
+  var aMid = PADL + (12 * bw) / 2;
+  var bMid = PADL + GAPW + 12 * bw + (12 * bw) / 2;
+  svg += '<text class="grouplab" x="' + aMid.toFixed(0) + '" y="' + (PADT + plotH + 22)
+      +  '" text-anchor="middle">' + GROUP_A + ' (12)</text>';
+  svg += '<text class="grouplab" x="' + bMid.toFixed(0) + '" y="' + (PADT + plotH + 22)
+      +  '" text-anchor="middle">' + GROUP_B + ' (12)</text>';
+
+  var ty = Y(t);
+  svg += '<line class="thresh" x1="' + PADL + '" y1="' + ty.toFixed(1) + '" x2="' + (W - PADR)
+      +  '" y2="' + ty.toFixed(1) + '"></line>';
+  svg += '<text class="threshlab" x="' + (W - PADR) + '" y="' + (ty - 6).toFixed(1)
+      +  '" text-anchor="end">threshold ' + fmt(t) + '</text>';
+
+  var chart = document.getElementById('chart');
+  var desc = 'TSS enrichment for 24 ATAC-seq libraries, in two blocks of twelve: '
+    + GROUP_A + ' on the left and ' + GROUP_B + ' on the right. A threshold line is drawn at '
+    + fmt(t) + '. Above it: ' + keptA + ' of 12 ' + GROUP_A + ', and ' + keptB + ' of 12 '
+    + GROUP_B + '. The vertical axis runs from zero, with a reference line at 1, the value a library '
+    + 'with no enrichment at all would take. Samples below the threshold are marked with a tick under '
+    + 'the axis, and every value is listed in the table view below the chart.';
+  chart.innerHTML = '<title>' + desc + '</title>' + svg;
+  chart.setAttribute('aria-label', desc);
+
+  document.getElementById('thresh-val').textContent = 'TSS enrichment ' + fmt(t);
+  document.getElementById('t-kept').textContent = String(keptA + keptB);
+  document.getElementById('t-a').textContent = String(keptA);
+  document.getElementById('t-b').textContent = String(keptB);
+
+  var r = document.getElementById('readout');
+  var diff = Math.abs(keptA - keptB);
+  if (keptA + keptB === 24){
+    r.className = 'readout';
+    r.innerHTML = 'Every library passes, so nothing has been excluded. Notice that the two arms are '
+      + 'balanced at twelve and twelve, and look at the batch column: <b>every ' + GROUP_A
+      + ' library was prepared in batch A and every ' + GROUP_B + ' library in batch B.</b> '
+      + 'Hold on to that.';
+  } else if (diff >= 4){
+    r.className = 'readout alarm';
+    r.innerHTML = 'You started with twelve and twelve. You now have <b>' + keptA + ' ' + GROUP_A
+      + '</b> and <b>' + keptB + ' ' + GROUP_B + '</b>, because the weaker libraries are almost all in '
+      + 'one arm. <b>You have not created batch confounding. You have revealed it.</b> Condition and '
+      + 'batch contain exactly the same information in this experiment, and they did before you '
+      + 'touched the slider. Changing the threshold changes how many samples remain; it cannot '
+      + 'separate a treatment effect from a batch effect, because nothing can.';
+    if (!brokeBalance){
+      brokeBalance = true;
+      nb('Pushed the TSS enrichment threshold to ' + fmt(t) + ': kept ' + keptA + ' ' + GROUP_A
+         + ' and ' + keptB + ' ' + GROUP_B + ', exposing that condition and batch are the same column.');
+      updateProgress();
+    }
+    showDesignQuestion();
+  } else {
+    r.className = 'readout';
+    r.innerHTML = 'Dropped ' + (24 - keptA - keptB) + '. Kept <b>' + keptA + ' ' + GROUP_A
+      + '</b> and <b>' + keptB + ' ' + GROUP_B + '</b>. Still roughly balanced, so the question so far '
+      + 'is whether the libraries you dropped were bad ones or just the weaker half of a normal '
+      + 'spread. Keep going: the imbalance gets worse, and it is telling you something about the '
+      + 'experiment rather than about the threshold.';
+  }
+
+  if (fromPreset) nb('Applied a published band: TSS enrichment threshold ' + fmt(t) + '.');
+  buildTableRows(t);
+}
+
+function buildPresets(){
+  var pr = document.getElementById('presets'), sl = document.getElementById('thresh');
+  pr.innerHTML = '';
+  PRESETS.forEach(function(x){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = x.label;
+    b.onclick = function(){
+      sl.value = String(Math.round((x.v - PRIMARY.min) / (PRIMARY.max - PRIMARY.min) * 100));
+      draw(true);
+    };
+    pr.appendChild(b);
+  });
+}
+
+function buildTableHead(){
+  var h = ['Sample','Condition','Batch','TSS enrichment','Verdict','FRiP','% mito','Align %','Frags (M)'];
+  document.getElementById('tv-head').innerHTML =
+    h.map(function(x){ return '<th scope="col">' + x + '</th>'; }).join('');
+}
+function buildTableRows(t){
+  // No tabindex on the rows. Twenty four non-interactive rows here plus three in
+  // the protocol table put twenty seven tab stops on content nothing can do
+  // anything with; the scroll WRAPPER is the focus target, so the region can be
+  // scrolled by keyboard without the rows each demanding a stop.
+  //
+  // The batch column is shown because the section's conclusion depends on the
+  // student being able to see that it is a copy of the condition column.
+  document.getElementById('tv-rows').innerHTML = SAMPLES.map(function(s){
+    return '<tr><td>' + s.id + '</td><td class="word">' + s.groupName + '</td>'
+      + '<td class="word">' + s.batch + '</td><td>'
+      + fmt(s.v) + '</td><td class="word">' + (s.v >= t ? 'above threshold' : 'below threshold')
+      + '</td><td>' + s.frip.toFixed(2) + '</td><td>' + s.mito.toFixed(1) + '</td><td>'
+      + s.align.toFixed(1) + '</td><td>' + s.frags.toFixed(1) + '</td></tr>';
+  }).join('');
+}
+
+/* ------------------------------------------------------------------ *
+ * Tooltip. Enhances the chart for a mouse; never the only route to a value.
+ * The SVG is role="img" with a full accessible name, so the keyboard route to
+ * any individual number is the table view, whose rows are focusable. Putting
+ * focusable rects inside a role="img" would contradict the role.
+ * ------------------------------------------------------------------ */
+var tip = document.getElementById('tip');
+function showTip(target){
+  var s = SAMPLES[+target.getAttribute('data-i')];
+  if (!s) return;
+  tip.textContent = s.id + ' · ' + s.groupName + ' · TSS enrichment ' + fmt(s.v);
+  tipCancelHide();
+  tip.style.display = 'block';
+  var r = target.getBoundingClientRect();
+  tip.style.left = Math.min(window.innerWidth - 260, Math.max(6, r.left - 40)) + 'px';
+  tip.style.top = Math.max(6, r.top - 36) + 'px';
+}
+function hideTip(){ tipScheduleHide(); }
+/* ------------------------------------------------------------------ *
+ * SC 1.4.13 Content on Hover or Focus, added after the 2026-08-17 audit.
+ *
+ * The tooltip appeared on hover and then failed two of the criterion's three
+ * requirements. It could not be DISMISSED without moving the pointer, and it
+ * could not be HOVERED, because pointer-events:none meant that moving towards
+ * it left the trigger and the tooltip vanished. Both matter to anyone using
+ * magnification, where the tooltip may be the only part of the chart on screen
+ * and reaching it with the pointer is the normal way to read it.
+ *
+ * The hide is now deferred rather than immediate, so moving from the trigger
+ * onto the tooltip cancels it, and Escape closes it from the keyboard.
+ * ------------------------------------------------------------------ */
+var tipHideTimer = null;
+function tipCancelHide(){ if (tipHideTimer){ clearTimeout(tipHideTimer); tipHideTimer = null; } }
+function tipScheduleHide(){
+  tipCancelHide();
+  tipHideTimer = setTimeout(function(){ tip.style.display = 'none'; }, 220);
+}
+tip.addEventListener('mouseenter', tipCancelHide);
+tip.addEventListener('mouseleave', tipScheduleHide);
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape' || e.key === 'Esc'){ tipCancelHide(); tip.style.display = 'none'; }
+});
+
+document.getElementById('chart').addEventListener('mouseover', function(e){
+  if (e.target.classList && e.target.classList.contains('hit')) showTip(e.target);
+});
+document.getElementById('chart').addEventListener('mouseout', hideTip);
+
+/* ------------------------------------------------------------------ *
+ * Progress and completion. Each gate is a piece of the argument, not evidence
+ * that the student was here: they have to have seen a library that worked AND
+ * one that did not, run the protocol comparison, and pushed the threshold far
+ * enough to unbalance the design. Clicking through everything is not enough,
+ * and nothing here asks them to type.
+ * ------------------------------------------------------------------ */
+function profilesCompared(){
+  var vs = Object.keys(profSeen).map(function(id){
+    return SAMPLES.filter(function(s){ return s.id === id; })[0].v;
+  });
+  return vs.some(function(v){ return v > 7; }) && vs.some(function(v){ return v < 5; });
+}
+var MILESTONES6 = [
+  { key:'profiles', text:'Compared TSS profiles across quality bands' },
+  { key:'protocols',text:'Compared the three protocol generations' },
+  { key:'threshold',text:'Pushed the threshold until the imbalance showed' },
+  { key:'design',   text:'Decided what the experiment can still answer' }
+];
+function updateProgress(){
+  var got = { profiles: profilesCompared(), protocols: protoRun,
+              threshold: brokeBalance, design: answeredDesign };
+  var done = MILESTONES6.filter(function(m){ return got[m.key]; });
+  document.getElementById('progress-cue').textContent =
+    done.length + ' of ' + MILESTONES6.length + ' steps done';
+  var list = document.getElementById('milestone-list6');
+  if (list) list.innerHTML = MILESTONES6.map(function(m){
+    return '<li class="' + (got[m.key] ? 'got' : '') + '"><span aria-hidden="true">'
+      + (got[m.key] ? '\u2713' : '\u25cb') + '</span> ' + m.text + '</li>';
+  }).join('');
+
+  if (done.length === MILESTONES6.length){
+    var panel = document.getElementById('section-done');
+    if (panel && !panel.classList.contains('show')){
+      panel.classList.add('show');
+      nb('Section 6 complete.');
+    }
+  }
+}
+
+/* --- notebook --- */
+function nb(msg){
+  var list = document.getElementById('nbList');
+  var empty = list.querySelector('.empty'); if(empty) empty.remove();
+  var li = document.createElement('li'); li.textContent = msg; list.appendChild(li);
+  noteExport(msg);
+}
+function noteExport(msg){
+  var d = new Date();
+  nbLog.push({ ts:d.toLocaleTimeString(), at:d.getTime(), text:msg });
+  var b = document.getElementById('download-notebook');
+  if (b) b.disabled = nbLog.length === 0;
+}
+function buildNotebookText(){
+  var now = new Date(), L = [];
+  L.push('Molecular Techniques: Interactive Bioinformatics Module');
+  L.push('Section 6: Functional genomics and quality control');
+  L.push('');
+  L.push('Student: ______________________________');
+  L.push('Downloaded: ' + now.toLocaleDateString() + ', ' + now.toLocaleTimeString());
+  L.push('Entries: ' + nbLog.length);
+  L.push('');
+  L.push('----------------------------------------------------------------');
+  if (nbLog.length === 0) L.push('(no entries yet)');
+  else nbLog.forEach(function(e){ L.push(e.ts + '  ' + e.text); });
+  L.push('');
+  L.push('');
+  L.push('Written by the module in your browser. Nothing was sent anywhere.');
+  return L.join('\n');
+}
+function downloadNotebook(){
+  var blob = new Blob([buildNotebookText()], {type:'text/plain'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'), d = new Date();
+  var stamp = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  a.href=url; a.download='section6_lab_notebook_'+stamp+'.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); },0);
+}
+
+SAMPLES = buildSamples();
+buildProfiles();
+buildPresets();
+buildTableHead();
+document.getElementById('thresh').value =
+  String(Math.round((PRIMARY.start - PRIMARY.min) / (PRIMARY.max - PRIMARY.min) * 100));
+document.getElementById('thresh').setAttribute('aria-label', 'Threshold for TSS enrichment');
+draw(false);
+document.getElementById('thresh').addEventListener('input', function(){ draw(false); });
+document.getElementById('btn-proto').onclick = runProtocols;
+wireDesignQuestion();
+document.getElementById('download-notebook').onclick = downloadNotebook;
+</script>
+</body>
+</html>

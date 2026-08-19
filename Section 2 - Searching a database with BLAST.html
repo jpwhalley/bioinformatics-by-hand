@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Section 2: BLAST mini-simulator: TNF across species</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a2332;
+    --panel-2: #243042;
+    --text: #e6edf3;
+    --text-dim: #8f98a1;   /* was #8b949e, WCAG audit 2026-07-30 */
+    --accent: #58a6ff;
+    --accent-glow: rgba(88,166,255,0.25);
+    --good: #56d364;
+    --bad: #f96760;        /* was #f85149, WCAG audit 2026-07-30 */
+    --warn: #d29922;
+    --gap: #9097a0;        /* was #6e7681, WCAG audit 2026-07-30 */
+    --tile-A: #2ea043;
+    --tile-T: #db6d28;
+    --tile-G: #7e55c7;     /* was #6f42c1, SC 1.4.11 */
+    --tile-C: #1f6feb;
+    --border: #30363d;
+    /* Decorative panel edges stay at --border (exempt). --border-ctrl is for
+       cases where a border is the SOLE delimiter of an interactive control. */
+    --border-ctrl: #6c7989;
+    --mono: 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 24px 80px; }
+  header { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; }
+  h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; }
+  .subtitle { color: var(--text-dim); font-size: 14px; }
+  .breadcrumb { color: var(--text-dim); font-size: 12px; margin-bottom: 8px; }
+  .breadcrumb b { color: var(--accent); }
+  .breadcrumb a{color:var(--text-dim);text-decoration:underline;text-underline-offset:2px}
+  .breadcrumb a:hover{color:var(--accent)}
+
+  .phase-header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+  .phase-title { font-size: 18px; font-weight: 600; }
+  .phase-counter { color: var(--text-dim); font-size: 13px; font-family: var(--mono); }
+
+  .prompt {
+    background: var(--panel); border-left: 3px solid var(--accent);
+    padding: 14px 18px; border-radius: 4px; margin-bottom: 20px; font-size: 15px;
+  }
+  .prompt b { color: var(--accent); }
+
+  .workspace {
+    background: var(--panel); border-radius: 8px;
+    padding: 24px; margin-bottom: 16px; border: 1px solid var(--border);
+  }
+
+  .seq-strip { font-family: var(--mono); font-size: 13px; display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 0; }
+  .seq-tile {
+    width: 20px; height: 28px; display: inline-flex;
+    align-items: center; justify-content: center;
+    flex-shrink: 0; font-weight: 600; color: #fff;
+    border-right: 1px solid rgba(0,0,0,0.3);
+  }
+  .seq-tile.A { background: var(--tile-A); }
+  .seq-tile.T { background: var(--tile-T); }
+  .seq-tile.G { background: var(--tile-G); }
+  /* SC 1.4.3: white on --tile-A and --tile-T measured 3.37:1. Black text takes
+     both to 6.23:1 without moving colours Justin has already approved. The mixed
+     convention (black on A/T, white on C/G) is invisible to the reader. */
+  .seq-tile.A, .seq-tile.T { color: #000; }
+  .seq-tile.C { background: var(--tile-C); }
+  .seq-tile.gap { background: var(--gap); opacity: 0.6; }
+  .seq-tile.match { box-shadow: inset 0 -3px 0 var(--good); }
+  .seq-tile.mismatch { box-shadow: inset 0 -3px 0 var(--bad); opacity: 0.55; }
+  .seq-tile.seed { outline: 2px solid var(--warn); outline-offset: -2px; z-index: 1; position: relative; }
+
+  .track-label { font-size: 12px; color: var(--text-dim); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 16px 0; }
+  button, .btn {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    padding: 8px 16px; border-radius: 4px; font-size: 13px;
+    cursor: pointer; transition: background 0.15s, transform 0.1s;
+    font-family: inherit;
+  }
+  button:hover, .btn:hover { background: #2d3a4f; }
+  button:active, .btn:active { transform: translateY(1px); }
+  button.primary { background: var(--accent); color: #0c1014; border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: #6ab0ff; }
+  button.warn { background: var(--warn); color: #0c1014; border-color: var(--warn); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  select, input[type=text] {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    padding: 8px 12px; border-radius: 4px; font-family: var(--mono); font-size: 13px;
+  }
+
+  /* Hit table */
+  table.hits { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+  table.hits th, table.hits td {
+    padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border);
+  }
+  table.hits th {
+    background: var(--panel-2); color: var(--text-dim);
+    font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+    cursor: pointer; user-select: none;
+  }
+  table.hits th:hover { color: var(--accent); }
+  table.hits tr.hit-row { cursor: pointer; transition: background 0.1s; }
+  table.hits tr.hit-row:hover { background: var(--panel-2); }
+  table.hits tr.hit-row.selected { background: rgba(88,166,255,0.12); border-left: 2px solid var(--accent); }
+  /* SC 1.4.3. Non-significance used to be marked with opacity: 0.75 on the row,
+     which drags EVERY ink inside it down: subject name to 3.67:1, the flag to
+     4.12:1, the E-value to 3.55:1 (it carried its own extra opacity: 0.7 on top),
+     the species pill to 4.37:1. Twenty-four failing nodes, in the rows Q2 asks
+     the student to read most carefully. Opacity was the wrong tool here for the
+     same reason it was wrong on Section 6's selected card. A darker background
+     raises the contrast of everything in the row instead of lowering it, and the
+     words "below significance" carry the meaning without relying on colour. */
+  table.hits tr.hit-row.below-sig td { background: #12181f; }
+  .sigflag { color: var(--ink-warn); font-size: 11px; }
+  .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+  table.hits th .colsort { background:none; border:0; color: inherit; font: inherit;
+    padding:0; cursor:pointer; text-align:left; }
+  table.hits th .colsort:hover { color: var(--accent); text-decoration: underline; }
+  table.hits th[aria-sort] .colsort::after { content:' \2193'; color: var(--accent); }
+  table.hits th[aria-sort="ascending"] .colsort::after { content:' \2191'; }
+  .hitbtn { background:none; border:0; color: var(--text); font: inherit; font-weight:700;
+    margin-left:6px; padding:0; cursor:pointer; }
+  .hitbtn:hover { color: var(--accent); text-decoration: underline; }
+  .hitbtn[aria-pressed="true"] { color: var(--accent); }
+  .hitbtn[aria-pressed="true"]::before { content:'\25B8 '; }
+  table.hits .pct-bar {
+    display: inline-block; width: 80px; height: 8px;
+    background: var(--panel-2); border-radius: 4px; overflow: hidden; vertical-align: middle; margin-right: 8px;
+  }
+  table.hits .pct-bar .fill { display: block; height: 100%; background: var(--accent); }
+  table.hits .e-good { color: var(--good); font-family: var(--mono); }
+  table.hits .e-mid { color: var(--ink-warn); font-family: var(--mono); }
+  table.hits .e-bad { color: var(--ink-bad); font-family: var(--mono); }
+  table.hits .species { color: var(--text-dim); font-size: 11px; }
+
+  .alignment-pane { display: none; margin-top: 16px; padding: 16px; background: var(--panel-2); border-radius: 6px; }
+  .alignment-pane.active { display: block; }
+  .alignment-stats { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 12px; font-size: 13px; color: var(--text-dim); }
+  .alignment-stats b { color: var(--text); font-family: var(--mono); }
+
+  .debrief {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 18px 20px; margin-top: 20px;
+  }
+  .debrief h3 { margin: 0 0 10px; font-size: 15px; color: var(--accent); }
+  .debrief p { margin: 0 0 10px; font-size: 13px; line-height: 1.6; }
+  .debrief .formula {
+    font-family: var(--mono); font-size: 13px; background: var(--bg);
+    padding: 8px 12px; border-radius: 4px; display: inline-block; margin: 4px 0;
+    border-left: 2px solid var(--warn);
+  }
+  details.deeper { margin-top: 10px; cursor: pointer; }
+  details.deeper summary { color: var(--accent); font-size: 12px; font-weight: 600; padding: 4px 0; user-select: none; }
+  details.deeper[open] summary { margin-bottom: 8px; }
+  details.deeper p { color: var(--text-dim); font-size: 12px; line-height: 1.6; }
+
+  /* In flow by default and fixed only when there is genuinely room beside the
+     content (>=1500px), matching Sections 3, 4 and 6. It used to be fixed at
+     every width above 700px, which overlapped the hit table on any ordinary
+     laptop. */
+  .notebook {
+    margin-top: 18px;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; font-size: 12px; overflow-y: auto;
+  }
+  @media (min-width: 1500px) {
+    .notebook {
+      position: fixed; right: 16px; bottom: 16px; width: 320px; max-height: 50vh;
+      margin-top: 0; box-shadow: 0 4px 24px rgba(0,0,0,0.5); z-index: 10;
+    }
+  }
+  .notebook h4 { margin: 0 0 8px; font-size: 12px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; }
+  .notebook ul { margin: 0; padding-left: 18px; }
+  .notebook li { color: var(--text-dim); margin-bottom: 3px; }
+  .notebook li.done { color: var(--good); }
+  /* SC 1.4.1: completion was signalled by colour alone. The check mark carries
+     the same information in greyscale and on a printed handout. */
+  .notebook li.done::before { content: "\2713 "; font-weight: 700; }
+  .notebook li:not(.done)::before { content: "\25CB "; color: var(--text-dim); }
+
+  /* Notebook export, added 2026-08-13. Same pattern as Section 1. Client-side
+     Blob only, no network call: with one identified student, silently posting
+     progress would be surveillance rather than analytics. */
+  .nb-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .nb-dl{padding:5px 11px;font-size:12px}
+  .nb-dl-hint{margin:0 0 10px;font-size:11px;color:var(--text-dim)}
+
+
+  /* Section-complete panel. Same pattern in every section: a clear statement
+     that the section is finished, one line on what it covered, and an explicit
+     pointer to the next section so the student always knows where to go. */
+  .section-done {
+    background: linear-gradient(135deg, rgba(88,166,255,0.10), rgba(88,166,255,0.02));
+    border: 1px solid var(--accent); border-radius: 8px;
+    padding: 18px 22px; margin-top: 22px; display: none;
+  }
+  .section-done.show { display: block; animation: doneIn 0.4s; }
+  .section-done h3 { margin: 0 0 10px; font-size: 16px; color: var(--accent); }
+  .section-done p { margin: 0 0 10px; font-size: 14px; line-height: 1.6; }
+  .section-done p:last-child { margin-bottom: 0; }
+  .section-done .nb-aside { color: var(--text-dim); font-size: 12px; }
+  @keyframes doneIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .progress-cue { margin: 0 0 10px; font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+
+  .footer-note { color: var(--text-dim); font-size: 11px; margin-top: 24px; text-align: center; font-style: italic; }
+  /* SC 1.4.10 Reflow. Seven columns cannot fit 320px, so the table scrolls
+     sideways inside its own box rather than widening the document. The wrapper
+     is focusable with a name because a region no keyboard can scroll is an
+     SC 2.1.1 failure, which is how the other five scroll regions in this module
+     are already handled. Found 2026-08-18: the document was 96px too wide at
+     320px, and both a11y harnesses had reported this page as passing because
+     neither of them ran the search, so the table did not exist when they looked. */
+  .table-scroll { overflow-x: auto; }
+  .predict { margin: 18px 0 0; border: 1px solid var(--border-ctrl); border-radius: 8px;
+             padding: 12px 14px 14px; background: var(--panel-2); }
+  .predict legend { font-size: 13px; font-weight: 600; padding: 0 6px; color: var(--text); }
+  .predict-q { margin: 4px 0 10px; font-size: 14px; }
+  .predict-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .predict-note { margin: 10px 0 0; font-size: 12px; color: var(--text-dim); }
+  .pred[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-family: var(--mono); }
+  .pill.species-human { background: #1f6feb33; color: #58a6ff; }
+  .pill.species-mouse { background: #d2992233; color: var(--ink-warn); }
+  .pill.species-zfish { background: #56d36433; color: var(--good); }
+  .pill.species-fly   { background: #7e55c733; color: #b392f0; }
+  .pill.species-bacteria { background: #f9676033; color: var(--ink-bad); }
+  .pill.species-yeast { background: #17a2b833; color: #4dd0e1; }
+
+  /* SC 2.4.7 Focus Visible. The dark theme suppresses the browser default ring,
+     so keyboard focus must be styled explicitly or it is invisible. Added 2026-08-14. */
+  :focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+  a:focus-visible, button:focus-visible, input:focus-visible,
+  /* A catch-all, added 2026-08-14 beneath the explicit list below, so an element
+     type nobody thought of still gets a ring. The list below is kept because it
+     is what the 2026-07-31 pass audited. */
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+  textarea:focus-visible,
+  select:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* SC 1.4.10 Reflow. Content must be usable at 320px without two-dimensional
+     scrolling. Sequence strips keep their own horizontal scroll, which the
+     criterion allows for content that genuinely requires a fixed layout; the
+     page around them must not. Added 2026-08-14. */
+  @media (max-width: 700px) {
+    body { padding: 14px 10px 90px; }
+    .container, .wrap { padding-left: 12px; padding-right: 12px; max-width: 100%; }
+    h1 { font-size: 18px; }
+    table.hits th, table.hits td { padding: 6px 5px; font-size: 12px; }
+    .alignment-stats { gap: 10px; }
+  }
+
+
+  /* Foot navigation, added 2026-08-17. Real links, so keyboard and
+     right-click-open-in-new-tab both work without any scripting. */
+  .sectnav{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;
+    margin:26px 0 0;padding-top:18px;border-top:1px solid var(--border)}
+  .sectnav a{flex:1 1 220px;display:block;text-decoration:none;color:inherit;
+    background:var(--panel,#1a2332);border:1px solid var(--border);border-radius:8px;
+    padding:11px 14px;font-size:13px}
+  .sectnav a:hover{border-color:var(--accent);background:var(--panel-2,#243042)}
+  .sectnav a .k{display:block;font-size:11px;color:var(--text-dim);
+    text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+  .sectnav a .t{font-weight:600}
+  .sectnav a:hover .t{text-decoration:underline}
+  .sectnav a.home{flex:0 1 auto;text-align:center;display:flex;align-items:center;
+    justify-content:center;color:var(--text-dim)}
+  .sectnav a.home:hover{color:var(--accent)}
+  @media (max-width:700px){ .sectnav a{flex:1 1 100%} }
+  /* The course spine, added 2026-08-17. Justin: "we are building up from the
+     simplest thing a bioinformatician can do - match a set of letters to
+     another... bioinformatics is matching a sets of letters to another,
+     usually at scale and interpreting those results!"
+     Every section states its own match in the same place, in the same words,
+     so the argument is visible from inside any one of them. */
+  .spinebar{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;
+    margin:14px 0 6px;padding:10px 14px;border-radius:6px;
+    background:var(--panel-2);border-left:3px solid var(--good);font-size:13.5px}
+  .spinebar .k{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;
+    letter-spacing:.07em;white-space:nowrap}
+  .spinebar .v{color:var(--text)}
+  /* Ink for text sitting on a tinted wash of its own hue. The palette hues were
+     audited against the panel, not against 20% of themselves, so three of them
+     failed 4.5:1 when used that way (2026-08-17 audit). Measured on the worst
+     tint each is used at: amber 5.25, red 5.24, neutral 5.04. The washes are
+     unchanged; only the ink moved. */
+  :root{ --ink-warn:#eebb55; --ink-bad:#ff8a84; --ink-neutral:#a4adb8; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<header>
+  <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 2 of 8</b> · Searching a database with BLAST</div>
+  <h1>BLAST mini-simulator: search for similarity across species</h1>
+  <div class="spinebar"><span class="k">The match in this section</span><span class="v">The same comparison as Section 1, run against ten database entries at once and scored, so that chance can be ruled out.</span></div>
+
+  <div class="subtitle">Synthetic sequences, real Karlin and Altschul statistics.</div>
+</header>
+
+<div class="prompt">
+  <b>The same act, repeated and scored.</b> In Section 1 you slid one short read along one reference and
+  counted matches. That is the whole subject in miniature: compare one set of letters with another set of
+  letters. What you could not do by hand was decide whether the best position you found was <i>convincing</i>,
+  because you had nothing to judge it against.
+  <br><br>
+  This section runs that same comparison against ten sequences instead of one, and attaches a number to each
+  result rather than leaving you to judge by eye. That is what BLAST (Basic Local Alignment Search Tool) is:
+  the same sliding comparison, made fast enough for a database, with a statistic that says how often a match
+  this good turns up by chance. The question is no longer "where does this read go?" but
+  <b>"what else looks like this, and should I believe it?"</b>
+</div>
+
+<!-- Phase 1: Familiarisation -->
+<div class="workspace" id="phase1">
+  <div class="phase-header">
+    <div class="phase-title">Phase 1 · Your query and your database</div>
+    <div class="phase-counter">step 1 of 3</div>
+  </div>
+
+  <p style="font-size: 14px; color: var(--text-dim);">
+    Your query is a 30 bp fragment of a human TNF sequence. Below it are ten database entries drawn from six
+    organisms, five of them not human. Some are the same gene in a different species, some are a different gene
+    in the same species, and some are neither. Read the list before you search.
+  </p>
+
+  <div class="track-label" id="query-strip-label">Query (30 bp of human TNF, synthetic)</div>
+  <div class="seq-strip" id="query-strip" tabindex="0" role="group"
+       aria-labelledby="query-strip-label"></div>
+
+  <div style="margin-top: 16px;">
+    <div class="track-label">Database (10 sequences, 41 bp each)</div>
+    <div id="db-list" style="font-family: var(--mono); font-size: 12px; line-height: 1.7;">
+      <!-- filled by JS -->
+    </div>
+  </div>
+
+  <fieldset class="predict" id="predict">
+    <legend>Before you search, commit to an answer.</legend>
+    <p class="predict-q">The human TNF entry will win, because your query came from it. Which entry do you
+    expect to come <b>second</b>?</p>
+    <div class="predict-opts" id="predict-opts" role="group" aria-label="Prediction options">
+      <button type="button" class="btn pred" data-pred="Mm_Tnf" aria-pressed="false">Mouse Tnf</button>
+      <button type="button" class="btn pred" data-pred="Dr_tnfa" aria-pressed="false">Zebrafish tnfa</button>
+      <button type="button" class="btn pred" data-pred="Dm_eiger" aria-pressed="false">Fruit-fly eiger</button>
+      <button type="button" class="btn pred" data-pred="Hs_IL6" aria-pressed="false">Human IL6</button>
+    </div>
+    <p class="predict-note" id="predict-note">Optional, and nothing is graded. The point is to have an
+    expectation on record before the numbers arrive, because a result you predicted teaches you something
+    a result you merely read does not.</p>
+  </fieldset>
+
+  <div class="controls">
+    <button class="primary" id="phase1-next">Run the search and check my prediction →</button>
+  </div>
+</div>
+
+<!-- Phase 2: Run BLAST -->
+<div class="workspace" id="phase2" style="display: none;">
+  <div class="phase-header">
+    <div class="phase-title">Phase 2 · Run BLAST and read the hit table</div>
+    <div class="phase-counter">step 2 of 3</div>
+  </div>
+
+  <p style="font-size: 14px; color: var(--text-dim);">
+    Press <b>Run BLAST</b> to search the query against the database. The simulator finds short exact <b>seed</b> matches first (4 bp k-mers), then <b>extends</b> them in both directions, scoring matches and mismatches as it goes. The output is a ranked list of <b>hits</b>.
+  </p>
+
+  <div class="controls">
+    <button class="primary" id="run-blast">Run BLAST</button>
+    <span id="blast-status" style="color: var(--text-dim); font-size: 12px; font-family: var(--mono);"></span>
+  </div>
+
+  <div id="hit-table-wrap" style="display: none;">
+    <div class="table-scroll" tabindex="0" role="group"
+         aria-label="BLAST hit table. Scrolls sideways on a narrow screen.">
+    <table class="hits">
+      <thead>
+        <tr>
+          <th scope="col" data-sort="rank"><button type="button" class="colsort">#</button></th>
+          <th scope="col" data-sort="id"><button type="button" class="colsort">Subject</button></th>
+          <th scope="col" data-sort="score"><button type="button" class="colsort">Raw score</button></th>
+          <th scope="col" data-sort="bits"><button type="button" class="colsort">Bit score</button></th>
+          <th scope="col" data-sort="e"><button type="button" class="colsort">E-value</button></th>
+          <th scope="col" data-sort="ident"><button type="button" class="colsort">Identity</button></th>
+          <th scope="col" data-sort="len"><button type="button" class="colsort">Aln len</button></th>
+        </tr>
+      </thead>
+      <tbody id="hit-table-body"></tbody>
+    </table>
+    </div>
+    <p style="font-size: 12px; color: var(--text-dim); margin-top: 10px;">
+      Click any column header to re-sort · click any row to inspect the alignment ·
+      rows below the <b>E-value = 0.01</b> significance line are dimmed.
+    </p>
+
+    <div class="alignment-pane" id="aln-pane">
+      <div class="alignment-stats" id="aln-stats"></div>
+      <div class="track-label" id="aln-query-label">Query</div>
+      <div class="seq-strip" id="aln-query" tabindex="0" role="group"
+           aria-labelledby="aln-query-label"></div>
+      <div class="track-label" style="margin-top: 8px;">Subject (<span id="aln-subject-name"></span>)</div>
+      <div class="seq-strip" id="aln-subject" tabindex="0" role="group"
+           aria-label="Subject sequence"></div>
+      <p style="font-size: 12px; color: var(--text-dim); margin-top: 12px;">
+        Green underline = matching position · red = mismatch · yellow outline = the 4 bp seed that started the extension.
+      </p>
+    </div>
+  </div>
+
+  <div class="controls" id="phase2-nav" style="display: none;">
+    <button class="primary" id="phase2-next">I've inspected at least one hit → next</button>
+  </div>
+</div>
+
+<!-- Phase 3: Interpret -->
+<div class="workspace" id="phase3" style="display: none;">
+  <div class="phase-header">
+    <div class="phase-title">Phase 3 · What does this tell you?</div>
+    <div class="phase-counter">step 3 of 3</div>
+  </div>
+
+  <p style="font-size: 14px; color: var(--text-dim);">
+    Quick reality check. Use the hit table above to answer.
+  </p>
+
+  <div id="quiz" style="font-size: 14px;">
+    <div class="quiz-q" data-correct="b"
+         data-why="Mouse Tnf, at 49.8 bits and E = 1.3e-11. Note what you did NOT have to know to answer: nothing about mice. The score alone separated it."
+         data-why-wrong="Check the E-value column, not the identity column. The lowest E-value among the non-human entries is the answer.">
+      <div style="margin: 10px 0 6px;"><b>Q1.</b> Ignore the human TNF entry, which is the positive control and matches your query to itself. Which <i>non-human</i> entry has the best hit, meaning the lowest E-value?</div>
+      <div class="quiz-opts">
+        <button class="btn quiz-opt" data-opt="a">Zebrafish</button>
+        <button class="btn quiz-opt" data-opt="b">Mouse</button>
+        <button class="btn quiz-opt" data-opt="c">Fruit fly</button>
+        <button class="btn quiz-opt" data-opt="d">E. coli (bacterial control)</button>
+      </div>
+      <div class="quiz-feedback" style="margin-top: 8px; font-size: 13px;"></div>
+    </div>
+
+    <div class="quiz-q" data-correct="c"
+         data-why="Length is doing the work. A 7 bp exact match turns up by chance many times over in 410 bp, so E = 0.70 and it means nothing. Holding 24 of 29 positions is not something chance produces at this size, so E = 4.2e-06. This is the single most useful habit on the page: never read an identity percentage without the length it was measured over."
+         data-why-wrong="Both premises in the question are true, so the identity figures cannot be what separates them. Look at what else differs between the two rows.">
+      <div style="margin: 18px 0 6px;"><b>Q2.</b> Two rows worth comparing. <b>Yeast GAL4</b> aligns over just 7 bp at <b>100% identity</b>. <b>Fruit-fly eiger</b> aligns over 29 bp at <b>83% identity</b>. Only one of them is significant. Which one, and why?</div>
+      <div class="quiz-opts">
+        <button class="btn quiz-opt" data-opt="a">Yeast GAL4, because 100% identity beats 83%.</button>
+        <button class="btn quiz-opt" data-opt="b">Fruit-fly eiger, because flies are more closely related to humans than yeast is.</button>
+        <button class="btn quiz-opt" data-opt="c">Fruit-fly eiger, because 7 bp of exact match is short enough to expect by chance and 29 bp at 83% is not.</button>
+        <button class="btn quiz-opt" data-opt="d">Neither, because no hit can be significant in a database this small.</button>
+      </div>
+      <div class="quiz-feedback" style="margin-top: 8px; font-size: 13px;"></div>
+    </div>
+
+    <div class="quiz-q" data-correct="b"
+         data-why="The E-value counts alignments, not sequences, and it is an expected number rather than a probability. It answers &quot;how many hits this good would chance produce in a search this size?&quot; and says nothing at all about whether these two sequences are related. That second question is biology, and the debrief below is about how easily the two get confused."
+         data-why-wrong="An E-value is an expected count of chance alignments in a search of this size. It is not a probability, and it is not about relatedness.">
+      <div style="margin: 18px 0 6px;"><b>Q3.</b> An E-value of <code>1e-12</code> means roughly:</div>
+      <div class="quiz-opts">
+        <button class="btn quiz-opt" data-opt="a">There's a 1-in-10^12 chance the two sequences are related.</button>
+        <button class="btn quiz-opt" data-opt="b">You'd expect about 10⁻¹² alignments this good to turn up by chance in a search this size.</button>
+        <button class="btn quiz-opt" data-opt="c">The alignment covers 12 base pairs.</button>
+        <button class="btn quiz-opt" data-opt="d">The hit is 12% identical to the query.</button>
+      </div>
+      <div class="quiz-feedback" style="margin-top: 8px; font-size: 13px;"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="primary" id="finish">Explain the result</button>
+  </div>
+</div>
+
+<div class="debrief" id="debrief" style="display: none;">
+  <h3>What just happened: the BLAST recipe in one paragraph</h3>
+  <p>
+    BLAST is a <b>heuristic</b> for the alignment problem. Smith–Waterman (the rigorous algorithm) is O(mn): way too slow for a multi-billion-base database.
+    The trick: don't try to align everything to everything. First find short exact <b>seed</b> matches. How short depends on the task rather than on the alphabet: blastn uses 11, megablast 28 because it is looking for near-identical sequence, blastn-short 7 for primers and probes, and blastp 3 for proteins. A longer seed is faster and less sensitive; a shorter one catches more diverged matches and costs more time. Then <b>extend</b> each seed in both directions, scoring matches and mismatches, and dropping any extension whose score drops too far below the running maximum (the <i>X-drop</i> rule). Whatever survives that pruning gets a final score and an E-value.
+  </p>
+
+  <p style="margin-top: 14px;"><b>Two scores, and they are not the same number.</b></p>
+  <p style="margin-top: 8px;">
+    Adding up matches and mismatches under your scoring scheme gives the <b>raw score</b>. It is not
+    comparable to anything: change the scheme and the number changes. So the raw score is converted
+    into a <b>bit score</b>, which normalises out the scoring scheme, which is why a bit score of 56
+    means the same thing whoever computed it. The table above shows both, for the same alignments.
+  </p>
+  <p style="margin-top: 10px;">
+    The <b>E-value</b> then combines the score with the size of the search space: how many hits this
+    good would you expect by chance, in a database this size, with a query this long? Longer queries
+    and bigger databases give you more chances to match by accident, so the same score is
+    <i>less</i> impressive on a bigger search. An E-value near zero means "this would essentially
+    never happen by chance here". It does not mean the sequences are related, only that the
+    similarity is not an accident of searching.
+  </p>
+
+  <details class="deeper">
+    <summary>Go deeper: the actual equations</summary>
+    <p>
+      Karlin and Altschul, 1990. In terms of the raw score S:<br>
+      <span class="formula" style="display:inline-block;margin:6px 0;">E ≈ K · m · n · e<sup>−λ·S</sup></span><br>
+      where m is the query length, n is the database size, and K and λ are constants of the scoring
+      scheme. The bit score is that raw score with the scheme divided out:<br>
+      <span class="formula" style="display:inline-block;margin:6px 0;">S′ = (λ·S − ln K) / ln 2</span><br>
+      and substituting gives the form you will see quoted more often:<br>
+      <span class="formula" style="display:inline-block;margin:6px 0;">E = m · n · 2<sup>−S′</sup></span><br>
+      K and λ have vanished. That is the whole point of the normalisation, and it is why a raw score
+      is meaningless on its own while a bit score travels.
+    </p>
+  </details>
+
+  <div class="prompt" style="margin-top:16px">
+    <b>One word of care about what you have just shown.</b> A convincing sequence match is evidence of
+    <b>homology</b>: these sequences share an ancestor. It is not by itself evidence of
+    <b>orthology</b>, which is the stronger claim that they are the <i>same gene</i> in two species,
+    separated by speciation rather than by duplication. Establishing that needs the surrounding
+    genes, the rest of the gene family, and the species tree. Nothing in a single BLAST table can
+    settle it, and a table like this one is where a great many mistaken gene assignments begin.
+  </div>
+
+  <details class="deeper">
+    <summary>Go deeper: how this prototype simplifies real BLAST</summary>
+    <p>
+      Real BLAST chooses its seed length by task (11 for blastn, 28 for megablast, 7 for blastn-short), scores proteins with a matrix estimated from real alignments, and can open gaps.
+      This prototype uses k=4 seeds, so they are easy to spot in a 41 bp database sequence, and it extends without gaps.
+      <br><br>
+      What is <i>not</i> simplified is the statistics. The scoring scheme is +2 for a match and −3 for a mismatch, which is the same reward and penalty pair real blastn offers as <code>-reward 2 -penalty -3</code>, and the two constants in the E-value formula below are the genuine Karlin and Altschul values for that scheme under uniform base composition: λ = 0.6337 and K = 0.4080. That is why a perfect 30 bp match here reports 56.2 bits, which is what real blastn reports for the same alignment.
+      The one thing that is toy-scale is the search space. The E-values are computed against 10 × 41 = 410 bp, so they are <i>much</i> larger than the same alignment would score against nt at roughly 10¹¹ bp. Make the database a hundred million times bigger and every E-value here grows by the same factor.
+    </p>
+  </details>
+
+  <details class="deeper">
+    <summary>Go deeper: why % identity is not enough on its own</summary>
+    <p>
+      A 30 bp alignment at 80% identity (24/30 matches) sounds great until you remember that with a 4-letter alphabet you expect ~25% identity by pure chance, so the random baseline is already 7.5 matches. The bit score, and therefore the E-value, account for this; raw % identity does not.
+      <br><br>
+      So read a hit in three parts, in this order. <b>One, the E-value:</b> could a score like this turn up by chance in a search this size? <b>Two, the alignment length and how much of the query it covers:</b> a spectacular match to 6 bases of a 300 base query has explained almost nothing. <b>Three, the identity, together with what you know about the biology:</b> how similar is the part that did align, and is that similarity meaningful for these two organisms and this gene? A hit with 100% identity over 6 bases passes the third test and fails the first two, which is why no one of the three is enough alone.
+    </p>
+  </details>
+</div>
+
+<div class="section-done" id="section-done" role="status" aria-live="polite">
+  <h3>✓ You have finished Section 2.</h3>
+  <p>You ran a seed-and-extend search, read a hit table, and used an E-value to decide which similarities
+  were too strong to put down to chance.</p>
+  <p>Be careful about what the ranking showed. These ten sequences were written for this exercise with the
+  divergence built into them, so recovering the order mouse, then zebrafish, then fly demonstrates that the
+  score tracks divergence. It is not BLAST discovering the species tree, and a real search would not hand you
+  a clean gradient like that. What <i>is</i> real is the reasoning you did on the way: a long alignment at
+  moderate identity beat a short one at perfect identity, and three human entries scored no better than the
+  bacterial one, because sharing a species label is not the same as sharing a sequence.</p>
+  <p><b>Next: Section 3, reading a FASTQ file.</b> So far the sequences have arrived ready to use. Section 3
+  goes back a step, to what actually comes off the sequencer and how you judge whether it is any good.</p>
+  <p class="nb-aside">Your lab notebook is a record of what you did in this section, kept for your own
+  reference. Download it if you want to keep it.</p>
+</div>
+
+
+<nav class="sectnav" aria-label="Section navigation">
+  <a class="nav-prev" href="Section%201%20-%20Sequence%20alignment%20by%20hand.html"><span class="k">Previous</span><span class="t">1. Sequence alignment by hand</span></a>
+  <a class="home" href="index.html">All sections</a>
+  <a class="nav-next" href="Section%203%20-%20Reading%20a%20FASTQ%20file.html"><span class="k">Next</span><span class="t">3. Reading a FASTQ file</span></a>
+</nav>
+
+  <p class="footer-note">Prototype · Section 2 of the Molecular Techniques Interactive Bioinformatics
+  Module · 2026/27 cycle · synthetic sequences, real Karlin and Altschul statistics</p>
+
+</div><!-- /container -->
+
+
+
+
+<aside class="notebook">
+  <div class="nb-head">
+    <h4 style="margin:0">Lab notebook</h4>
+    <button type="button" id="download-notebook" class="nb-dl" disabled
+            aria-describedby="nb-dl-hint">⤓ Download notebook</button>
+  </div>
+  <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+  <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 6 steps done</p>
+  <div role="log" aria-live="polite" aria-label="Lab notebook entries">
+      <ul id="notebook-list" tabindex="0">
+    <li id="nb-1">Looked at the query and the database</li>
+    <li id="nb-2">Ran BLAST</li>
+    <li id="nb-3">Inspected at least one alignment</li>
+    <li id="nb-4">Identified best-scoring hit</li>
+    <li id="nb-5">Answered all 3 reality-check questions</li>
+    <li id="nb-6">Read what the result does and does not show</li>
+  </ul>
+    </div>
+</aside>
+
+<script>
+// ---- Synthetic illustrative sequences ----
+// All clearly labelled in the UI as illustrative; not real RefSeq fragments.
+// Designed so that the cross-species gradient (human > mouse > zebrafish > fly > unrelated)
+// emerges from the scoring as a teaching point.
+
+const QUERY = "ATGAGCACTGAAAGCATGATCCGGGACGTG"; // 30 bp synthetic "TNF" fragment
+
+// Database: 10 sequences, 40 bp each.
+// The TNF-related ones share a 30 bp homology window with the query, with
+// species-graded mutations. The unrelated ones share at most an accidental 4 bp seed.
+const DATABASE = [
+  { id: "Hs_TNF",      name: "Human TNF (positive control)",     species: "human",     seq: "GCCTGATGAGCACTGAAAGCATGATCCGGGACGTGGAGCTG" },
+  { id: "Mm_Tnf",      name: "Mouse Tnf",                         species: "mouse",     seq: "GCATGATGAGCACTGAAAGCATGATCAGGGACGTAGAACTG" },
+  { id: "Dr_tnfa",     name: "Zebrafish tnfa",                    species: "zfish",     seq: "GCTAGATGAGCACAGAAAGCATAATCCGTGACGTGGAACTC" },
+  { id: "Dm_eiger",    name: "Fruit-fly eiger (TNF homolog)",     species: "fly",       seq: "CGATGATGAGCACTGAAATCAACATCAGGTACGTAGATCAC" },
+  { id: "Hs_IL6",      name: "Human IL6 (different cytokine family)", species: "human",     seq: "ATGAACTCCTTCTCCACAAGCGCCTTCGGTCCAGTTGCCTT" },
+  { id: "Mm_Actb",     name: "Mouse Actb (β-actin housekeeper)",  species: "mouse",     seq: "ATGGATGACGATATCGCTGCGCTGGTCGTCGACAACGGCTC" },
+  { id: "Ec_lacZ",     name: "E. coli lacZ",                      species: "bacteria",  seq: "ATGACCATGATTACGGATTCACTGGCCGTCGTTTTACAACG" },
+  { id: "Sc_GAL4",     name: "Yeast GAL4",                        species: "yeast"   , seq: "ATGAAGCTACTGTCTTCTATCGAACAAGCATGCGATATTTG" },
+  { id: "Hs_random1",  name: "Human intergenic region 1",         species: "human"   , seq: "CTTAAGCAGCATGGCTAATTACGCGAATTCACGGATCAGCT" },
+  { id: "Hs_random2",  name: "Human intergenic region 2",         species: "human"   , seq: "GACTGATCCATGCAGCTACGTAGCATGAATTCGATCGATCG" },
+];
+
+// ---- Render the query strip ----
+function renderSeqStrip(container, seq, opts = {}) {
+  container.innerHTML = "";
+  for (let i = 0; i < seq.length; i++) {
+    const tile = document.createElement("span");
+    tile.className = "seq-tile " + (seq[i] === "-" ? "gap" : seq[i]);
+    tile.textContent = seq[i];
+    if (opts.matchMask && opts.matchMask[i] === 1) tile.classList.add("match");
+    if (opts.matchMask && opts.matchMask[i] === 0) tile.classList.add("mismatch");
+    if (opts.seedRange && i >= opts.seedRange[0] && i < opts.seedRange[1]) tile.classList.add("seed");
+    container.appendChild(tile);
+  }
+}
+
+renderSeqStrip(document.getElementById("query-strip"), QUERY);
+
+// ---- Render the database list ----
+const dbList = document.getElementById("db-list");
+DATABASE.forEach((entry, i) => {
+  const row = document.createElement("div");
+  row.style.marginBottom = "6px";
+  row.innerHTML = `
+    <span class="pill species-${entry.species}">${entry.species}</span>
+    <b style="margin: 0 8px;">${entry.id}</b>
+    <span style="color: var(--text-dim);">${entry.name}</span>
+  `;
+  dbList.appendChild(row);
+});
+
+// ---- BLAST simulation ----
+// k=4 seed, +2 match / -3 mismatch, gapless extension, X-drop = 10.
+
+const K_SEED = 4;
+const MATCH = 2, MISMATCH = -3, X_DROP = 10;
+
+// LAMBDA and KARLIN_K are NOT free parameters. They are determined by the
+// scoring scheme and the base composition, and the page is only entitled to
+// print an E-value if they match the scheme actually used here.
+//
+// They did not. The scheme was +2/-1 while LAMBDA was 0.63 (the correct value
+// for a +2/-3 scheme) and KARLIN_K was 0.71 (the correct value for +1/-3).
+// Two constants borrowed from two different rows of a table, for a third
+// scheme. Solving the Karlin-Altschul equation sum_ij p_i p_j exp(lambda*s_ij)
+// = 1 for uniform p_i = 1/4 gives lambda = 0.2645 for +2/-1, not 0.63.
+//
+// The mismatch penalty was changed to -3 rather than the constants to -0.2645,
+// for three reasons. Real blastn offers -reward 2 -penalty -3 and does NOT
+// offer 2/-1, because at 2/-1 the expected score per aligned position is only
+// -0.25 and ungapped alignments of unrelated sequence run away. Second, +2/-3
+// puts a perfect 30 bp match at 56.2 bits, which is what real blastn reports,
+// and was the number the previous comment here said it was aiming for. Third,
+// the -3 that used to be declared as a gap penalty was never applied by the
+// gapless extension below, so it was a number on the page that did nothing.
+//
+// Values below solved numerically and checked against NCBI's published
+// ungapped constants for +1/-1, +1/-2, +1/-3, +1/-4, +2/-3 and +4/-5, which
+// they reproduce to four significant figures (_tests/check_section2_blast.js).
+const LAMBDA = 0.633731, KARLIN_K = 0.408004;
+// S' = (lambda*S - ln K) / ln 2. The bit score exists so that scores from
+// different scoring schemes can be compared: K and lambda drop out of the
+// E-value once it is expressed in bits.
+function bitScore(rawScore){
+  return (LAMBDA * rawScore - Math.log(KARLIN_K)) / Math.LN2;
+}
+
+function findBlastHit(query, subject) {
+  // Find best gapless local alignment using seed-and-extend
+  let bestAln = null;
+  for (let qi = 0; qi <= query.length - K_SEED; qi++) {
+    const seed = query.substr(qi, K_SEED);
+    let si = subject.indexOf(seed);
+    while (si !== -1) {
+      // Walk both directions from the seed and track running best score (X-drop pruning)
+      let qStart = qi, sStart = si, qEnd = qi + K_SEED, sEnd = si + K_SEED;
+      let bestScore = K_SEED * MATCH;
+      // walk left
+      let runningScore = bestScore, q = qi - 1, sb = si - 1;
+      while (q >= 0 && sb >= 0) {
+        runningScore += (query[q] === subject[sb]) ? MATCH : MISMATCH;
+        if (runningScore > bestScore) { bestScore = runningScore; qStart = q; sStart = sb; }
+        if (bestScore - runningScore > X_DROP) break;
+        q--; sb--;
+      }
+      // walk right from end of seed
+      runningScore = bestScore;
+      let q2 = qi + K_SEED, s2 = si + K_SEED;
+      while (q2 < query.length && s2 < subject.length) {
+        runningScore += (query[q2] === subject[s2]) ? MATCH : MISMATCH;
+        if (runningScore > bestScore) { bestScore = runningScore; qEnd = q2 + 1; sEnd = s2 + 1; }
+        if (bestScore - runningScore > X_DROP) break;
+        q2++; s2++;
+      }
+      // Compose alignment over the [qStart..qEnd] / [sStart..sEnd] window
+      const qSeg = query.substring(qStart, qEnd);
+      const sSeg = subject.substring(sStart, sEnd);
+      const matchMask = qSeg.split("").map((c, idx) => c === sSeg[idx] ? 1 : 0);
+      const matches = matchMask.reduce((a, b) => a + b, 0);
+      const alnLen = qSeg.length;
+      const ident = matches / alnLen;
+      const finalScore = matches * MATCH + (alnLen - matches) * MISMATCH;
+      if (!bestAln || finalScore > bestAln.score) {
+        bestAln = {
+          score: finalScore,
+          raw: finalScore,
+          bits: bitScore(finalScore),
+          ident: ident,
+          matches: matches,
+          length: alnLen,
+          qStart: qStart, qEnd: qEnd, sStart: sStart, sEnd: sEnd,
+          qSeg: qSeg, sSeg: sSeg, matchMask: matchMask,
+          seedQ: qi, seedS: si,
+        };
+      }
+      si = subject.indexOf(seed, si + 1);
+    }
+  }
+  return bestAln;
+}
+
+function eValue(rawScore, queryLen, dbLen) {
+  // Karlin-Altschul: E = K * m * n * exp(-lambda * S), where S is the RAW score.
+  // Equivalently E = m * n * 2^(-S') once S is expressed in bits, which is why
+  // a bit score is comparable across scoring schemes and a raw score is not.
+  return KARLIN_K * queryLen * dbLen * Math.exp(-LAMBDA * rawScore);
+}
+
+function formatE(e) {
+  if (e === 0) return "0";
+  if (e < 0.001) {
+    const exp = Math.floor(Math.log10(e));
+    const mant = (e / Math.pow(10, exp)).toFixed(1);
+    return `${mant}e${exp}`;
+  }
+  if (e < 1) return e.toFixed(3);
+  return e.toFixed(2);
+}
+
+function eClass(e) {
+  if (e < 1e-6) return "e-good";
+  if (e < 0.01) return "e-mid";
+  return "e-bad";
+}
+
+// ---- Run BLAST and populate hit table ----
+let HITS = [];
+// HITS is re-ordered IN PLACE by sortHits(), so HITS[0] means "the row at the
+// top right now", not "the best hit". Two things were reading it as the latter.
+// One click on the E-value header reverses the array, and then clicking the
+// WORST row ticked "Identified best-scoring hit" while clicking the best one
+// did not. These two are captured once, at search time, and never re-sorted.
+let BEST_ID = null, SECOND_ID = null;
+let SELECTED_HIT = null;
+const DB_TOTAL_LEN = DATABASE.reduce((s, d) => s + d.seq.length, 0);
+
+function runBlast() {
+  HITS = DATABASE.map(entry => {
+    const aln = findBlastHit(QUERY, entry.seq);
+    if (!aln) return null;
+    const e = eValue(aln.raw, QUERY.length, DB_TOTAL_LEN);   // raw score, not bits
+    return { ...entry, aln, e: e, raw: aln.raw, bits: aln.bits, ident: aln.ident, length: aln.length };
+  }).filter(h => h && h.raw > 0);
+  HITS.sort((a, b) => a.e - b.e);
+  BEST_ID   = HITS.length > 0 ? HITS[0].id : null;
+  SECOND_ID = HITS.length > 1 ? HITS[1].id : null;
+  renderHitTable();
+}
+
+// Columns do not all sort the same way on first click: a bigger score is
+// better, a smaller E-value is better. aria-sort has to say which one actually
+// happened, and a first version announced "ascending" for every column while
+// four of them sorted descending, which is worse than saying nothing.
+const FIRST_CLICK_DESC = { score: true, bits: true, ident: true, len: true,
+                           rank: false, e: false, id: false };
+let CURRENT_SORT = "e", SORT_DESC = false;
+function sortHits(key) {
+  if (key === CURRENT_SORT) { HITS.reverse(); SORT_DESC = !SORT_DESC; }
+  else {
+    CURRENT_SORT = key; SORT_DESC = !!FIRST_CLICK_DESC[key];
+    HITS.sort((a, b) => {
+      if (key === "rank" || key === "e") return a.e - b.e;
+      if (key === "score") return b.raw - a.raw;
+      if (key === "bits") return b.bits - a.bits;
+      if (key === "ident") return b.ident - a.ident;
+      if (key === "len") return b.length - a.length;
+      if (key === "id") return a.id.localeCompare(b.id);
+      return 0;
+    });
+  }
+  renderHitTable();
+}
+
+function renderHitTable() {
+  markSortState();
+  // The table is rebuilt wholesale on every sort and every selection, which
+  // destroys whatever the keyboard user was standing on. Remember it and put
+  // focus back, or the table is operable but unusable without a mouse.
+  const act = document.activeElement;
+  const restore = act && act.classList && act.classList.contains('hitbtn')
+    ? '.hitbtn[data-hit="' + act.dataset.hit + '"]' : null;
+  const tbody = document.getElementById("hit-table-body");
+  tbody.innerHTML = "";
+  HITS.forEach((h, i) => {
+    const tr = document.createElement("tr");
+    tr.className = "hit-row" + (h.e > 0.01 ? " below-sig" : "") + (SELECTED_HIT && SELECTED_HIT.id === h.id ? " selected" : "");
+    tr.dataset.id = h.id;
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>
+        <span class="pill species-${h.species}">${h.species}</span>
+        <button type="button" class="hitbtn" data-hit="${h.id}"
+          aria-pressed="${SELECTED_HIT && SELECTED_HIT.id === h.id ? "true" : "false"}"
+          >${h.id}<span class="sr-only">: inspect the alignment for ${h.name}</span></button>
+        <div class="species">${h.name}${h.e > 0.01 ? ' <span class="sigflag">below significance</span>' : ''}</div>
+      </td>
+      <td style="font-family: var(--mono);">${h.raw.toFixed(0)}</td>
+      <td style="font-family: var(--mono);">${h.bits.toFixed(1)}</td>
+      <td class="${eClass(h.e)}">${formatE(h.e)}</td>
+      <td>
+        <span class="pct-bar"><span class="fill" style="width: ${(h.ident*100).toFixed(0)}%;"></span></span>
+        <span style="font-family: var(--mono); font-size: 12px;">${(h.ident*100).toFixed(0)}%</span>
+      </td>
+      <td style="font-family: var(--mono);">${h.length} bp</td>
+    `;
+    tr.onclick = () => selectHit(h);                 // mouse convenience only
+    tr.querySelector(".hitbtn").onclick = (ev) => { ev.stopPropagation(); selectHit(h); };
+    tbody.appendChild(tr);
+  });
+  if (restore) {
+    const back = tbody.querySelector(restore);
+    if (back && back.focus) back.focus();
+  }
+}
+
+function selectHit(h) {
+  SELECTED_HIT = h;
+  renderHitTable();
+  const pane = document.getElementById("aln-pane");
+  pane.classList.add("active");
+  document.getElementById("aln-subject-name").textContent = h.id + " · " + h.name;
+  document.getElementById("aln-stats").innerHTML = `
+    <span>Raw score: <b>${h.raw.toFixed(0)}</b></span>
+    <span>Bit score: <b>${h.bits.toFixed(1)}</b></span>
+    <span>E-value: <b class="${eClass(h.e)}">${formatE(h.e)}</b></span>
+    <span>Identities: <b>${h.aln.matches}/${h.aln.length} (${(h.ident*100).toFixed(0)}%)</b></span>
+    <span>Query: <b>${h.aln.qStart+1}–${h.aln.qEnd}</b></span>
+    <span>Subject: <b>${h.aln.sStart+1}–${h.aln.sEnd}</b></span>
+  `;
+  renderSeqStrip(document.getElementById("aln-query"), h.aln.qSeg, {
+    matchMask: h.aln.matchMask,
+    seedRange: [h.aln.seedQ - h.aln.qStart, h.aln.seedQ - h.aln.qStart + K_SEED],
+  });
+  renderSeqStrip(document.getElementById("aln-subject"), h.aln.sSeg, {
+    matchMask: h.aln.matchMask,
+    seedRange: [h.aln.seedS - h.aln.sStart, h.aln.seedS - h.aln.sStart + K_SEED],
+  });
+
+  // Mark notebook items
+  markDone("nb-3");
+  if (BEST_ID && BEST_ID === h.id) {
+    markDone("nb-4");
+  }
+
+  // Show phase 2 nav
+  document.getElementById("phase2-nav").style.display = "flex";
+}
+
+// Header sort. The control is a real button inside the th, and the th carries
+// aria-sort, which is the standard accessible sortable-table pattern. Before
+// 2026-08-14 the th itself had an onclick and nothing else: unreachable by
+// keyboard, and a Level A failure (SC 2.1.1) on a page whose front door
+// promises every section is operable by keyboard alone.
+document.querySelectorAll("table.hits th .colsort").forEach(btn => {
+  btn.onclick = () => sortHits(btn.parentElement.dataset.sort);
+});
+function markSortState(){
+  document.querySelectorAll("table.hits th").forEach(th => {
+    if (th.dataset.sort === CURRENT_SORT) th.setAttribute("aria-sort", SORT_DESC ? "descending" : "ascending");
+    else th.removeAttribute("aria-sort");
+  });
+}
+
+// ---- Phase navigation ----
+document.getElementById("phase1-next").onclick = () => {
+  document.getElementById("phase1").style.display = "none";
+  document.getElementById("phase2").style.display = "block";
+  markDone("nb-1");
+  scrollTo_("phase2");
+};
+
+// The prediction. Recorded, never required: the never-block convention means a
+// student who ignores this reaches the end of the section exactly as easily.
+var PREDICTION = null, PREDICTION_LABEL = null;
+document.querySelectorAll("#predict-opts .pred").forEach(function(btn){
+  btn.onclick = function(){
+    document.querySelectorAll("#predict-opts .pred").forEach(function(b){
+      b.setAttribute("aria-pressed", String(b === btn));
+    });
+    PREDICTION = btn.dataset.pred;
+    PREDICTION_LABEL = btn.textContent.trim();
+    document.getElementById("predict-note").textContent =
+      "Recorded: " + btn.textContent.trim() + ". The search will tell you whether that holds.";
+    noteExport("Predicted second-best hit: " + btn.textContent.trim());
+  };
+});
+
+// Called once the hit table exists. Says whether the prediction held, without
+// scoring it: being wrong here is the useful outcome, not a penalty.
+function reportPrediction(){
+  var note = document.getElementById("predict-note");
+  if (!PREDICTION || !note) return;
+  if (!SECOND_ID) return;
+  var right = SECOND_ID === PREDICTION;
+  // Report the names the student is looking at, not the internal ids. The first
+  // version said "You predicted Dm_eiger, but Mm_Tnf came second", which is the
+  // database talking to itself.
+  var actual = (HITS.filter(function(h){ return h.id === SECOND_ID; })[0] || {}).name || SECOND_ID;
+  note.textContent = right
+    ? "You predicted " + PREDICTION_LABEL + " for second place, and that is what came second."
+    : "You predicted " + PREDICTION_LABEL + ", but " + actual + " came second. Worth finding out why: "
+      + "compare the two rows in the table, and look at the alignment length as well as the identity.";
+  note.style.color = right ? "var(--good)" : "var(--ink-warn)";
+}
+
+document.getElementById("run-blast").onclick = () => {
+  document.getElementById("blast-status").textContent = "Searching ...";
+  setTimeout(() => {
+    runBlast();
+    document.getElementById("hit-table-wrap").style.display = "block";
+    document.getElementById("blast-status").textContent = `${HITS.length} hits returned · ${HITS.filter(h => h.e < 0.01).length} significant at E < 0.01`;
+    reportPrediction();
+    markDone("nb-2");
+  }, 350); // small delay to feel like work happened
+};
+
+document.getElementById("phase2-next").onclick = () => {
+  document.getElementById("phase3").style.display = "block";
+  scrollTo_("phase3");
+};
+
+// Scrolling is a convenience, never a requirement. jsdom has no
+// scrollIntoView, and the delivery gate is zero console errors.
+function scrollTo_(id){
+  var el = document.getElementById(id);
+  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ---- Quiz ----
+// Set of question elements answered correctly. Held in JS so completion does not
+// depend on reading colours back out of the DOM.
+const quizCorrect = new Set();
+document.querySelectorAll(".quiz-q").forEach(q => {
+  const correct = q.dataset.correct;
+  q.querySelectorAll(".quiz-opt").forEach(btn => {
+    btn.onclick = () => {
+      const fb = q.querySelector(".quiz-feedback");
+      if (btn.dataset.opt === correct) {
+        btn.style.background = "var(--good)";
+        btn.style.color = "#0c1014";
+        fb.textContent = "✓ " + (q.dataset.why || "Correct.");
+        fb.style.color = "var(--good)";
+      } else {
+        // This button was white on --bad at opacity 0.6, which is 2.40:1.
+        // axe catches that perfectly well: checked against a scratch page, it
+        // reports 2.38 as a violation. The reason it went unreported here is
+        // duller and worse. The button is only red once somebody clicks a wrong
+        // answer, Section 2 had no entry in the audit's exercise map, and so
+        // nothing ever clicked one. The state existed only for students.
+        btn.style.background = "var(--bad)";
+        btn.style.color = "#0c1014";
+        fb.textContent = q.dataset.whyWrong || "Not quite. Try another.";
+        fb.style.color = "var(--bad)";
+      }
+      // Completion is tracked in JS state, not by reading back computed colours.
+      // The old version compared style.background against "var(--good)" and an
+      // "rgb(86" prefix, which browsers serialise inconsistently, so the fifth
+      // milestone could fail to tick even when all three answers were right
+      // (flagged in _section2_design_notes_2026-05-21.md).
+      if (btn.dataset.opt === correct) quizCorrect.add(q);
+      if (quizCorrect.size === document.querySelectorAll(".quiz-q").length) {
+        markDone("nb-5");
+      }
+    };
+  });
+});
+
+var nbLog=[];
+// The checklist is ticked by adding .done in five places. markDone() wraps that
+// so the export can say WHEN each step was reached, and so a step cannot be
+// double-logged if the triggering interaction repeats.
+function markDone(id){
+  var el=document.getElementById(id);
+  if(!el || el.classList.contains('done')) return;
+  el.classList.add('done');
+  noteExport(el.textContent.trim());
+  updateProgress();
+}
+
+// Progress cue plus the end-of-section panel. The panel appears when every step
+// is ticked; it never gates anything, in line with the never-block convention.
+function updateProgress(){
+  var items = document.querySelectorAll('#notebook-list li');
+  var done = document.querySelectorAll('#notebook-list li.done').length;
+  var cue = document.getElementById('progress-cue');
+  if (cue) cue.textContent = done + ' of ' + items.length + ' steps done';
+  if (done === items.length && items.length > 0) {
+    var panel = document.getElementById('section-done');
+    if (panel && !panel.classList.contains('show')) {
+      panel.classList.add('show');
+      if (panel.scrollIntoView) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+}
+
+// =========================================================
+//  Notebook export, added 2026-08-13 (pattern from Section 1)
+//  Replaces "take a screenshot of your lab notebook". A screenshot is awkward to
+//  file, easy to fake, and caps the record at one screenful. This hands back a
+//  work product instead, and nothing is transmitted anywhere.
+// =========================================================
+
+
+function buildNotebookText(){
+  var now=new Date(), L=[];
+  L.push('Molecular Techniques: Interactive Bioinformatics Module');
+  L.push('Section 2: BLAST-style search across TNF orthologs');
+  L.push('');
+  L.push('Student: ______________________________');
+  L.push('Downloaded: '+now.toLocaleDateString()+', '+now.toLocaleTimeString());
+  if(nbLog.length>0){
+    var f=nbLog[0], l=nbLog[nbLog.length-1];
+    var mins=Math.max(1,Math.round((l.at-f.at)/60000));
+    L.push('Time working: about '+mins+' min (first entry '+f.ts+', last entry '+l.ts+')');
+  }
+  L.push('Entries: '+nbLog.length);
+  L.push('');
+  L.push('----------------------------------------------------------------');
+  if(nbLog.length===0){ L.push('(no entries yet)'); }
+  else { nbLog.forEach(function(e){ L.push(e.ts+'  '+e.text); }); }
+  L.push('----------------------------------------------------------------');
+  L.push('');
+  L.push('');
+  L.push('Written by the module in your browser. Nothing was sent anywhere.');
+  return L.join('\n');
+}
+function downloadNotebook(){
+  var d=new Date();
+  var stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  var blob=new Blob([buildNotebookText()],{type:'text/plain;charset=utf-8'});
+  var url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download='section2_lab_notebook_'+stamp+'.txt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},0);
+}
+function noteExport(text){
+  var d=new Date();
+  nbLog.push({ts:d.toLocaleTimeString(), text:text, at:d});
+  var b=document.getElementById('download-notebook');
+  if(b) b.disabled=false;
+}
+function wireNotebookDownload(){
+  var b=document.getElementById('download-notebook');
+  if(b) b.addEventListener('click',downloadNotebook);
+}
+
+wireNotebookDownload();
+
+// The completion panel used to be reachable while the debrief was still hidden,
+// because nb-5 ticked on the third correct quiz answer and updateProgress()
+// immediately showed "You have finished Section 2" and scrolled to it. The
+// student was told the section was over, and yanked down the page, BEFORE
+// being shown what the result meant. nb-6 exists so the panel cannot precede
+// the explanation: this is the last step, and only this button ticks it.
+document.getElementById("finish").onclick = () => {
+  document.getElementById("debrief").style.display = "block";
+  markDone("nb-6");
+  scrollTo_("debrief");
+};
+
+</script>
+</body>
+</html>

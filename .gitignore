@@ -1,0 +1,7 @@
+# This repository is the built module and nothing else. The prototypes, the
+# test suite and the design notes live outside it, deliberately: this repo is
+# intended to become public, and a repository's history cannot be un-published.
+.DS_Store
+Thumbs.db
+node_modules/
+*.log

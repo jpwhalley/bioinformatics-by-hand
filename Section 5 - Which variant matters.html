@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Section 5: Which Variant Matters</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#1a2332; --panel-2:#243042;
+    --text:#e6edf3; --text-dim:#8f98a1; --accent:#58a6ff;
+    --good:#56d364; --bad:#f96760; --warn:#d29922; --gap:#9097a0;
+    --border:#30363d; --border-ctrl:#6c7989;
+    --mono:'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    line-height:1.55;padding:26px 20px 120px}
+  .wrap{max-width:1040px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 5px;font-weight:600}
+  h2{font-size:16px;margin:28px 0 8px;color:var(--accent)}
+  h4{font-size:13px;margin:0 0 6px;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
+  .breadcrumb{color:var(--text-dim);font-size:12px;margin-bottom:8px}
+  .breadcrumb b{color:var(--accent)}
+  .breadcrumb a{color:var(--text-dim);text-decoration:underline;text-underline-offset:2px}
+  .breadcrumb a:hover{color:var(--accent)}
+  .sub{color:var(--text-dim);font-size:14px;margin:0 0 6px}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:16px 18px;margin:14px 0}
+  .prompt{background:var(--panel);border-left:3px solid var(--accent);
+    padding:14px 18px;border-radius:4px;margin:16px 0;font-size:15px}
+  .prompt b{color:var(--accent)}
+  small{color:var(--text-dim)}
+  code{background:var(--panel-2);padding:1px 5px;border-radius:4px;
+    font-family:var(--mono);font-size:.86em}
+
+  button{background:var(--panel-2);color:var(--text);border:1px solid var(--border-ctrl);
+    padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit}
+  button:hover:not(:disabled){background:#2d3748;border-color:var(--accent)}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:3px}
+  button:focus-visible,summary:focus-visible,input:focus-visible,
+  [tabindex]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+  /* Filters. Each one is a hypothesis about what you are looking for, so each
+     carries its rationale and, more importantly, what it might throw away. */
+  .filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-top:12px}
+  .filt{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:11px 13px;
+    border-left:3px solid var(--border-ctrl)}
+  .filt.on{border-left-color:var(--accent)}
+  .filt .fhead{display:flex;align-items:center;gap:9px}
+  .filt input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex:0 0 auto}
+  .filt label{font-size:13.5px;font-weight:600;cursor:pointer}
+  .filt .why{font-size:11.5px;color:var(--text-dim);margin-top:6px;line-height:1.5}
+  .filt .cost{font-size:11.5px;color:var(--warn);margin-top:5px;line-height:1.5}
+  .filt .n{font-size:11px;color:var(--text-dim);margin-top:6px;font-family:var(--mono)}
+
+  .tiles{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0 4px}
+  .tile{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:10px 14px;min-width:140px}
+  .tile .k{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em}
+  .tile .v{font-size:23px;font-weight:600;margin-top:2px}
+  .tile.hero .v{color:var(--accent)}
+
+  .tvscroll{overflow-x:auto;margin-top:10px}
+  table.vt{width:100%;min-width:760px;border-collapse:collapse;font-size:12.5px}
+  table.vt th,table.vt td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--border);
+    vertical-align:top}
+  table.vt th{color:var(--text-dim);font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+  table.vt td.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  table.vt tr.out td{color:var(--text-dim)}
+  table.vt td.why{font-size:11.5px;max-width:250px}
+  table.vt tr:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+  .kept{color:var(--good);font-weight:600}
+  .cut{color:var(--warn)}
+
+  .readout{margin-top:12px;padding:12px 15px;border-radius:6px;background:var(--panel-2);
+    border-left:3px solid var(--accent);font-size:13.5px;line-height:1.6}
+  .readout.alarm{border-left-color:var(--warn)}
+  .readout b{color:var(--text)}
+
+  .sum{background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:13px 16px;
+    font-family:var(--mono);font-size:13px;line-height:1.9;margin-top:10px;overflow-x:auto}
+  .sum .hl{color:var(--accent)}
+  .sum .em{color:var(--warn)}
+
+  details{margin:8px 0;border:1px solid var(--border);border-radius:8px;background:var(--panel-2)}
+  details>summary{cursor:pointer;padding:9px 12px;color:var(--accent);font-size:13px;list-style:none}
+  details>summary::-webkit-details-marker{display:none}
+  details>summary::before{content:'▸ ';color:var(--text-dim)}
+  details[open]>summary::before{content:'▾ '}
+  details .body{padding:2px 14px 12px;font-size:13px;color:var(--text-dim)}
+  details .body p{margin:0 0 8px}
+  details .body p:last-child{margin-bottom:0}
+  details .body b{color:var(--text)}
+
+  .nb{max-width:1040px;margin:18px auto 0;background:var(--panel);
+    border:1px solid var(--border);border-radius:10px;padding:13px 16px}
+  .nb-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .nb h3{margin:0;font-size:14px;color:var(--accent)}
+  .nb-dl{font-size:12px;padding:6px 11px}
+  .nb-dl-hint{font-size:11px;color:var(--text-dim);margin:4px 0 0}
+  .progress-cue{font-size:12px;color:var(--text-dim);margin:8px 0 0}
+  .nb ul{list-style:none;margin:8px 0 0;padding:0;max-height:190px;overflow:auto}
+  .nb li{font-size:12px;color:var(--text-dim);padding:3px 0;border-bottom:1px solid var(--border);
+    font-family:var(--mono)}
+  .nb li.empty{color:var(--text-dim);font-style:italic;font-family:inherit}
+
+  .section-done{background:var(--panel);border:1px solid var(--accent);border-radius:8px;
+    padding:18px 22px;margin-top:22px;display:none}
+  .section-done.show{display:block}
+  .section-done h3{color:var(--accent);font-size:16px;margin:0 0 8px}
+  .section-done p{margin:0 0 10px;font-size:14px;line-height:1.6}
+  .section-done p:last-child{margin-bottom:0}
+  .section-done .nb-aside{color:var(--text-dim);font-size:12px}
+
+  .sectnav{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;
+    margin:26px 0 0;padding-top:18px;border-top:1px solid var(--border)}
+  .sectnav a{flex:1 1 220px;display:block;text-decoration:none;color:inherit;
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    padding:11px 14px;font-size:13px}
+  .sectnav a:hover{border-color:var(--accent);background:var(--panel-2)}
+  .sectnav a .k{display:block;font-size:11px;color:var(--text-dim);
+    text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+  .sectnav a .t{font-weight:600}
+  .sectnav a:hover .t{text-decoration:underline}
+  .sectnav a.home{flex:0 1 auto;text-align:center;display:flex;align-items:center;
+    justify-content:center;color:var(--text-dim)}
+  .sectnav a.home:hover{color:var(--accent)}
+
+  .footer-note{margin-top:28px;padding-top:14px;border-top:1px solid var(--border);
+    font-size:11px;color:var(--text-dim);text-align:center}
+
+  @media (max-width:700px){
+    body{padding:14px 10px 90px}
+    h1{font-size:18px}
+    .tile{min-width:44%}
+    .filters{grid-template-columns:1fr}
+    .sectnav a{flex:1 1 100%}
+  }
+  /* The course spine, added 2026-08-17. Justin: "we are building up from the
+     simplest thing a bioinformatician can do - match a set of letters to
+     another... bioinformatics is matching a sets of letters to another,
+     usually at scale and interpreting those results!"
+     Every section states its own match in the same place, in the same words,
+     so the argument is visible from inside any one of them. */
+  .spinebar{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;
+    margin:14px 0 6px;padding:10px 14px;border-radius:6px;
+    background:var(--panel-2);border-left:3px solid var(--good);font-size:13.5px}
+  .spinebar .k{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;
+    letter-spacing:.07em;white-space:nowrap}
+  .spinebar .v{color:var(--text)}
+  /* File names and CIGAR strings are single unbreakable tokens, and one of them
+     pushed the page 39px wide at 320 CSS px. SC 1.4.10. (2026-08-17 audit.) */
+  code{overflow-wrap:anywhere;word-break:break-word}
+  .fine{font-size:10px;color:var(--text-dim);font-weight:400}
+  .decide{margin:16px 0 0;border:1px solid var(--border-ctrl);border-radius:8px;
+          padding:10px 14px 14px;background:var(--panel-2)}
+  .decide legend{font-size:13px;font-weight:600;padding:0 6px}
+  .decide-opts{display:flex;flex-wrap:wrap;gap:8px}
+  .decide-fb{margin-top:10px;font-size:13px;line-height:1.6;color:var(--text-dim)}
+  .tie-q{font-size:14px;margin:4px 0 10px}
+  .tdec[aria-pressed="true"],.edec[aria-pressed="true"]{border-color:var(--accent);
+          box-shadow:inset 0 0 0 2px var(--accent)}
+  /* SC 2.1.1: without wrapping, the mono text made this list a horizontally
+     scrollable region with no focusable child at 320px, which axe correctly
+     flagged as unreachable by keyboard. Wrapping is the right fix here: a
+     checklist has no reason to scroll. */
+  .milestones{list-style:none;margin:4px 0 10px;padding:0;font-size:11px;line-height:1.6;
+              color:var(--text-dim);font-family:var(--mono);
+              overflow-wrap:anywhere;word-break:break-word}
+  .milestones li{margin-bottom:2px}
+  /* The milestone list lives inside .nb, and `.nb ul` caps its height and turns
+     on overflow for the notebook log. That made the milestone list a scrollable
+     region with no keyboard access at 320px as soon as it grew past the cap:
+     axe caught it in Section 8 on 2026-08-19 at seven milestones. `.nb ul` has
+     higher specificity than `.milestones`, so undoing it needs both classes. */
+  .nb ul.milestones{max-height:none;overflow:visible}
+  .milestones li.got{color:var(--good)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 5 of 8</b> · Which variant matters</div>
+  <h1>Which variant matters</h1>
+  <p class="sub">Section 4 left you with variants supported by the reads. Genome-wide, a typical human
+  genome differs from the reference at roughly <b>four to five million sites</b>. Most of those
+  differences are genuine, and almost none of them are relevant to the question being asked.</p>
+  <p class="sub">Your task is not to find the most dramatic annotation. It is to decide which variants
+  remain plausible <b>under a stated disease model</b>.</p>
+  <p class="sub"><small>Simulated variants and simulated annotations. The arithmetic below is real and
+  the thresholds are the ones people use, but the numbers in the table were written for this
+  exercise.</small></p>
+
+  <div class="prompt">
+    The pipeline is finished, and it was never the hard part. You now have to get from five million
+    true statements to the one or two worth acting on, and every step you take to do that is
+    <b>a hypothesis about what you are looking for</b>. Choose the wrong hypothesis and you will
+    filter away the answer without ever seeing it.
+  </div>
+
+  <div class="panel">
+    <h4>The case</h4>
+    <p style="font-size:14px;margin:0 0 8px">A child has a rare condition affecting roughly
+    <b>1 in 50,000</b> people. Both parents are unaffected, and all twelve candidates below are
+    heterozygous in the child.</p>
+    <p style="font-size:14px;margin:0 0 8px"><b>For this exercise the working model is a highly
+    penetrant autosomal dominant condition, often caused by a new variant.</b> Everything that follows
+    depends on that model, so treat it as a hypothesis rather than a fact: unaffected parents are
+    equally compatible with a recessive condition, and the numbers would then come out differently.</p>
+    <p style="font-size:14px;margin:0">Quality filtering has already been done, and it removed almost
+    nothing, exactly as you saw. What follows are <b>12 variants</b> a first pass flagged for a human
+    look. The referring clinician has also supplied a short list of genes they consider consistent with
+    the child's presentation, which is where the last filter's opinion comes from: you are not being
+    asked to judge the phenotype match yourself.</p>
+  </div>
+
+  <div class="spinebar"><span class="k">The match in this section</span><span class="v">Each variant against population data, predicted molecular consequence, the patient’s phenotype and the family’s genotypes.</span></div>
+  <h2>Twelve candidates</h2>
+  <p class="sub">Switch filters on and off. Each states what it assumes and what it might cost you,
+  because a filter described only by what it keeps is hiding half of its behaviour.</p>
+
+  <div class="filters" id="filters"></div>
+
+  <div class="panel">
+    <div class="tiles">
+      <div class="tile hero"><div class="k">Still standing</div><div class="v" id="t-kept">12</div></div>
+      <div class="tile"><div class="k">Ruled out</div><div class="v" id="t-cut">0</div></div>
+      <div class="tile"><div class="k">Filters applied</div><div class="v" id="t-filt">0</div></div>
+    </div>
+
+    <!-- SC 2.1.1 + 1.4.10. The table is 760px inside a 262px box at a 320px
+         viewport, so it scrolls, and it had no focusable child: no keyboard
+         could move it. It also gave every one of the twelve rows tabindex="0",
+         which is twelve tab stops on non-interactive content, half the tab
+         stops on the page. The wrapper is the focus target now, and the rows
+         are not. -->
+    <div class="tvscroll" tabindex="0" role="group"
+         aria-label="Twelve candidate variants. Scrolls sideways on a narrow screen.">
+      <table class="vt">
+        <thead><tr>
+          <th scope="col">Variant</th><th scope="col">Gene</th><th scope="col">Consequence</th>
+          <th scope="col">Frequency</th><th scope="col">Conserved</th><th scope="col">In-silico prediction<br><span class="fine">(simulated)</span></th>
+          <th scope="col">In parents</th><th scope="col">Status</th>
+        </tr></thead>
+        <tbody id="vt-rows"></tbody>
+      </table>
+    </div>
+
+    <div class="readout" id="readout" role="status" aria-live="polite"></div>
+  </div>
+
+  <h2>The strongest exclusion in this model</h2>
+  <div class="panel">
+    <p style="font-size:14px;margin:0 0 10px">Every other filter rests on a prediction, an annotation
+    or an assumption about the biology. This one rests on arithmetic, and it is worth doing by hand
+    once so you know why it is the first thing anyone reaches for. It is not certainty: it inherits
+    the disease model, and if the model is wrong so is the bound.</p>
+
+    <div class="sum" id="sum-block">
+      <div>the condition affects                 <span class="hl">1 in 50,000</span> people</div>
+      <div>the model says affected people are heterozygous, so they occur at about 2q</div>
+      <div>so 2q &lt;= 1/50,000, giving q &lt;= <span class="hl">1 in 100,000</span>, or 0.001%</div>
+      <div style="margin-top:10px">FBN1 has an <span class="em">allele frequency of 2.1%</span></div>
+      <div>which is about <span class="em">2,100 times</span> that upper bound</div>
+    </div>
+    <p style="font-size:14px;margin:12px 0 0"><b>Watch the units, because this is where the mistake
+    usually happens.</b> 2.1% is an <i>allele</i> frequency, not a proportion of people. The proportion
+    carrying at least one copy is 1 − (1 − 0.021)², which is <b>4.16%</b>, or about <b>1 person in
+    24</b>. Reading 2.1% as "1 in 50 people" conflates the two, and the error runs in both directions:
+    the recessive note below is where it usually runs the other way.</p>
+    <p style="font-size:14px;margin:12px 0 0"><b>Notice the direction of the evidence.</b> Being common
+    can rule a variant out under this model. Being rare cannot rule one in: almost every variant in the
+    genome is rare, and so is almost every variant that explains nothing.</p>
+
+    <p style="font-size:14px;margin:12px 0 0">That argument needs no tool, no prediction and no
+    assumption about the gene. It is counting. It is also why a <b>frameshift is not automatically
+    interesting</b>: severity tells you what a variant does to a protein, and frequency tells you
+    whether it could possibly be causing a rare disease. Only one of those is evidence about your
+    patient.</p>
+    <p style="font-size:14px;margin:12px 0 0">Notice what the five filters are asking.
+    <b>Some evidence asks whether a variant could disrupt biology at all</b>: the predicted
+    consequence, the conservation of the position, the in-silico prediction.
+    <b>Other evidence asks whether that disruption is compatible with this disease model and this
+    family</b>: the population frequency, and which parent carries it. The gene list sits across both,
+    because it is a comparison between the gene and the child's presentation rather than a property of
+    the variant.
+    <br><br>
+    You need both kinds, and <b>no single annotation is a verdict</b>. Real frameworks such as
+    ACMG/AMP combine population data, predicted consequence, phenotype fit, de novo occurrence,
+    segregation and functional work, weighting each as evidence rather than sorting them into two
+    boxes. The reason FBN1 is about to catch you is not that its annotations are a lesser kind of
+    evidence. It is that they are all true and none of them is about this child.</p>
+
+    <details>
+      <summary>Go deeper: where this argument stops working</summary>
+      <div class="body">
+        <p><b>Recessive conditions.</b> If two copies are needed, carriers are unaffected and the
+        allele can be far more common than the disease. For a recessive condition at 1 in 50,000,
+        q = &radic;(1/50,000) = <b>0.447%</b>, and the carrier frequency 2q(1&minus;q) is
+        <b>0.890%</b>, which is about 1 person in 112.
+        <br><br>
+        Those two numbers are easy to swap, and swapping them is the same unit error as reading 2.1%
+        as "1 in 50 people". <b>0.890% is the carrier frequency, not an allele frequency.</b> A single
+        causal allele could sit at up to about <b>0.447%</b> under this deliberately simplified
+        one-allele model, and usually a good deal lower, because most recessive conditions are caused
+        by many different alleles sharing that budget between them.</p>
+        <p><b>Late onset and incomplete penetrance.</b> If only a fraction of carriers ever develop
+        the condition, the allele is correspondingly more common than the disease. In adult-onset
+        disease this is the rule rather than the exception.</p>
+        <p><b>Population matters.</b> A variant rare globally can be common in one population, and
+        frequency databases are still unevenly sampled. A variant absent from a database may be
+        genuinely rare, or may come from a population nobody has sequenced enough of.</p>
+        <p><b>All four of those move the same number.</b> The bound you can defend depends on the
+        inheritance model, the penetrance, the prevalence and how many different alleles cause the
+        condition, and there is a published way of doing it properly rather than by the back of an
+        envelope: Whiffin and colleagues set out the maximum credible population allele frequency in
+        exactly these terms. The envelope calculation above is the right instinct. It is not the
+        finished argument.</p>
+      </div>
+    </details>
+  </div>
+
+  <h2>What survived, and what that is worth</h2>
+  <div class="panel" id="survivor-panel">
+    <div class="readout" id="final-readout" role="status" aria-live="polite">
+      Apply some filters above and this will tell you what is left.
+    </div>
+
+    <fieldset class="decide" id="tie" style="display:none">
+      <legend>The last question, and the one that matters</legend>
+      <p class="tie-q" id="tie-q">Two candidates are left. <b>Can this table tell you which one
+      explains the child's condition?</b></p>
+      <div class="decide-opts" id="tie-opts" role="group" aria-label="Can the table decide?">
+        <button type="button" class="btn tdec" data-tie="splice" aria-pressed="false">Yes: the splice variant is more damaging</button>
+        <button type="button" class="btn tdec" data-tie="rarer" aria-pressed="false">Yes: the rarer one is more likely</button>
+        <button type="button" class="btn tdec" data-tie="no" aria-pressed="false">No: nothing here distinguishes them</button>
+      </div>
+      <div class="decide-fb" id="tie-fb" role="status" aria-live="polite">Pick one.</div>
+
+      <div id="tie-next" style="display:none;margin-top:14px">
+        <p class="tie-q"><b>So what would?</b> Choose everything you think could separate these two.
+        There is no single right answer; the point is that none of it is in the file.</p>
+        <div class="decide-opts" id="eviopts" role="group" aria-label="What evidence would distinguish them">
+          <button type="button" class="btn edec" data-evi="hpo" aria-pressed="false">A more specific phenotype, as HPO terms</button>
+          <button type="button" class="btn edec" data-evi="clinvar" aria-pressed="false">Variant-level clinical evidence for this exact change</button>
+          <button type="button" class="btn edec" data-evi="denovo" aria-pressed="false">Confirming the de novo event by testing the parents</button>
+          <button type="button" class="btn edec" data-evi="mosaic" aria-pressed="false">Testing a parent for mosaicism</button>
+          <button type="button" class="btn edec" data-evi="family" aria-pressed="false">Sequencing more relatives</button>
+          <button type="button" class="btn edec" data-evi="transcript" aria-pressed="false">Transcript evidence: is the affected exon even expressed?</button>
+          <button type="button" class="btn edec" data-evi="function" aria-pressed="false">A functional experiment on the protein</button>
+        </div>
+        <div class="decide-fb" id="evi-fb" role="status" aria-live="polite">Choose at least two.</div>
+      </div>
+    </fieldset>
+    <details>
+      <summary>Go deeper: the filter that is most dangerous</summary>
+      <div class="body">
+        <p><b>"Is this gene already linked to the phenotype?"</b> is the most powerful filter on the
+        list and the one most likely to mislead you, because it can only ever return genes somebody
+        has already found. Apply it and you will never discover a new disease gene: the answer is
+        guaranteed in advance to be something already known.</p>
+        <p>That is often the right trade. A clinical laboratory wants an answer today and is not
+        trying to discover anything. But it should be a choice you made rather than a default you
+        inherited, and the honest way to write it up is to say the analysis was restricted to known
+        genes.</p>
+      </div>
+    </details>
+  </div>
+
+  <h2>Two other places this reasoning goes</h2>
+  <div class="panel">
+    <details>
+      <summary>Cancer: drivers and passengers</summary>
+      <div class="body">
+        <p>The comparison changes completely. You are no longer asking how a variant compares with the
+        population, you are comparing <b>the tumour against the patient's own normal tissue</b>, so
+        most of what they inherited subtracts out and what remains arose in the tumour. It is a large
+        improvement, not a clean cancellation: tumour cells in the "normal" sample, and mosaic changes
+        present in only some tissue, both put variants on the wrong side of the subtraction, and there
+        are tools whose whole job is estimating how badly the normal is contaminated.</p>
+        <p>A tumour typically carries thousands of such changes, and almost all are
+        <b>passengers</b>: real mutations that came along for the ride and do nothing. A handful are
+        <b>drivers</b>. Population frequency has little to say about a change that arose in this
+        tumour this year, so the evidence becomes different: is
+        this gene hit far more often across many tumours than chance predicts, and is the pattern of
+        damage the kind that would knock out a tumour suppressor or switch on an oncogene?</p>
+        <p>The lesson transfers exactly. The filter you choose is a hypothesis about the mechanism,
+        and it decides what you are able to find.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Common disease: risk instead of cause</summary>
+      <div class="body">
+        <p>Everything above assumed one variant causing one condition. Most disease is not like that.
+        A genome-wide association study compares hundreds of thousands of people and finds variants
+        <b>slightly more common</b> in those with a condition. The effects are usually tiny: a few
+        percent of extra risk, across a population.</p>
+        <p><b>The associated marker is not necessarily causal.</b> Most association signals are
+        carried by a marker that is merely inherited alongside the real culprit, because nearby
+        variants travel together, so a hit usually tags a <i>region</i> rather than naming a variant.
+        Most of those regions are not in genes at all: they sit in regulatory sequence, and the honest
+        position after finding one is that you do not yet know which variant matters, which gene it
+        acts on, or how. <b>That question is what Section 6 is about.</b></p>
+        <p>Add many small effects together and you get a <b>polygenic risk score</b>. It is a useful
+        number about a population and a much weaker one about a person, and it inherits every bias in
+        who was sequenced to build it. A score trained mostly on European-ancestry genomes predicts
+        poorly elsewhere, and it is worth being precise about why, because "just collect more data" is
+        only part of it. The training sets are unbalanced, which is a data problem. But allele
+        frequencies differ between populations, so a marker that is common enough to measure in one
+        may be rare in another; and which variants travel together differs too, so a marker that tags
+        the causal variant in one population may not tag it in another. The last two are properties of
+        the populations, not of the sample size.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="nb" id="nb">
+    <div class="nb-head">
+      <h3>🗒 Lab notebook</h3>
+      <button type="button" id="download-notebook" class="nb-dl" disabled
+              aria-describedby="nb-dl-hint">⤓ Download notebook</button>
+    </div>
+    <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 4 steps done</p>
+    <ul class="milestones" id="milestone-list5" aria-label="Steps in this section"></ul>
+    <div role="log" aria-live="polite" aria-label="Lab notebook entries">
+      <ul id="nbList" tabindex="0"><li class="empty">Your observations will appear here.</li></ul>
+    </div>
+  </div>
+
+  <div class="section-done" id="section-done" role="status" aria-live="polite">
+    <h3>✓ You have finished Section 5.</h3>
+    <p>You reduced a toy shortlist by making a disease model explicit. The filters each rested on
+    something different, and each answered a different question: predicted consequence and
+    conservation ask whether a variant could disrupt biology, population frequency and the parents'
+    genotypes ask whether that disruption fits this model and this family, and the gene list compares
+    the gene with the child. You need all of it, and none of it is a verdict on its own.</p>
+    <p>Two candidates remain, and they remain because <b>the evidence shown cannot distinguish
+    them</b>. That is not a failure of the exercise. Filtering has produced a question worth
+    investigating, not a diagnosis, and the things that would settle it are the things nobody
+    collected: a sharper phenotype, evidence about these exact changes in other patients, a confirmed
+    de novo event, transcript or functional data.</p>
+    <p>Two habits worth taking with you. <b>Being common can rule a variant out under a stated model;
+    being rare cannot rule one in.</b> And the model itself is a hypothesis: change it from dominant
+    to recessive and the bound moves by more than a hundredfold, along with everything you concluded
+    from it.</p>
+    <p class="nb-aside">Your lab notebook is a record of what you did in this section, kept for your
+    own reference. Download it if you want to keep it.</p>
+  </div>
+
+<nav class="sectnav" aria-label="Section navigation">
+  <a class="nav-prev" href="Section%204%20-%20Running%20a%20sequencing%20pipeline.html"><span class="k">Previous</span><span class="t">4. Running a sequencing pipeline</span></a>
+  <a class="home" href="index.html">All sections</a>
+  <a class="nav-next" href="Section%206%20-%20Functional%20genomics%20and%20quality%20control.html"><span class="k">Next</span><span class="t">6. Functional genomics and quality control</span></a>
+</nav>
+
+  <p class="footer-note">Prototype · Section 5 of the Molecular Techniques Interactive Bioinformatics
+  Module · 2026/27 cycle · simulated variants, real thresholds</p>
+</div>
+
+<script>
+"use strict";
+
+var nbLog = [];
+var tried = {};          // filters switched on at least once
+var sawTrap = false;     // has the common frameshift been ruled out on frequency
+
+/* ------------------------------------------------------------------ *
+ * The candidates. Hand-built rather than simulated, because each has
+ * to carry a specific piece of reasoning. Frequencies are on the scale
+ * population databases report; the gene symbols are real genes used
+ * illustratively and the variants themselves are invented.
+ *
+ * The trap is FBN1: a frameshift, predicted damaging, at a conserved
+ * position, in a gene that fits the phenotype, and carried by about one
+ * person in fifty. EVERY annotation filter keeps it, because every
+ * annotation is a true statement about the variant. It is removed only
+ * by the two filters that compare it with something outside itself:
+ * the population, and the parents. That is the distinction the section
+ * is built on, and it is why the trap cannot be made "frequency only"
+ * without inventing a 2% variant that is somehow also de novo.
+ * ------------------------------------------------------------------ */
+var VARIANTS = [
+  { id:'chr2:178.6M G>A',  gene:'TTN',   csq:'synonymous',  maf:0.31,     cons:'no',  pred:'benign',
+    inh:'both' },
+  { id:'chr15:48.4M C>T',  gene:'FBN1',  csq:'frameshift',  maf:0.021,    cons:'yes', pred:'damaging',
+    inh:'mother' },
+  { id:'chr7:117.5M G>C',  gene:'CFTR',  csq:'missense',    maf:0.0004,   cons:'yes', pred:'damaging',
+    inh:'father' },
+  { id:'chr11:5.2M T>A',   gene:'HBB',   csq:'intronic',    maf:0.0009,   cons:'no',  pred:'unknown',
+    inh:'neither' },
+  { id:'chr17:43.1M del',  gene:'BRCA1', csq:'stop gained', maf:0.000004, cons:'yes', pred:'damaging',
+    inh:'neither' },
+  { id:'chr6:31.6M A>G',   gene:'TNF',   csq:'missense',    maf:0.084,    cons:'no',  pred:'benign',
+    inh:'both' },
+  { id:'chr12:52.0M G>T',  gene:'SCN8A', csq:'splice donor',maf:0.000002, cons:'yes', pred:'damaging',
+    inh:'neither' },
+  { id:'chr1:155.2M C>G',  gene:'GBA',   csq:'missense',    maf:0.0038,   cons:'yes', pred:'damaging',
+    inh:'mother' },
+  { id:'chr19:11.1M T>C',  gene:'LDLR',  csq:'missense',    maf:0.000001, cons:'no',  pred:'benign',
+    inh:'neither' },
+  { id:'chr3:38.6M C>T',   gene:'SCN5A', csq:'missense',    maf:0.000003, cons:'yes', pred:'damaging',
+    inh:'neither' },
+  { id:'chrX:31.2M G>A',   gene:'DMD',   csq:'synonymous',  maf:0.000008, cons:'no',  pred:'benign',
+    inh:'mother' },
+  { id:'chr9:133.2M ins',  gene:'ABO',   csq:'intergenic',  maf:0.19,     cons:'no',  pred:'unknown',
+    inh:'both' }
+];
+
+// Genes the referring clinician considers consistent with the phenotype.
+var PHENO_GENES = { SCN8A:1, SCN5A:1, FBN1:1, CFTR:1 };
+
+/* Each filter states what it assumes and what it costs. The cost line is not
+   decoration: a filter presented only by what it keeps hides half of what it
+   does, and the point of the section is that every one of these can be wrong. */
+var FILTERS = [
+  { id:'freq', label:'Rare enough to be the cause',
+    why:'Under the stated model a causal allele sits below about 0.001%, so that is what this removes. The bound is only as good as the model it came from.',
+    cost:'Wrong for recessive conditions and for anything with incomplete penetrance, where the allele can be far more common than the disease.',
+    // The page derived 0.001% and then filtered at 0.01%, a tenfold gap with
+    // nothing to justify it while the text claimed the thresholds were "exactly
+    // as they are used". Checked before changing: at 0.00001 the twelve
+    // variants partition identically, so the calculation and the code can
+    // simply agree. Nothing in the exercise moves.
+    test:function(v){ return v.maf <= 0.00001; } },
+  { id:'csq', label:'Predicted coding or splice consequence',
+    why:'Keeps missense, frameshift, stop-gained and splice variants. Removes synonymous, intronic and intergenic ones. It is a prediction from the annotation, not a measurement of what the protein does: which transcript you chose, whether the message survives nonsense-mediated decay, and whether the gene causes disease by loss or gain of function all change the answer.',
+    cost:'Throws away every regulatory variant, which is where most common-disease signal actually lives.',
+    test:function(v){ return ['missense','frameshift','stop gained','splice donor'].indexOf(v.csq) !== -1; } },
+  { id:'cons', label:'At a conserved position',
+    why:'A position unchanged across a hundred million years of evolution is probably doing something.',
+    cost:'Conservation is a statement about the past, not about this protein. Recently evolved and human-specific function looks unconstrained.',
+    test:function(v){ return v.cons === 'yes'; } },
+  { id:'denovo', label:'Not inherited from an unaffected parent',
+    why:'Both parents are unaffected, so a variant either of them carries is unlikely on its own to cause a dominant condition.',
+    cost:'Assumes full penetrance. An unaffected parent can carry a causal variant and never develop the condition.',
+    test:function(v){ return v.inh === 'neither'; } },
+  { id:'pheno', label:'Gene already linked to the phenotype',
+    why:'The single most powerful filter here, though not by much: it removes 8 of the 12 where frequency and inheritance each remove 7.',
+    cost:'It can only return genes somebody has already found. Apply it and discovering a new disease gene becomes impossible by construction.',
+    test:function(v){ return !!PHENO_GENES[v.gene]; } }
+];
+
+var active = {};
+
+function fmtMaf(m){
+  if (m >= 0.01) return (m * 100).toFixed(1) + '%';
+  if (m >= 0.0001) return (m * 100).toFixed(3) + '%';
+  return (m * 100).toPrecision(2) + '%';
+}
+
+function buildFilters(){
+  var wrap = document.getElementById('filters');
+  wrap.innerHTML = '';
+  FILTERS.forEach(function(f){
+    var d = document.createElement('div');
+    d.className = 'filt';
+    d.id = 'filt-' + f.id;
+    d.innerHTML =
+      '<div class="fhead"><input type="checkbox" id="cb-' + f.id + '">'
+    + '<label for="cb-' + f.id + '">' + f.label + '</label></div>'
+    + '<div class="why">' + f.why + '</div>'
+    + '<div class="cost"><b>Cost:</b> ' + f.cost + '</div>'
+    + '<div class="n" id="n-' + f.id + '"></div>';
+    wrap.appendChild(d);
+    d.querySelector('input').addEventListener('change', function(){
+      active[f.id] = this.checked;
+      d.classList.toggle('on', this.checked);
+      if (this.checked && !tried[f.id]){
+        tried[f.id] = true;
+        nb('Applied filter: ' + f.label + '.');
+      }
+      render();
+      updateProgress();
+    });
+  });
+}
+
+function survives(v){
+  for (var i = 0; i < FILTERS.length; i++){
+    var f = FILTERS[i];
+    if (active[f.id] && !f.test(v)) return false;
+  }
+  return true;
+}
+// Every active filter a variant fails, not just the first in source order.
+// firstCut() returned the first failing FILTERS entry, so TTN, which fails all
+// five, always reported "cut by frequency" and the student never saw that it is
+// also synonymous, at an unconserved position, present in both parents and in no
+// gene on the clinician's list. A row that fails on five counts should say five.
+function allCuts(v){
+  return FILTERS.filter(function(f){ return active[f.id] && !f.test(v); });
+}
+
+function render(){
+  var rows = '', kept = 0;
+  VARIANTS.forEach(function(v){
+    var ok = survives(v);
+    if (ok) kept++;
+    var cuts = ok ? [] : allCuts(v);
+    rows += '<tr class="' + (ok ? '' : 'out') + '">'
+      + '<td class="mono">' + v.id + '</td>'
+      + '<td>' + v.gene + '</td>'
+      + '<td>' + v.csq + '</td>'
+      + '<td class="mono">' + fmtMaf(v.maf) + '</td>'
+      + '<td>' + v.cons + '</td>'
+      + '<td>' + v.pred + '</td>'
+      + '<td>' + v.inh + '</td>'
+      + '<td class="why">' + (ok ? '<span class="kept">still standing</span>'
+          : '<span class="cut">cut by ' + cuts.length + ': '
+            + cuts.map(function(f){ return f.label.toLowerCase(); }).join('; ') + '</span>') + '</td>'
+      + '</tr>';
+  });
+  document.getElementById('vt-rows').innerHTML = rows;
+
+  var nActive = Object.keys(active).filter(function(k){ return active[k]; }).length;
+  document.getElementById('t-kept').textContent = String(kept);
+  document.getElementById('t-cut').textContent = String(VARIANTS.length - kept);
+  document.getElementById('t-filt').textContent = String(nActive);
+
+  FILTERS.forEach(function(f){
+    var n = VARIANTS.filter(function(v){ return !f.test(v); }).length;
+    document.getElementById('n-' + f.id).textContent =
+      'would remove ' + n + ' of ' + VARIANTS.length + ' on its own';
+  });
+
+  var fbn1 = VARIANTS.filter(function(v){ return v.gene === 'FBN1'; })[0];
+  var fbn1Out = !survives(fbn1);
+
+  var r = document.getElementById('readout');
+  if (nActive === 0){
+    r.className = 'readout';
+    r.innerHTML = 'Nothing applied yet. All twelve are real variants that really are in this genome. '
+      + 'Being real was never the question.';
+  } else if (fbn1Out && active.freq && !sawTrap){
+    sawTrap = true;
+    r.className = 'readout alarm';
+    r.innerHTML = 'Look at what you just removed. <b>FBN1</b> is a frameshift, predicted damaging, at '
+      + 'a conserved position, in a gene the clinician flagged as fitting. On every axis but one it is '
+      + 'the best candidate on the list. <b>Its allele frequency is 2.1%, about 2,100 times the bound '
+      + 'you just calculated</b>, and roughly one person in twenty-four carries a copy. '
+      + 'Every annotation on that row is accurate, and the interpretation built on them is still '
+      + 'wrong: its population frequency is incompatible with the disease model. '
+      + 'Predicted consequence, conservation and a damaging score all answer the question "could this '
+      + 'disrupt biology?". None of them answers "is this disruption compatible with a condition '
+      + 'affecting one person in fifty thousand, in this child?"';
+    nb('Ruled out FBN1 on frequency despite a severe consequence and a damaging prediction.');
+    updateProgress();
+  } else if (!active.freq && nActive > 0 && survives(fbn1)){
+    r.className = 'readout alarm';
+    r.innerHTML = 'FBN1 is still on your list, and if you are reading the annotations it looks like '
+      + 'the answer: frameshift, damaging, conserved, and the gene fits. <b>Check its frequency '
+      + 'before you believe it.</b>';
+  } else {
+    r.className = 'readout';
+    r.innerHTML = '<b>' + kept + ' of 12 still standing.</b> Every variant removed was removed by an '
+      + 'assumption you switched on, and every one of those assumptions can be wrong. The line under '
+      + 'each filter says how.';
+  }
+  renderFinal();
+}
+
+function renderFinal(){
+  var f = document.getElementById('final-readout');
+  var nActive = Object.keys(active).filter(function(k){ return active[k]; }).length;
+  var survivors = VARIANTS.filter(survives);
+  if (nActive === 0){
+    f.className = 'readout';
+    f.innerHTML = 'Apply some filters above and this will tell you what is left.';
+    return;
+  }
+  if (survivors.length === 0){
+    f.className = 'readout alarm';
+    f.innerHTML = '<b>Nothing survived.</b> That is a real result, and it happens often. It does not '
+      + 'mean there is no answer in this genome: it means the answer is not the kind of thing your '
+      + 'filters were built to find. The next question is which assumption to relax, and why.';
+    return;
+  }
+  // The tie panel appears when the shortlist is actually down to the two the
+  // filters cannot separate. Showing it earlier would ask a question about a
+  // list the student has not produced yet.
+  var tie = document.getElementById('tie');
+  if (tie && survivors.length === 2 && nActive === FILTERS.length) tie.style.display = 'block';
+
+  f.className = 'readout';
+  f.innerHTML = '<b>' + survivors.length + ' left: '
+    + survivors.map(function(v){ return v.gene; }).join(', ') + '.</b> '
+    + 'Worth being precise about what that means. These are the variants <b>nobody has ruled out '
+    + 'yet</b>. Not the cause, not proven, not necessarily even related. A shortlist is the beginning '
+    + 'of the work, and everything that would actually settle it happens outside this computer: '
+    + 'finding the same gene broken in an unrelated patient with the same condition, testing what the '
+    + 'protein does, or sequencing more of the family.';
+}
+
+// The tie is the point of the section, so it is the last thing asked rather
+// than something the student may never notice. Completion used to fire on five
+// checkbox clicks plus opening the frequency argument, which is a record of
+// having operated the controls.
+var answeredTie = false, evidenceChosen = {};
+
+var TIE_VERDICT = {
+  splice: '<b>No, and this is the tempting one.</b> A splice-donor annotation does look more severe '
+        + 'than a missense one, and sometimes it is. But the annotation is a prediction about a '
+        + 'transcript, not a measurement: whether that exon is expressed in the relevant tissue, '
+        + 'whether the message survives nonsense-mediated decay, and whether this gene causes disease '
+        + 'by losing function or gaining it all change the answer, and none of those is in this table. '
+        + 'Preferring the splice variant here is a guess wearing the clothes of evidence.',
+  rarer:  '<b>No.</b> One is at 0.0002% and the other at 0.0003%. Both are far below the bound you '
+        + 'calculated, both are consistent with the model, and the gap between them is nothing: in a '
+        + 'database of this size that difference is a handful of observations and could invert with '
+        + 'the next release. Ranking by frequency below the threshold is reading noise.',
+  no:     '<b>Correct, and this is the whole section.</b> Both are ultra-rare, both are predicted '
+        + 'damaging, both are at conserved positions, both are absent from the parents, and both are '
+        + 'in genes the clinician considered plausible. They differ in consequence type and by a hair '
+        + 'in frequency, and neither difference is evidence about this child. The table has done what '
+        + 'it can do.'
+};
+var EVIDENCE_NOTE = {
+  hpo: 'a more specific phenotype, which is the cheapest of these and the most often skipped',
+  clinvar: 'evidence about this exact change in other patients',
+  denovo: 'confirming the de novo event, which the table asserts but nobody has verified',
+  mosaic: 'parental mosaicism, which would change the recurrence risk even if it did not change the call',
+  family: 'more relatives, which is segregation evidence',
+  transcript: 'transcript evidence, which is the thing that would actually settle the splice question',
+  function: 'a functional experiment, which is the slowest and the most conclusive'
+};
+
+function wireTie(){
+  var opts = document.querySelectorAll('#tie-opts .tdec');
+  [].forEach.call(opts, function(btn){
+    btn.onclick = function(){
+      [].forEach.call(opts, function(b){ b.setAttribute('aria-pressed', String(b === btn)); });
+      var fb = document.getElementById('tie-fb');
+      fb.innerHTML = TIE_VERDICT[btn.dataset.tie];
+      fb.style.color = 'var(--text)';
+      document.getElementById('tie-next').style.display = 'block';
+      if (!answeredTie){
+        answeredTie = true;
+        nb('Asked whether the table could separate the last two candidates: answered "'
+           + btn.textContent.trim() + '".');
+      }
+      updateProgress();
+    };
+  });
+  var ev = document.querySelectorAll('#eviopts .edec');
+  [].forEach.call(ev, function(btn){
+    btn.onclick = function(){
+      var on = btn.getAttribute('aria-pressed') !== 'true';
+      btn.setAttribute('aria-pressed', String(on));
+      if (on) evidenceChosen[btn.dataset.evi] = 1; else delete evidenceChosen[btn.dataset.evi];
+      var picked = Object.keys(evidenceChosen);
+      var fb = document.getElementById('evi-fb');
+      if (picked.length < 2){
+        fb.innerHTML = 'Choose at least two.';
+        fb.style.color = 'var(--text-dim)';
+      } else {
+        fb.innerHTML = 'You would go and get ' + picked.map(function(k){ return EVIDENCE_NOTE[k]; })
+            .join('; ') + '. <b>Every one of those is evidence that was never collected</b>, which is '
+          + 'the honest description of where you are: a shortlist cannot contain evidence nobody '
+          + 'gathered, and no amount of re-filtering the file will conjure it.';
+        fb.style.color = 'var(--text)';
+        nb('Named ' + picked.length + ' kinds of evidence that could separate the final two.');
+      }
+      updateProgress();
+    };
+  });
+}
+
+var MILESTONES5 = [
+  { key:'filters', text:'Tried every filter' },
+  { key:'trap',    text:'Worked the frequency argument' },
+  { key:'tie',     text:'Decided whether the table could separate the last two' },
+  { key:'evidence',text:'Named evidence that would' }
+];
+function updateProgress(){
+  var nTried = Object.keys(tried).length;
+  var got = {
+    filters: nTried === FILTERS.length,
+    trap: !!sawTrap,
+    tie: answeredTie,
+    evidence: Object.keys(evidenceChosen).length >= 2
+  };
+  var done = MILESTONES5.filter(function(m){ return got[m.key]; });
+  document.getElementById('progress-cue').textContent =
+    done.length + ' of ' + MILESTONES5.length + ' steps done';
+  var list = document.getElementById('milestone-list5');
+  if (list) list.innerHTML = MILESTONES5.map(function(m){
+    return '<li class="' + (got[m.key] ? 'got' : '') + '"><span aria-hidden="true">'
+      + (got[m.key] ? '\u2713' : '\u25cb') + '</span> ' + m.text + '</li>';
+  }).join('');
+  if (done.length === MILESTONES5.length){
+    var panel = document.getElementById('section-done');
+    if (panel && !panel.classList.contains('show')){
+      panel.classList.add('show');
+      nb('Section 5 complete.');
+    }
+  }
+}
+
+/* --- notebook --- */
+function nb(msg){
+  var list = document.getElementById('nbList');
+  var empty = list.querySelector('.empty'); if(empty) empty.remove();
+  var li = document.createElement('li'); li.textContent = msg; list.appendChild(li);
+  noteExport(msg);
+}
+function noteExport(msg){
+  var d = new Date();
+  nbLog.push({ ts:d.toLocaleTimeString(), at:d.getTime(), text:msg });
+  var b = document.getElementById('download-notebook');
+  if (b) b.disabled = nbLog.length === 0;
+}
+function buildNotebookText(){
+  var now = new Date(), L = [];
+  L.push('Molecular Techniques: Interactive Bioinformatics Module');
+  L.push('Section 5: Which variant matters');
+  L.push('');
+  L.push('Student: ______________________________');
+  L.push('Downloaded: ' + now.toLocaleDateString() + ', ' + now.toLocaleTimeString());
+  L.push('Entries: ' + nbLog.length);
+  L.push('');
+  L.push('----------------------------------------------------------------');
+  if (nbLog.length === 0) L.push('(no entries yet)');
+  else nbLog.forEach(function(e){ L.push(e.ts + '  ' + e.text); });
+  L.push('----------------------------------------------------------------');
+  L.push('');
+  L.push('Written by the module in your browser. Nothing was sent anywhere.');
+  return L.join('\n');
+}
+function downloadNotebook(){
+  var blob = new Blob([buildNotebookText()], {type:'text/plain'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'), d = new Date();
+  var stamp = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  a.href=url; a.download='section5_lab_notebook_'+stamp+'.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); },0);
+}
+
+buildFilters();
+wireTie();
+render();
+updateProgress();
+document.getElementById('download-notebook').onclick = downloadNotebook;
+</script>
+</body>
+</html>

@@ -1,0 +1,1260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Section 3: Reading Raw Reads (FASTQ)</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#1a2332; --panel-2:#243042;
+    --text:#e6edf3; --text-dim:#8f98a1; --accent:#58a6ff;
+    --accent-glow:rgba(88,166,255,0.25);
+    --good:#56d364; --bad:#f96760; --warn:#d29922; --gap:#9097a0;
+    --border:#30363d; --mono:'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    line-height:1.55;padding:28px 20px 120px}
+  .wrap{max-width:1000px;margin:0 auto}
+  .breadcrumb{color:var(--text-dim);font-size:12px;margin-bottom:8px}
+  .breadcrumb b{color:var(--accent)}
+  .breadcrumb a{color:var(--text-dim);text-decoration:underline;text-underline-offset:2px}
+  .breadcrumb a:hover{color:var(--accent)}
+  h1{font-size:1.5rem;margin:0 0 4px}
+  h2{font-size:1.1rem;margin:26px 0 8px;color:var(--accent)}
+  .sub{color:var(--text-dim);margin:0 0 18px;font-size:.95rem}
+  .panel{background:var(--panel);border:1px solid var(--border);
+    border-radius:10px;padding:16px 18px;margin:14px 0}
+  .mono{font-family:var(--mono)}
+  small{color:var(--text-dim)}
+  .anatomy{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:center;
+    font-family:var(--mono);font-size:.9rem}
+  .anatomy .k{color:var(--accent);text-align:right;white-space:nowrap}
+  .anatomy .v{color:var(--text-dim)}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 0}
+  .tieflag{color:var(--ink-warn);font-size:.8rem}
+  /* SC 2.1.1: without wrapping, the mono text made this list a horizontally
+     scrollable region with no focusable child at 320px, which axe correctly
+     flagged as unreachable by keyboard. Wrapping is the right fix here: a
+     checklist has no reason to scroll. */
+  .milestones{list-style:none;margin:4px 0 10px;padding:0;font-size:11px;line-height:1.6;
+              color:var(--text-dim);font-family:var(--mono);
+              overflow-wrap:anywhere;word-break:break-word}
+  .milestones li{margin-bottom:2px}
+  /* The milestone list lives inside .nb, and `.nb ul` caps its height and turns
+     on overflow for the notebook log. That made the milestone list a scrollable
+     region with no keyboard access at 320px as soon as it grew past the cap:
+     axe caught it in Section 8 on 2026-08-19 at seven milestones. `.nb ul` has
+     higher specificity than `.milestones`, so undoing it needs both classes. */
+  .nb ul.milestones{max-height:none;overflow:visible}
+  .milestones li.got{color:var(--good)}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+           clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  .pending{color:var(--text-dim);font-style:italic}
+  .three-q{margin:6px 0 12px 22px;padding:0;font-size:14px;line-height:1.7;color:var(--text)}
+  .keyclaim{border-left:3px solid var(--accent);padding-left:12px}
+  .decide{margin:16px 0 0;border:1px solid var(--border-ctrl);border-radius:8px;padding:10px 14px 14px;
+          background:var(--panel-2)}
+  .decide legend{font-size:13px;font-weight:600;padding:0 6px}
+  .decide-opts{display:flex;flex-wrap:wrap;gap:8px}
+  .decide-fb{margin-top:10px;font-size:13px;line-height:1.6;color:var(--text-dim)}
+  .dec[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}
+  .tab{background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    padding:7px 12px;border-radius:8px;cursor:pointer;font-size:.85rem;font-family:var(--mono)}
+  .tab.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow);color:var(--accent)}
+  .readbox{overflow-x:auto;padding:6px 2px}
+  .line{display:flex;font-family:var(--mono);font-size:1rem;white-space:nowrap;align-items:center}
+  .lbl{color:var(--text-dim);width:74px;flex:0 0 74px;font-size:.72rem;text-align:right;padding-right:10px}
+  .track{display:flex}
+  .cell{width:15px;text-align:center;cursor:pointer;border-radius:2px;user-select:none}
+  .cell:hover{outline:2px solid var(--accent)}
+  .cell:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .cell:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+  .cell.sel{outline:2px solid var(--accent);background:var(--accent-glow)!important}
+  .hdrline{font-family:var(--mono);color:var(--good);font-size:.8rem;margin:2px 0 2px 74px;word-break:break-all}
+  .plusline{font-family:var(--mono);color:var(--text-dim);margin-left:74px}
+
+  /* Notebook export, added 2026-08-13. Same pattern as Section 1. Client-side
+     Blob only, no network call: with one identified student, silently posting
+     progress would be surveillance rather than analytics. */
+  .nb-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .nb-dl{padding:5px 11px;font-size:12px}
+  .nb-dl-hint{margin:0 0 10px;font-size:11px;color:var(--text-dim)}
+  .progress-cue{margin:0 0 10px;font-size:11px;color:var(--text-dim);font-family:var(--mono)}
+  /* Section-complete panel. Same pattern in every section: a clear statement
+     that the section is finished, one line on what it covered, and an explicit
+     pointer to the next section so the student always knows where to go. */
+  .section-done{background:linear-gradient(135deg,rgba(88,166,255,0.10),rgba(88,166,255,0.02));
+    border:1px solid var(--accent);border-radius:8px;padding:18px 22px;margin-top:22px;display:none}
+  .section-done.show{display:block;animation:doneIn .4s}
+  .section-done h3{margin:0 0 10px;font-size:16px;color:var(--accent)}
+  .section-done p{margin:0 0 10px;font-size:14px;line-height:1.6}
+  .section-done p:last-child{margin-bottom:0}
+  .section-done .nb-aside{color:var(--text-dim);font-size:12px}
+  @keyframes doneIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:.8rem}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:13px;height:13px;border-radius:3px;display:inline-block;
+    text-align:center;line-height:13px;font-size:10px;color:#000;font-weight:700}
+  /* SC 1.4.1: the three quality bands were signalled by fill colour alone and
+     --good/--warn/--bad are within 1.35 of each other. The glyph carries the
+     same information without colour. aria-hidden because the text beside each
+     swatch already names the band for a screen reader. */
+  .tip{position:fixed;background:#000;border:1px solid var(--accent);
+    border-radius:8px;padding:8px 10px;font-size:.8rem;font-family:var(--mono);
+    max-width:260px;z-index:50;display:none;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+  .tip b{color:var(--accent)}
+  .stats{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;font-size:.85rem}
+  .stat{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 12px}
+  .stat b{font-family:var(--mono);font-size:1.05rem}
+  svg{max-width:100%}
+  .note{border-left:3px solid var(--accent);padding:6px 0 6px 12px;margin-top:12px;color:var(--text-dim);font-size:.9rem}
+  details{margin:8px 0;border:1px solid var(--border);border-radius:8px;background:var(--panel-2)}
+  details>summary{cursor:pointer;padding:9px 12px;color:var(--accent);font-size:.9rem;list-style:none}
+  details>summary::-webkit-details-marker{display:none}
+  details>summary::before{content:'▸ ';color:var(--text-dim)}
+  details[open]>summary::before{content:'▾ '}
+  details .body{padding:2px 14px 12px;font-size:.9rem;color:var(--text)}
+  .nb{position:fixed;right:16px;bottom:16px;width:300px;max-height:44vh;overflow:auto;
+    background:var(--panel);border:1px solid var(--accent);border-radius:10px;
+    padding:10px 12px;font-size:.8rem;box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:40}
+  .nb h3{margin:0 0 6px;font-size:.85rem;color:var(--accent)}
+  .nb ul{margin:0;padding-left:16px}
+  .nb li{margin:3px 0;color:var(--text-dim)}
+  .nb .empty{color:var(--gap);font-style:italic}
+  @media(max-width:1400px){.nb{position:static;width:auto;max-height:none;margin-top:18px}}
+  button.log{background:var(--accent);border:none;color:#04101f;font-weight:600;
+    padding:7px 12px;border-radius:8px;cursor:pointer;font-size:.82rem}
+  code{background:var(--panel-2);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:.85em}
+
+  /* SC 2.4.7 Focus Visible. The dark theme suppresses the browser default ring,
+     so keyboard focus must be styled explicitly or it is invisible. Added 2026-08-14. */
+  :focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+  a:focus-visible, button:focus-visible, input:focus-visible,
+  select:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* SC 1.4.10 Reflow. Content must be usable at 320px without two-dimensional
+     scrolling. Sequence strips keep their own horizontal scroll, which the
+     criterion allows for content that genuinely requires a fixed layout; the
+     page around them must not. Added 2026-08-14. */
+  @media (max-width: 700px) {
+    body { padding: 14px 10px 90px; }
+    .container, .wrap { padding-left: 12px; padding-right: 12px; max-width: 100%; }
+    h1 { font-size: 18px; }
+    .nb { position: static; width: auto; max-height: none; margin-top: 16px; }
+    .lbl { width: 52px; flex-basis: 52px; }
+    .stats { gap: 10px; }
+  }
+
+
+  /* Foot navigation, added 2026-08-17. Real links, so keyboard and
+     right-click-open-in-new-tab both work without any scripting. */
+  .sectnav{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;
+    margin:26px 0 0;padding-top:18px;border-top:1px solid var(--border)}
+  .sectnav a{flex:1 1 220px;display:block;text-decoration:none;color:inherit;
+    background:var(--panel,#1a2332);border:1px solid var(--border);border-radius:8px;
+    padding:11px 14px;font-size:13px}
+  .sectnav a:hover{border-color:var(--accent);background:var(--panel-2,#243042)}
+  .sectnav a .k{display:block;font-size:11px;color:var(--text-dim);
+    text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+  .sectnav a .t{font-weight:600}
+  .sectnav a:hover .t{text-decoration:underline}
+  .sectnav a.home{flex:0 1 auto;text-align:center;display:flex;align-items:center;
+    justify-content:center;color:var(--text-dim)}
+  .sectnav a.home:hover{color:var(--accent)}
+  @media (max-width:700px){ .sectnav a{flex:1 1 100%} }
+  .footer-note{margin-top:28px;padding-top:14px;border-top:1px solid var(--border);
+    font-size:11px;color:var(--text-dim);text-align:center}
+
+  /* ------------------------------------------------------------------ *
+     Adapters and multiplexing, added 2026-08-17.
+
+     Justin: "I also think this will be a good course to have slightly more
+     detail about adaptors (which we do mention), but also multi-plexing. How
+     we can barcode reads to sequence them all together and then manage to
+     'map' each read to which sample it came from."
+
+     It belongs here rather than in Section 4 because both things are visible
+     in the FASTQ itself: the adapter is in the sequence line of read D, and
+     the index is in the header. It is also the earliest honest place to say
+     what the course is about, because demultiplexing IS the spine: match a
+     short string against a list of strings and pick the best one.
+   * ------------------------------------------------------------------ */
+  .fine{font-size:11.5px;color:var(--text-dim);margin:6px 0 0;line-height:1.5}
+  .adglist{display:grid;gap:8px;margin-top:4px}
+  .adglist>div{display:grid;grid-template-columns:180px 1fr;gap:12px;
+    background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;
+    font-size:13px}
+  .adglist b{color:var(--accent)}
+  .adglist span{color:var(--text-dim)}
+
+  .trimbox{margin-top:14px;background:var(--panel-2);border:1px solid var(--border);
+    border-radius:8px;padding:12px 14px}
+  .trimhead{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .trimseq{font-family:var(--mono);font-size:12.5px;line-height:1.9;margin-top:10px;
+    word-break:break-all}
+  .trimseq .keep{color:var(--text)}
+  /* The adapter run is marked by BOTH a colour and an underline, so the
+     boundary survives a greyscale print and a colour-blind reader. */
+  .trimseq .adapt{color:var(--warn);border-bottom:2px solid var(--warn)}
+  .trimseq .probe{background:rgba(210,153,34,0.22);border-radius:2px;color:var(--ink-warn)}
+  .trimseq .cut{color:var(--accent);font-weight:700;padding:0 1px}
+
+  .hdrdiag{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:10px 12px;overflow-x:auto;font-size:12.5px}
+  .hdrdiag code{background:none;padding:0;font-family:var(--mono)}
+  .hdrdiag b{color:var(--accent)}
+
+  /* min() rather than a bare minimum: at a 320px viewport the content column
+     inside .panel is 279px, so a flat minmax(280px,1fr) overflowed the page by
+     exactly one pixel and the browser sweep caught it. The min() form lets the
+     track collapse to the space available instead of insisting on 280. */
+  .sheetgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));
+    gap:12px;margin:10px 0 14px}
+  .sheetcard{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:11px 13px}
+  .sheetcard h4{margin:0 0 8px;font-size:12px;color:var(--text-dim);
+    text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+  .picker{display:flex;gap:8px;flex-wrap:wrap}
+  .picker button{font-size:13px;padding:7px 15px}
+
+  table.dmx{width:100%;border-collapse:collapse;font-size:12.5px;font-family:var(--mono)}
+  table.dmx.wide{min-width:560px}
+  table.dmx th,table.dmx td{text-align:left;padding:5px 9px;border-bottom:1px solid var(--border)}
+  table.dmx th{color:var(--text-dim);font-size:10px;text-transform:uppercase;
+    letter-spacing:.05em;font-family:inherit}
+  table.dmx td.word{font-family:inherit}
+  table.dmx tr.undet td{color:var(--text-dim)}
+  table.dmx tr.undet td.verdict{color:var(--warn)}
+  table.dmx tr.hopped td.truth{color:var(--bad)}
+  table.dmx tr:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+  .tvscroll{overflow-x:auto;margin-top:6px}
+
+  .readout{margin-top:12px;padding:12px 15px;border-radius:6px;background:var(--panel-2);
+    border-left:3px solid var(--accent);font-size:13.5px;line-height:1.6}
+  .readout.alarm{border-left-color:var(--warn)}
+  .readout b{color:var(--text)}
+
+  /* Used wherever the course names its own argument out loud. */
+  .spine{margin-top:14px;padding:13px 16px;border-radius:6px;background:var(--panel-2);
+    border-left:3px solid var(--good);font-size:13.5px;line-height:1.6}
+  .spine b{color:var(--text)}
+
+  @media (max-width:700px){
+    .adglist>div{grid-template-columns:1fr;gap:2px}
+  }
+  /* The course spine, added 2026-08-17. Justin: "we are building up from the
+     simplest thing a bioinformatician can do - match a set of letters to
+     another... bioinformatics is matching a sets of letters to another,
+     usually at scale and interpreting those results!"
+     Every section states its own match in the same place, in the same words,
+     so the argument is visible from inside any one of them. */
+  .spinebar{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;
+    margin:14px 0 6px;padding:10px 14px;border-radius:6px;
+    background:var(--panel-2);border-left:3px solid var(--good);font-size:13.5px}
+  .spinebar .k{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;
+    letter-spacing:.07em;white-space:nowrap}
+  .spinebar .v{color:var(--text)}
+  /* Ink for text sitting on a tinted wash of its own hue. The palette hues were
+     audited against the panel, not against 20% of themselves, so three of them
+     failed 4.5:1 when used that way (2026-08-17 audit). Measured on the worst
+     tint each is used at: amber 5.25, red 5.24, neutral 5.04. The washes are
+     unchanged; only the ink moved. */
+  :root{ --ink-warn:#eebb55; --ink-bad:#ff8a84; --ink-neutral:#a4adb8; }
+  /* File names and CIGAR strings are single unbreakable tokens, and one of them
+     pushed the page 39px wide at 320 CSS px. SC 1.4.10. (2026-08-17 audit.) */
+  code{overflow-wrap:anywhere;word-break:break-word}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 3 of 8</b> · Reading a FASTQ file</div>
+  <h1>Reading raw reads</h1>
+  <p class="sub">In Section 1 you began with a read that was ready to align. Real sequencing hands you
+  something earlier than that: a base call, and a confidence score, for every position.</p>
+  <p class="sub">In a typical Illumina workflow the instrument records base calls in <b>BCL</b> files.
+  Conversion software then reads the sample indexes, separates the pooled libraries and writes
+  sample-specific <b>FASTQ</b> files. Here you inspect one of those FASTQ files, and then rewind to the
+  two matching operations that produced it.</p>
+  <p class="sub">So this section runs against the order of the course so far, deliberately. Before asking
+  where a read belongs in a genome, there are three earlier questions:</p>
+  <ol class="three-q">
+    <li>What bases did the instrument call?</li>
+    <li>How much confidence should you place in each call?</li>
+    <li>Which sample does this read belong to?</li>
+  </ol>
+  <p class="sub" style="margin-top:-4px"><small>These are <b>simulated</b> 75 base Illumina-style reads.
+  Their quality patterns are realistic and the quality arithmetic below is exact, but the sequences do not
+  come from a biological sample. Each read was chosen because it shows one pattern you will meet in real
+  data.</small></p>
+
+  <div class="spinebar"><span class="k">The match in this section</span><span class="v">Before a read can be matched to a genome, software matches adapter sequences against its ends and its index read against a sample sheet.</span></div>
+  <div class="panel">
+    <h2 style="margin-top:0">Anatomy of one FASTQ record: 4 lines</h2>
+    <div class="anatomy">
+      <div class="k">@ identifier</div><div class="v">begins with <code>@</code> and identifies the read.
+        What it contains is up to the software that wrote the file; it is not fixed by the format.
+        Illumina-style identifiers commonly encode run and cluster coordinates.</div>
+      <div class="k">sequence</div><div class="v">the bases the instrument called, normally A, C, G, T
+        or <code>N</code>.</div>
+      <div class="k">+ separator</div><div class="v">begins with <code>+</code> and separates sequence
+        from quality. It may stand alone, or repeat the identifier.</div>
+      <div class="k">quality</div><div class="v">one encoded quality symbol per called base. Once any
+        line wrapping is removed, the quality and sequence strings must be the same length.</div>
+    </div>
+  </div>
+
+  <h2>Pick a read to inspect</h2>
+  <div class="tabs" id="tabs"></div>
+
+  <div class="panel">
+    <div class="hdrline" id="hdr"></div>
+    <div class="readbox">
+      <div class="line"><span class="lbl">seq</span><div class="track" id="seqTrack"></div></div>
+      <div class="plusline">+</div>
+      <div class="line"><span class="lbl">qual</span><div class="track" id="qualTrack"></div></div>
+    </div>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--good)" aria-hidden="true">✓</i> Q ≥ 30 · at most 1 predicted error in 1,000</span>
+      <span><i class="sw" style="background:var(--warn)" aria-hidden="true">~</i> Q 20–29 · between about 1 in 100 and 1 in 800</span>
+      <span><i class="sw" style="background:var(--bad)" aria-hidden="true">!</i> Q &lt; 20 · worse than 1 in 100</span>
+      <span><i class="sw" style="background:var(--gap)" aria-hidden="true">?</i> N · no base called</span>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="note" id="note"></div>
+    <fieldset class="decide" id="decide">
+      <legend>What would you do with this read?</legend>
+      <div class="decide-opts" id="decide-opts" role="group" aria-label="Preprocessing decision">
+        <button type="button" class="btn dec" data-dec="keep" aria-pressed="false">Keep it as it is</button>
+        <button type="button" class="btn dec" data-dec="trim3" aria-pressed="false">Trim the 3′ end</button>
+        <button type="button" class="btn dec" data-dec="adapter" aria-pressed="false">Remove adapter, keep the insert</button>
+        <button type="button" class="btn dec" data-dec="drop" aria-pressed="false">Discard it under a stated rule</button>
+      </div>
+      <div class="decide-fb" id="decide-fb" role="status" aria-live="polite">Decide first, then see what a
+      pipeline would usually do and why. More than one answer is defensible for some of these reads.</div>
+    </fieldset>
+
+    <div style="margin-top:12px"><button class="log" id="logBtn">✎ Log this read to notebook</button>
+      <small style="margin-left:10px">Select any base or quality symbol to read its exact quality; switch reads to compare patterns.</small></div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Per-base quality profile</h2>
+    <small>Each bar is one base position (5′ → 3′). This is the single-read version of FastQC's
+    "Per base sequence quality" plot you will see in Section 4.</small>
+    <div id="chart" style="margin-top:10px"></div>
+  </div>
+
+
+  <h2 id="h-adaptor">Where that adapter came from</h2>
+  <p class="sub">Read D above is a perfectly good read that stops being your genome partway through.
+  It is worth knowing why, because the answer explains the next thing too.</p>
+
+  <div class="panel">
+    <p style="font-size:14px;margin:0 0 10px">Nothing you put on a sequencer is sequenced as you made
+    it. <b>Adapter sequences are added to both ends during library preparation</b>, and those adapters
+    are not packaging. (How they are added varies: ligation in a classic TruSeq protocol, transposition
+    in a tagmentation protocol like Nextera, or amplification with tailed primers.) They are what makes sequencing possible at all. Illumina's own description of what they
+    carry:</p>
+    <div class="adglist">
+      <div><b>P5 and P7</b><span>sequences that let the fragment bind the flow cell and form a cluster.
+        Without them your DNA never attaches to anything.</span></div>
+      <div><b>Sequencing primer sites</b><span>where the machine starts reading. The first base of your
+        read is the first base after this.</span></div>
+      <div><b>An index</b><span>a short barcode identifying which sample the fragment came from. This is
+        the one that matters for the rest of this section.</span></div>
+    </div>
+    <p style="font-size:14px;margin:12px 0 0">So the molecule on the flow cell is
+    <code>adapter + your fragment + adapter</code>, and the machine reads a fixed number of bases
+    inward from the primer site. If your fragment is longer than the read, you never reach the far
+    adapter. <b>If it is shorter, you read straight through your own insert and out into the adapter on
+    the other side</b>, which is exactly what happened to read D. Illumina put it plainly: "When read
+    length exceeds DNA insert size, a run can sequence beyond the DNA insert and read bases from the
+    sequencing adapter."</p>
+    <p style="font-size:14px;margin:10px 0 0">Notice what the quality scores did about this.
+    <b>Nothing.</b> Every one of those adapter bases is Q38 or better, because the machine read them
+    correctly. They are real bases, accurately called, and none of them is yours.</p>
+    <p style="font-size:14px;margin:10px 0 0" class="keyclaim"><b>A high Phred score means the instrument
+    is confident about the base it called. It does not mean the base came from the sample-derived
+    insert.</b></p>
+
+    <div class="trimbox">
+      <div class="trimhead">
+        <button type="button" id="btn-trim">Find the adapter in read D</button>
+        <span class="fine" id="trim-probe">Searching for <code>AGATCGGAAGAG</code></span>
+      </div>
+      <div class="trimseq" id="trim-seq" aria-live="polite"></div>
+      <div class="note" id="trim-note" style="margin-top:10px">Read D is 75 bases. Some of them are
+      the <b>sample-derived insert</b> and some of them are Illumina adapter. Find the boundary.</div>
+    </div>
+
+    <details>
+      <summary>What string do you actually search for, and how long is a real adapter?</summary>
+      <div class="body">
+        <p>The full TruSeq adapter is far longer than anything you see in a read. Illumina publishes a
+        33-base sequence for trimming Read 1,
+        <code>AGATCGGAAGAGCACACGTCTGAACTCCAGTCA</code>, and a different 33-base sequence for Read 2,
+        <code>AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT</code>. They are identical for the first thirteen bases
+        and then diverge, which is why <code>AGATCGGAAGAGC</code> is the stub everyone quotes: it is the
+        longest piece that is the same whichever read you are looking at, and whatever the index.</p>
+        <p>FastQC screens for something shorter still. Its adapter list holds
+        <code>AGATCGGAAGAG</code>, twelve bases, and the file says why in a comment: "it's going to be
+        easier to interpret this plot if all of the sequences provided are the same length, so we've
+        gone with 12bp fragments for now". The same list holds
+        <code>CTGTCTCTTATA</code> for Nextera, which is the transposase adapter you will meet again in
+        Section 6, because that is what ATAC-seq uses.</p>
+        <p>So "the adapter sequence" is three different strings depending on who is asking, and all
+        three are correct for their purpose. A twelve-base screen, a thirteen-base stub, a thirty-three
+        base trimming target.</p>
+      </div>
+    </details>
+  </div>
+
+  <h2 id="h-multiplex">One flow cell, many samples</h2>
+  <p class="sub">A sequencing run produces far more reads than any single sample needs. So you do not
+  run one sample. You give every library a different barcode, mix them, and sort the reads out
+  afterwards by reading the barcode.</p>
+
+  <div class="panel">
+    <p style="font-size:14px;margin:0 0 10px">The barcode sits inside the adapter, so it is attached to
+    every fragment from that library before anything is pooled. The machine reads it separately from
+    your insert, in a short <b>index read</b>, and writes what it saw into the header line of every
+    FASTQ record:</p>
+    <div class="hdrdiag" aria-hidden="true">
+      <code>@SIM-RUN1:1:1107:26433:14103 1:N:0:<b>TCCGGAGA</b></code>
+    </div>
+    <p class="fine">Instrument, run, flow cell, lane, tile and coordinates, then read number, whether
+    the read was filtered out, a control field, and last, <b>the index the machine read</b>. That last
+    field is the whole of what the computer knows about which sample this read belongs to.</p>
+
+    <p style="font-size:14px;margin:14px 0 6px"><b>Nine reads have come off the machine. Four samples
+    were pooled. Sort them.</b> The only thing you may use is the index.</p>
+
+    <div class="sheetgrid">
+      <div class="sheetcard">
+        <h4>Sample sheet</h4>
+        <table class="dmx" id="sheet-tbl"><tbody></tbody></table>
+        <p class="fine" id="sheet-note"></p>
+      </div>
+      <div class="sheetcard">
+        <h4>Mismatches allowed per index</h4>
+        <div class="picker" id="mm-picker" role="group" aria-label="Mismatch tolerance"></div>
+        <p class="fine">The real tools take exactly these three values. Both bcl2fastq2 and BCL Convert
+        default to 1.</p>
+        <div class="note" id="mm-note" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <div class="tvscroll">
+      <table class="dmx wide" id="dmx-tbl">
+        <thead><tr>
+          <th scope="col">Read</th><th scope="col">Index the machine read</th>
+          <th scope="col">Closest sheet index</th><th scope="col">Mismatches</th>
+          <th scope="col">Assigned to</th>
+        </tr></thead>
+        <tbody id="dmx-rows"></tbody>
+      </table>
+    </div>
+
+    <div class="readout" id="dmx-readout" role="status" aria-live="polite"></div>
+
+    <div style="margin-top:10px">
+      <button type="button" id="btn-reveal">Reveal which sample each read actually came from</button>
+    </div>
+    <div class="readout" id="reveal-readout" role="status" aria-live="polite"
+         style="display:none"></div>
+
+    <div class="spine">
+      <b>Look at what you just did.</b> You took a short string of letters, compared it against a list
+      of other short strings of letters, counted the differences, and picked the best one. That is
+      Section 1, with an eight-base read and a four-entry reference. It is Section 2, with a scoring
+      threshold you had to choose. <b>Demultiplexing is not a different kind of operation from
+      alignment. It is the same operation, on a smaller reference, done a billion times before your
+      analysis starts.</b>
+    </div>
+
+    <details>
+      <summary>Why the tolerance cannot simply be turned up</summary>
+      <div class="body">
+        <p>To correct <i>n</i> substitution errors and still know which sample you meant, every pair of
+        indexes has to differ by at least <b>2n + 1</b> bases. With one mismatch allowed that is three.
+        Whether the converter makes you obey it is a configuration question rather than a law: strict
+        collision checking enforces the distance and refuses to start the run, while the relaxed
+        checking that recent BCL Convert versions default to will accept index sets without that
+        guarantee. The bound is the same either way; what changes is whether software stops you.</p>
+        <p>Illumina designs its index sets with a Hamming distance of four, and then advises that two
+        mismatches can be used "to maximize data recovery". Notice that four is less than 2(2) + 1, so
+        at two mismatches the correction is no longer guaranteed to be unique. Illumina defends it on
+        measured misassignment rates rather than on the bound. That is a perfectly reasonable
+        engineering position, and it is worth recognising it for what it is: <b>a threshold justified
+        by how often it goes wrong, not by a proof that it cannot</b>.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>The failure this exercise cannot show you: index hopping</summary>
+      <div class="body">
+        <p>Everything above assumed the index on a read is the index that was ligated to it. Sometimes
+        it is not. Free adapter left in the pool, and the chemistry used on patterned flow cells, can
+        cause a fragment to be sequenced carrying <b>a different sample's index, perfectly</b>. There is
+        no mismatch. There is nothing to detect.</p>
+        <p>How often is disputed, and the disagreement is instructive. Illumina reports index hopping at
+        "≤ 1%" on non-patterned flow cells and "≤ 2%" on patterned ones. Costello and colleagues,
+        measuring across HiSeq X, HiSeq 4000 and NovaSeq, report "0.2 to 6%", and found it depended more
+        on library preparation than on the flow cell: PCR-free genomes hopped at about 3% where
+        PCR-plus genomes hopped at about 0.2%. A preprint from Sinha and colleagues reported 5 to 10%
+        under free-primer contamination. All of these are measurements of the same phenomenon.</p>
+        <p>The fix is structural rather than analytical. <b>Unique dual indexes</b> give every sample
+        its own i7 <i>and</i> its own i5, so a hopped read carries a combination that is not on the
+        sample sheet, so most single-index hops land in the undetermined pile instead of in somebody else's
+        data. They <b>mitigate</b> index hopping; they do not prove that every read which survives has
+        the origin its index claims. With combinatorial indexes, where i7 and i5 values are shared
+        across the plate and only the pairing is unique, a hop can produce a valid combination and
+        quietly contaminate a real sample.</p>
+      </div>
+    </details>
+  </div>
+
+  <h2>Go deeper</h2>
+  <details><summary>How a symbol becomes a score (the Phred math)</summary>
+    <div class="body">A quality symbol is decoded as <code>Q = ASCII_value − 33</code> (the "Phred+33" offset used by
+    Sanger / Illumina 1.8+). The score is a log-scaled error probability:
+    <code>P(base is wrong) = 10^(−Q/10)</code>. So <b>Q20 → 1 in 100</b> (99% accurate), <b>Q30 → 1 in 1000</b>
+    (99.9%), <b>Q40 → 1 in 10,000</b>. Example: the symbol <code>I</code> is ASCII 73 → Q40; <code>#</code> is
+    ASCII 35, so it encodes Q2: about a <b>63% predicted error rate</b>, not the even chance the symbol
+    is often described as. A call like that is effectively uninformative. Select any quality symbol above
+    to see the arithmetic computed live.</div></details>
+  <details><summary>Phred+33 vs Phred+64: a historical trap</summary>
+    <div class="body">Older Illumina pipelines (1.3–1.7) offset by 64 instead of 33, so the <i>same</i> symbol meant a
+    different score. Feed a Phred+64 file to a modern tool assuming +33 and every quality is inflated by 31: a classic silent bug. Modern data (including this dataset) is Phred+33; always confirm the encoding before trusting qualities.</div></details>
+  <details><summary>Why does quality fall off toward the 3′ end? (Read B)</summary>
+    <div class="body">Illumina reads a cluster base-by-base through cycles of chemistry. With each cycle the millions of
+    molecules in a cluster drift slightly out of sync ("phasing") and signal-to-noise decays, so late cycles, the 3′ end of the read, are less certain. This is why quality trimming and adapter trimming clip the 3′ end,
+    and why paired-end R2 is usually a bit worse than R1.</div></details>
+  <details><summary>Q20 vs Q30: what people actually mean by "%≥Q30"</summary>
+    <div class="body">Sequencing-run reports quote the fraction of bases at or above Q30. It is a compact
+    run-level summary, and it is <b>not</b> a universal pass mark: what counts as normal depends on the
+    instrument, the chemistry, the read length and the application. Compare a run against the
+    specification for the platform it was run on rather than against a remembered number.
+    It's a coarse health metric: a read that's Q40 for 60 bases then Q5 for 15 can still average out "fine," which is
+    exactly why you look at the <i>per-base profile</i> (above) and not just the mean.</div></details>
+
+
+
+
+  <div class="nb" id="nb">
+    <div class="nb-head">
+      <h3 style="margin:0">🗒 Lab notebook</h3>
+      <button type="button" id="download-notebook" class="log nb-dl" disabled
+              aria-describedby="nb-dl-hint">⤓ Download notebook</button>
+    </div>
+    <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 5 steps done</p>
+    <ul class="milestones" id="milestone-list" aria-label="Steps in this section"></ul>
+    <div role="log" aria-live="polite" aria-label="Lab notebook entries">
+      <ul id="nbList" tabindex="0"><li class="empty">Explore the reads. Observations will appear here.</li></ul>
+    </div>
+  </div>
+
+  <div class="section-done" id="section-done" role="status" aria-live="polite">
+    <h3>✓ You have finished Section 3.</h3>
+    <p>You decoded a quality symbol into an error probability, made a preprocessing decision about four
+    reads and defended it, found the boundary where one read stopped being sample and started being
+    adapter, chose a demultiplexing tolerance, and then met the failure that no tolerance can catch.</p>
+    <p>Two things are worth carrying forward. <b>A high Phred score tells you the instrument was confident
+    about the base it called, not that the base came from your insert.</b> And preprocessing is a set of
+    policy decisions, not a set of automatic truths: the minimum length, the N-content rule and the index
+    tolerance were all yours to choose, and each one changes what survives into the analysis.</p>
+    <p><b>Next: Section 4, running a sequencing pipeline.</b> You have inspected individual reads by eye.
+    Section 4 scales the same judgement to a whole dataset: summarize its quality, align it to a reference,
+    and work out which variant calls are actually supported.</p>
+    <p class="nb-aside">Your lab notebook is a record of what you did in this section, kept for your own
+    reference. Download it if you want to keep it.</p>
+  </div>
+</div>
+
+
+<p class="footer-note">Prototype · Section 3 of the Molecular Techniques Interactive Bioinformatics
+  Module · 2026/27 cycle · simulated reads, real FASTQ format</p>
+
+<nav class="sectnav" aria-label="Section navigation">
+  <a class="nav-prev" href="Section%202%20-%20Searching%20a%20database%20with%20BLAST.html"><span class="k">Previous</span><span class="t">2. Searching a database with BLAST</span></a>
+  <a class="home" href="index.html">All sections</a>
+  <a class="nav-next" href="Section%204%20-%20Running%20a%20sequencing%20pipeline.html"><span class="k">Next</span><span class="t">4. Running a sequencing pipeline</span></a>
+</nav>
+
+<div class="tip" id="tip"></div>
+
+<script>
+"use strict";
+var READS=[{"header":"SIM-RUN1:1:1107:26433:14103","tag":"A","label":"Read A","seq":"CCGTCACAGGAGATCCCCTTCCTACGCTACACGAGAAGGTGGGTAAAGAGTGTGGGCCAATCAGCAGCTAATTCG","qual":"JIJIGJJIJJJHIJGHJHGJGJGJJHIIJJHJGJGJHJJJGJJJJIJJHJIJGJJIIIJJHJJGJJJJIJIIIII","note":"Every base scores Q38 or above, with a mean of Q40.2, and all 75 bases are at Q30 or better. The caller was confident from the first base to the last, which is what a usable read looks like."},{"header":"SIM-RUN1:1:1106:18514:5374","tag":"B","label":"Read B","seq":"GAGCTTCTCCCACCGTGGCTGACTAGAGACTCGTGCTCACGGGCCTCTTTCCGTGATCGCCGAGGTTGCTGCCGG","qual":"JJJJGHJHJJJJGJHHGHGHGGHJHHGJJJJGJJJGHFFEDDFFEE@C?AB>;<==9877697733300.0.**+","note":"Quality holds through the first 64 bases and then falls away: 11 of the 75 bases score below Q20, the worst reaching Q9. Decay toward the 3′ end is the most common Illumina pattern, and it is the reason trimming tools cut from that end rather than discarding the read."},{"header":"SIM-RUN1:1:1131:6489:31599","tag":"C","label":"Read C","seq":"GGTCCAGTTCCGTAACGGCCATACTGCGCTAGGGGGTGACGCCCNNNGAAGTTTGCGCCACTGCCCTTTACCCTG","qual":"JIIIJJJIJJJIJHJGIJJJJJHGJJJJJJJJJGJJHIJJJGJH$%#JGJJJJHJGJJJJIJJJHGHJHIJJIHH","note":"Three consecutive bases were called N, at positions 45 to 47, each carrying Q4 or lower. An N is what the caller emits when it cannot choose between bases, and the run of them marks a brief dropout in cluster signal. The rest of the read is strong: 96% of its bases still reach Q30. What a pipeline does next is a policy decision, not an automatic truth. It might keep the read as written, cut at the patch and lose everything downstream, or discard it under an explicit N-content or minimum-length rule. What it would <i>not</i> do is remove the three internal bases and join the two ends together."},{"header":"SIM-RUN1:1:1100:16420:36220","tag":"D","label":"Read D","seq":"TAGCATCGAGTGCTTAGCAGTATTTCCCCTAGCCGGCACGGTCGAAAGATCGGAAGAGCACACGTCTGAACTCCA","qual":"IIIHJJJJJJJJIIJGGJJHIJIJJJJGIHIGJJJHIJJHJJJJJGJJJJHJIIHIIGGJJGIHJGGIJJIJJJH","note":"Every base scores Q38 or above, yet only the first 46 bases come from the sample-derived insert. The insert was shorter than the read, so the sequencer ran on into the Illumina adapter, AGATCGGAAGAGC, from base 47. Quality scores do not reveal this at all: FastQC reports it separately as Adapter Content, and trimming removes it."}];
+var ADAPTER="AGATCGGAAGAGC";
+var cur=-1, logged={}, seenTip=false, seenChart={};
+// Which reads the student has opened. Drives the progress cue and the
+// end-of-section panel; it never gates anything.
+var inspected={}, decided={}, milestones={};
+// Read labels are of the form "A: clean, high-quality read", so the leading
+// token already carries a colon. Strip it before composing notebook lines,
+// otherwise they render as "Inspected read A:: mean Q 36.8".
+function readTag(r){ return r.tag; }
+var nbLog=[];
+
+function q(ch){return ch.charCodeAt(0)-33;}
+function perr(Q){return Math.pow(10,-Q/10);}
+function qcolor(base,Q){
+  if(base==='N')return 'var(--gap)';
+  if(Q>=30)return 'var(--good)';
+  if(Q>=20)return 'var(--warn)';
+  return 'var(--bad)';
+}
+function baseColorBg(base,Q){ // faint bg on sequence tiles, colored by same rule
+  var c=qcolor(base,Q);
+  return c==='var(--gap)'?'rgba(110,118,129,.35)':
+    c==='var(--good)'?'rgba(86,211,100,.16)':
+    c==='var(--warn)'?'rgba(210,153,34,.18)':'rgba(248,81,73,.20)';
+}
+
+function nb(msg){
+  if(logged[msg])return; logged[msg]=1;
+  noteExport(msg);
+  var list=document.getElementById('nbList');
+  var empty=list.querySelector('.empty'); if(empty)empty.remove();
+  var li=document.createElement('li'); li.textContent=msg; list.appendChild(li);
+  document.getElementById('nb').scrollTop=1e9;
+}
+
+// Completion used to fire when all four reads had been "inspected", and render(0)
+// runs at load, so Read A was inspected for free. A student could click the other
+// three tabs and be told the section was finished without having decoded a single
+// quality symbol, found the adapter, chosen a mismatch tolerance or seen the
+// hopped read: four of the five things this section exists to teach, and half the
+// page by length. These are the five, and nothing here gates anything.
+var MILESTONES = [
+  { key:'decode',   text:'Decoded a quality symbol' },
+  { key:'decide',   text:'Decided what to do with all four reads' },
+  { key:'adapter',  text:'Found the adapter boundary in read D' },
+  { key:'tolerance',text:'Compared two demultiplexing tolerances' },
+  { key:'hop',      text:'Revealed the hopped read' }
+];
+function milestone(key){
+  if (milestones[key]) return;
+  milestones[key] = 1;
+  updateProgress();
+}
+function updateProgress(){
+  if (Object.keys(decided).length === READS.length) milestones.decide = 1;
+  var done = MILESTONES.filter(function(m){ return milestones[m.key]; });
+  var cue=document.getElementById('progress-cue');
+  if(cue)cue.textContent = done.length + ' of ' + MILESTONES.length + ' steps done';
+  // The checklist lives OUTSIDE the live region. Putting it inside meant every
+  // milestone announced all five items again, which is how a status message
+  // turns into noise.
+  var list=document.getElementById('milestone-list');
+  if(list)list.innerHTML = MILESTONES.map(function(m){
+    var got = !!milestones[m.key];
+    return '<li class="' + (got ? 'got' : '') + '"><span aria-hidden="true">'
+      + (got ? '✓' : '○') + '</span> ' + m.text
+      + '<span class="sr-only">' + (got ? ' (done)' : ' (not done yet)') + '</span></li>';
+  }).join('');
+  if(done.length === MILESTONES.length){
+    var panel=document.getElementById('section-done');
+    if(panel&&!panel.classList.contains('show')){
+      panel.classList.add('show');
+      if(panel.scrollIntoView)panel.scrollIntoView({behavior:'smooth',block:'center'});
+    }
+  }
+}
+
+function stats(r){
+  var Qs=[],nN=0; for(var i=0;i<r.seq.length;i++){var Q=q(r.qual[i]);Qs.push(Q);if(r.seq[i]==='N')nN++;}
+  var mean=Qs.reduce(function(a,b){return a+b;},0)/Qs.length;
+  var ge30=Qs.filter(function(x){return x>=30;}).length/Qs.length*100;
+  var adapt=r.seq.indexOf(ADAPTER)>=0;
+  return {mean:mean,ge30:ge30,nN:nN,adapt:adapt,Qs:Qs};
+}
+
+function render(idx){
+  cur=idx; var r=READS[idx];
+  document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('active',i===idx);});
+  document.getElementById('hdr').textContent='@'+r.header;
+  var st=stats(r);
+  var seqT=document.getElementById('seqTrack'), qualT=document.getElementById('qualTrack');
+  seqT.innerHTML=''; qualT.innerHTML='';
+  for(var i=0;i<r.seq.length;i++){
+    var Q=st.Qs[i], base=r.seq[i], ch=r.qual[i];
+    var sc=document.createElement('div'); sc.className='cell'; sc.textContent=base;
+    sc.style.color=qcolor(base,Q); sc.style.background=baseColorBg(base,Q);
+    var qc=document.createElement('div'); qc.className='cell'; qc.textContent=ch;
+    qc.style.color=qcolor(base,Q);
+    (function(i,base,ch,Q){
+      function on(e){ showTip(e,i,base,ch,Q); highlight(i,true); }
+      function off(){ hideTip(); highlight(i,false); }
+      sc.addEventListener('mousemove',on); sc.addEventListener('mouseleave',off);
+      qc.addEventListener('mousemove',on); qc.addEventListener('mouseleave',off);
+      // SC 2.1.1 / SC 1.4.13: the same readout on keyboard focus. Positioned from
+      // the element rather than a pointer, because there is no cursor to follow.
+      function onKey(){ showTipAt(this,i,base,ch,Q); highlight(i,true); }
+      sc.addEventListener('focus',onKey); sc.addEventListener('blur',off);
+      qc.addEventListener('focus',onKey); qc.addEventListener('blur',off);
+    })(i,base,ch,Q);
+    sc.dataset.i=i; qc.dataset.i=i;
+    // SC 2.1.1 was satisfied by giving EVERY cell tabIndex=0, which made the page
+    // technically operable and practically unusable: 75 bases plus 75 quality
+    // symbols is 150 tab stops per read, out of 182 on the whole page, and the
+    // two tracks carry the same information twice. This is the roving-tabindex
+    // pattern instead. The sequence track is one composite widget with a single
+    // tab stop; arrow keys move within it, Home and End jump to the ends. The
+    // quality track is not focusable at all, because its content is already in
+    // the readout and in the sequence cell's own accessible name.
+    sc.tabIndex = (i===0 ? 0 : -1);
+    sc.setAttribute('role','option');
+    sc.setAttribute('aria-label','position '+(i+1)+' of '+r.seq.length+', base '+base
+      +(base==='N'?' (no call)':'')+', quality symbol '+ch+', Q'+Q);
+    qc.setAttribute('aria-hidden','true');
+    seqT.appendChild(sc); qualT.appendChild(qc);
+  }
+  seqT.setAttribute('role','listbox');
+  seqT.setAttribute('aria-label','Read '+readTag(r)+', '+r.seq.length
+    +' bases with quality. Use the left and right arrow keys to move between positions.');
+  seqT.setAttribute('aria-orientation','horizontal');
+  qualT.setAttribute('aria-hidden','true');
+  seqPos = 0;
+  // stats row
+  var s=document.getElementById('stats');
+  s.innerHTML=
+    '<div class="stat">mean Q<br><b>'+st.mean.toFixed(1)+'</b></div>'+
+    '<div class="stat">% ≥ Q30<br><b>'+st.ge30.toFixed(0)+'%</b></div>'+
+    '<div class="stat">N bases<br><b style="color:'+(st.nN?'var(--warn)':'var(--good)')+'">'+st.nN+'</b></div>'+
+    '<div class="stat">length<br><b>'+r.seq.length+' bp</b></div>'+
+    '<div class="stat">adapter<br><b style="color:'+(st.adapt?'var(--bad)':'var(--good)')+'">'+(st.adapt?'detected':'none')+'</b></div>';
+  document.getElementById('note').textContent=r.note;
+  chart(st.Qs);
+  nb('Inspected read '+readTag(r)+': mean Q '+st.mean.toFixed(1)+', '+st.ge30.toFixed(0)+'% ≥Q30'+(st.nN?', '+st.nN+' N':'')+(st.adapt?', adapter read-through':'')+'.');
+  inspected[idx]=1; drawDecision(); updateProgress();
+}
+
+// Roving tabindex. Exactly one cell is tabbable; the arrows move which one.
+var seqPos = 0;
+function moveSeq(to){
+  var cells = document.querySelectorAll('#seqTrack .cell');
+  if (!cells.length) return;
+  to = Math.max(0, Math.min(cells.length - 1, to));
+  cells[seqPos].tabIndex = -1;
+  seqPos = to;
+  cells[to].tabIndex = 0;
+  cells[to].focus();
+  if (cells[to].scrollIntoView) cells[to].scrollIntoView({block:'nearest', inline:'nearest'});
+}
+document.getElementById('seqTrack').addEventListener('keydown', function(e){
+  var last = document.querySelectorAll('#seqTrack .cell').length - 1;
+  var k = e.key;
+  if (k === 'ArrowRight')      moveSeq(seqPos + 1);
+  else if (k === 'ArrowLeft')  moveSeq(seqPos - 1);
+  else if (k === 'Home')       moveSeq(0);
+  else if (k === 'End')        moveSeq(last);
+  else return;
+  e.preventDefault();   // only after we know we handled it, so the page still scrolls otherwise
+});
+
+function highlight(i,on){
+  document.querySelectorAll('.cell[data-i="'+i+'"]').forEach(function(c){c.classList.toggle('sel',on);});
+}
+
+var tip=document.getElementById('tip');
+function showTip(e,i,base,ch,Q){
+  milestone('decode');
+  var P=perr(Q), oneIn=Math.round(1/P);
+  var acc=(100*(1-P));
+  var msg='<b>position '+(i+1)+'</b><br>base: <b>'+base+'</b>'+(base==='N'?' (no call)':'')+
+    '<br>symbol: <b>'+ch+'</b> (ASCII '+ch.charCodeAt(0)+')'+
+    '<br>Q = '+ch.charCodeAt(0)+' − 33 = <b>'+Q+'</b>'+
+    '<br>P(error) = 10^(−'+Q+'/10)<br>= <b>'+(P<0.001?P.toExponential(1):P.toFixed(4))+'</b> (~1 in '+oneIn+')'+
+    '<br>accuracy ≈ '+acc.toFixed(Q>=30?2:1)+'%';
+  tip.innerHTML=msg; tipCancelHide(); tip.style.display='block';
+  var x=e.clientX+14, y=e.clientY+14;
+  if(x+270>window.innerWidth)x=e.clientX-274;
+  if(y+140>window.innerHeight)y=e.clientY-150;
+  tip.style.left=x+'px'; tip.style.top=y+'px';
+  if(!seenTip){seenTip=true;nb('Decoded a quality symbol live: Q = ASCII − 33, then P(error)=10^(−Q/10).');}
+  if(base==='N')nb('Found an N: the base-caller returned no call (its quality is rock-bottom).');
+  if(Q<15)nb('Saw a very low-quality base (Q'+Q+', worse than ~1 error in 30): untrustworthy.');
+}
+function hideTip(){ tipScheduleHide(); }
+/* ------------------------------------------------------------------ *
+ * SC 1.4.13 Content on Hover or Focus, added after the 2026-08-17 audit.
+ *
+ * The tooltip appeared on hover and then failed two of the criterion's three
+ * requirements. It could not be DISMISSED without moving the pointer, and it
+ * could not be HOVERED, because pointer-events:none meant that moving towards
+ * it left the trigger and the tooltip vanished. Both matter to anyone using
+ * magnification, where the tooltip may be the only part of the chart on screen
+ * and reaching it with the pointer is the normal way to read it.
+ *
+ * The hide is now deferred rather than immediate, so moving from the trigger
+ * onto the tooltip cancels it, and Escape closes it from the keyboard.
+ * ------------------------------------------------------------------ */
+var tipHideTimer = null;
+function tipCancelHide(){ if (tipHideTimer){ clearTimeout(tipHideTimer); tipHideTimer = null; } }
+function tipScheduleHide(){
+  tipCancelHide();
+  tipHideTimer = setTimeout(function(){ tip.style.display = 'none'; }, 220);
+}
+tip.addEventListener('mouseenter', tipCancelHide);
+tip.addEventListener('mouseleave', tipScheduleHide);
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape' || e.key === 'Esc'){ tipCancelHide(); tip.style.display = 'none'; }
+});
+
+
+// Keyboard equivalent of showTip: anchors the readout to the focused cell.
+function showTipAt(el,i,base,ch,Q){
+  milestone('decode');
+  var r=el.getBoundingClientRect();
+  showTip({clientX:r.left+r.width/2, clientY:r.bottom},i,base,ch,Q);
+}
+
+// Colours are read from the CSS custom properties rather than restated here.
+// The 2026-07-30 contrast audit changed --text-dim and --bad in :root, but this
+// chart had its own hardcoded hexes, so the axis labels stayed at the failing
+// #8b949e until 2026-08-13. Reading the tokens keeps SVG and CSS in step.
+function cssv(name){
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+function chart(Qs){
+  var C_GOOD=cssv('--good'), C_WARN=cssv('--warn'), C_BAD=cssv('--bad'),
+      C_DIM=cssv('--text-dim');
+  var w=Math.max(600,Qs.length*11), h=150, pad=26, maxQ=42;
+  var bw=(w-pad-6)/Qs.length;
+  // SC 1.1.1 Non-text Content. The chart carries information that appears nowhere
+  // else in text, so it needs a name and a description a screen reader can use.
+  // Built from the same numbers the bars are drawn from, so it cannot drift.
+  var first5 = Math.round(Qs.slice(0,5).reduce(function(a,b){return a+b;},0)/5);
+  var last5  = Math.round(Qs.slice(-5).reduce(function(a,b){return a+b;},0)/5);
+  var nBelow20 = Qs.filter(function(x){return x<20;}).length;
+  var lowRun = (function(){
+    var best=0,cur=0,at=-1,start=0;
+    for(var i=0;i<Qs.length;i++){
+      if(Qs[i]<20){ if(cur===0)start=i; cur++; if(cur>best){best=cur;at=start;} } else cur=0;
+    }
+    return best?(' The longest run below Q20 is '+best+' base'+(best>1?'s':'')+' starting at base '+(at+1)+'.'):'';
+  })();
+  var desc = 'Per-base quality profile across '+Qs.length+' bases, 5 prime on the left. '
+    + 'Quality averages Q'+first5+' over the first five bases and Q'+last5+' over the last five. '
+    + nBelow20+' of '+Qs.length+' bases fall below Q20.' + lowRun;
+  var svg='<svg viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" role="img" '
+        + 'aria-label="'+desc.replace(/"/g,'&quot;')+'">'
+        + '<title>'+desc.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</title>';
+  // Q30 / Q20 guide lines
+  [30,20].forEach(function(gy){
+    var y=h-pad-(gy/maxQ)*(h-pad-6);
+    svg+='<line x1="'+pad+'" y1="'+y+'" x2="'+w+'" y2="'+y+'" stroke="'+(gy===30?C_GOOD:C_WARN)+'" stroke-dasharray="4 4" stroke-opacity=".5"/>';
+    svg+='<text x="'+(pad-4)+'" y="'+(y+3)+'" fill="'+(gy===30?C_GOOD:C_WARN)+'" font-size="9" text-anchor="end">Q'+gy+'</text>';
+  });
+  for(var i=0;i<Qs.length;i++){
+    var Q=Qs[i], bh=(Q/maxQ)*(h-pad-6);
+    var col=Q>=30?C_GOOD:Q>=20?C_WARN:C_BAD;
+    svg+='<rect x="'+(pad+i*bw)+'" y="'+(h-pad-bh)+'" width="'+Math.max(1,bw-1)+'" height="'+bh+'" fill="'+col+'"/>';
+  }
+  svg+='<text x="'+pad+'" y="'+(h-8)+'" fill="'+C_DIM+'" font-size="10">5′ (base 1)</text>';
+  svg+='<text x="'+(w-6)+'" y="'+(h-8)+'" fill="'+C_DIM+'" font-size="10" text-anchor="end">3′ (base '+Qs.length+')</text>';
+  svg+='</svg>';
+  document.getElementById('chart').innerHTML=svg;
+}
+
+// ---- the decision on each read -------------------------------------------
+// The tabs used to be labelled "clean, high-quality read", "3' adapter
+// read-through" and so on, which handed the student the diagnosis before they
+// had looked at anything. They now say Read A to Read D, and the judgement is
+// asked for here.
+//
+// Deliberately NOT marked right or wrong. Read C has three defensible answers
+// and Read B's depends on a minimum-length rule nobody has stated. Preprocessing
+// is a policy decision; scoring it as though there were one truth would teach
+// the opposite of that.
+var DECISIONS = {
+  keep:    'Keep it as it is',
+  trim3:   'Trim the 3′ end',
+  adapter: 'Remove adapter, keep the insert',
+  drop:    'Discard it under a stated rule'
+};
+var VERDICT = [
+  { usual:'keep', text:'<b>Most pipelines keep read A as it is.</b> Every base is Q38 or better and no '
+    + 'adapter is detected, so there is nothing for a trimmer to act on. Worth noticing what "keep" '
+    + 'rests on here: the quality scores AND the absence of adapter. One of those alone would not be enough.' },
+  { usual:'trim3', text:'<b>Most pipelines trim read B from the 3′ end.</b> Confidence holds for about 64 '
+    + 'bases and then falls away, and end trimming is exactly the case those tools were built for. '
+    + 'Whether the read survives depends on a rule nobody has stated yet: the minimum length you are '
+    + 'willing to keep. Set it at 50 and this read lives; set it at 70 and the same read is discarded.' },
+  { usual:'keep', text:'<b>Read C is the one with no single right answer.</b> Positions 45 to 47 are '
+    + 'no-calls and should not contribute evidence, but the remaining 72 bases are high quality. A '
+    + 'pipeline might keep the read as written, cut at the patch and lose everything downstream, or '
+    + 'discard it under an explicit N-content or minimum-length rule. What no ordinary trimmer does is '
+    + 'excise the three internal bases and splice the ends together. If you chose to discard, that is '
+    + 'defensible; the thing that is not defensible is assuming the tool will quietly fix it.' },
+  { usual:'adapter', text:'<b>Read D needs the adapter removed and the 46 base insert kept</b>, if 46 '
+    + 'passes your minimum-length rule. This is the read worth remembering: it is flawless by quality '
+    + 'score, and 29 of its bases are not yours. Quality told you nothing about that, and it never will.' }
+];
+function drawDecision(){
+  var fb = document.getElementById('decide-fb');
+  var chosen = decided[cur];
+  document.querySelectorAll('#decide-opts .dec').forEach(function(b){
+    b.setAttribute('aria-pressed', String(chosen === b.dataset.dec));
+  });
+  if (!chosen){
+    fb.innerHTML = 'Decide first, then see what a pipeline would usually do and why. More than one '
+      + 'answer is defensible for some of these reads.';
+    fb.style.color = 'var(--text-dim)';
+    return;
+  }
+  var v = VERDICT[cur];
+  fb.innerHTML = 'You chose <b>' + DECISIONS[chosen] + '</b>. ' + v.text;
+  fb.style.color = 'var(--text)';
+}
+document.querySelectorAll('#decide-opts .dec').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    decided[cur] = btn.dataset.dec;
+    drawDecision();
+    nb('Read ' + readTag(READS[cur]) + ': decided to ' + DECISIONS[btn.dataset.dec].toLowerCase() + '.');
+    updateProgress();
+  });
+});
+
+// build tabs
+var tabs=document.getElementById('tabs');
+READS.forEach(function(r,i){
+  var b=document.createElement('button'); b.className='tab'; b.textContent=r.label;
+  b.addEventListener('click',function(){render(i);}); tabs.appendChild(b);
+});
+document.getElementById('logBtn').addEventListener('click',function(){
+  var r=READS[cur]; nb('★ Bookmarked read '+readTag(r)+' for the write-up.');
+});
+
+
+// =========================================================
+//  Notebook export, added 2026-08-13 (pattern from Section 1)
+//  The completion text used to say "take a screenshot". A screenshot is awkward
+//  to file, easy to fake, and caps the record at one screenful. This hands the
+//  student a work product instead. Nothing is transmitted anywhere.
+// =========================================================
+
+
+function buildNotebookText(){
+  var now=new Date(), L=[];
+  L.push('Molecular Techniques: Interactive Bioinformatics Module');
+  L.push('Section 3: Reading a FASTQ file');
+  L.push('');
+  L.push('Student: ______________________________');
+  L.push('Downloaded: '+now.toLocaleDateString()+', '+now.toLocaleTimeString());
+  if(nbLog.length>0){
+    var f=nbLog[0], l=nbLog[nbLog.length-1];
+    var mins=Math.max(1,Math.round((l.at-f.at)/60000));
+    L.push('Time working: about '+mins+' min (first entry '+f.ts+', last entry '+l.ts+')');
+  }
+  L.push('Entries: '+nbLog.length);
+  L.push('');
+  L.push('----------------------------------------------------------------');
+  if(nbLog.length===0){ L.push('(no entries yet)'); }
+  else { nbLog.forEach(function(e){ L.push(e.ts+'  '+e.text); }); }
+  L.push('----------------------------------------------------------------');
+  L.push('');
+  L.push('');
+  L.push('Written by the module in your browser. Nothing was sent anywhere.');
+  return L.join('\n');
+}
+function downloadNotebook(){
+  var d=new Date();
+  var stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  var blob=new Blob([buildNotebookText()],{type:'text/plain;charset=utf-8'});
+  var url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download='section3_lab_notebook_'+stamp+'.txt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},0);
+}
+function noteExport(text){
+  var d=new Date();
+  nbLog.push({ts:d.toLocaleTimeString(), text:text, at:d});
+  var b=document.getElementById('download-notebook');
+  if(b) b.disabled=false;
+}
+function wireNotebookDownload(){
+  var b=document.getElementById('download-notebook');
+  if(b) b.addEventListener('click',downloadNotebook);
+}
+
+
+/* ==================================================================== *
+ * Adapters and multiplexing, added 2026-08-17.
+ * ==================================================================== */
+
+/* ---- 1. finding the adapter in read D ------------------------------ *
+ * The search is really performed on the real read string rather than the
+ * answer being written into the page, so the numbers underneath cannot
+ * drift away from the sequence above them.
+ * -------------------------------------------------------------------- */
+var FASTQC_PROBE = 'AGATCGGAAGAG';        // FastQC adapter_list.txt, 12 bases
+var TRIM_READ_ID = 'D';
+
+// Reads are found by their tag field, never by their caption. Two functions
+// used to parse the label ("D: 3' adapter read-through") to work out which read
+// they meant, so renaming the tabs to "Read D" broke both of them silently.
+function readByTag(tag){
+  for (var i = 0; i < READS.length; i++){
+    if (READS[i].tag === tag) return READS[i];
+  }
+  return null;
+}
+
+function showTrim(found){
+  var r = readByTag(TRIM_READ_ID);
+  var host = document.getElementById('trim-seq');
+  if (!r || !host) return;
+  var seq = r.seq;
+  if (!found){
+    host.innerHTML = '<span class="keep">' + seq + '</span>';
+    return;
+  }
+  var at = seq.indexOf(FASTQC_PROBE);
+  if (at === -1){
+    host.innerHTML = '<span class="keep">' + seq + '</span>';
+    document.getElementById('trim-note').innerHTML =
+      'No adapter found in this read, which is the answer for most reads in most runs.';
+    return;
+  }
+  host.innerHTML =
+      '<span class="keep">' + seq.slice(0, at) + '</span>'
+    + '<span class="cut">|</span>'
+    + '<span class="adapt"><span class="probe">' + seq.slice(at, at + FASTQC_PROBE.length)
+    + '</span>' + seq.slice(at + FASTQC_PROBE.length) + '</span>';
+
+  var kept = at, cutlen = seq.length - at;
+  document.getElementById('trim-note').innerHTML =
+      'Found at base <b>' + (at + 1) + '</b>. Everything before it, <b>' + kept
+    + ' bases</b>, is sample-derived insert. Everything from it on, <b>' + cutlen
+    + ' bases</b>, is Illumina, and a trimmer removes them. '
+    + '<b>You paid to sequence ' + cutlen + ' bases of adapter</b>, at full quality, on this read and '
+    + 'on every other read whose insert was under ' + seq.length + ' bases. That is what a library '
+    + 'with short inserts costs, and it is why insert size is a quality metric rather than a detail.';
+}
+
+/* ---- 2. demultiplexing --------------------------------------------- *
+ * The four indexes are real Illumina TruSeq CD i7 sequences (D701 to D704).
+ * Their minimum pairwise Hamming distance is computed on the page rather
+ * than asserted, because the whole argument of the panel is that the
+ * distance is what licenses the tolerance.
+ * -------------------------------------------------------------------- */
+var SHEET = [
+  { name:'Sample 1', label:'donor A', index:'ATTACTCG' },
+  { name:'Sample 2', label:'donor B', index:'TCCGGAGA' },
+  { name:'Sample 3', label:'donor C', index:'CGCTCATT' },
+  { name:'Sample 4', label:'donor D', index:'GAGATTCC' }
+];
+
+/* `truth` is which library the fragment really came from. The demultiplexer
+   never sees it; only the reveal does. Read 9 carries Sample 2's index
+   perfectly and came from Sample 4, which is index hopping, and is the one
+   failure in this panel that no amount of care in the analysis can catch. */
+var POOL = [
+  { id:'read 1', obs:'ATTACTCG', truth:'Sample 1' },
+  { id:'read 2', obs:'TCCGGAGA', truth:'Sample 2' },
+  { id:'read 3', obs:'CGCTCATT', truth:'Sample 3' },
+  { id:'read 4', obs:'GAGATTCC', truth:'Sample 4' },
+  { id:'read 5', obs:'ATTACTCG', truth:'Sample 1' },
+  { id:'read 6', obs:'TCCGGAGT', truth:'Sample 2' },
+  { id:'read 7', obs:'CGCTCAAA', truth:'Sample 3' },
+  { id:'read 8', obs:'GGTACCTA', truth:'Sample 1' },
+  { id:'read 9', obs:'TCCGGAGA', truth:'Sample 4' }
+];
+
+var MM = 1;                 // bcl2fastq2 and BCL Convert both default to 1
+var MM_SEEN = {};           // which tolerances the student has actually compared
+var revealed = false;
+
+function hamming(a, b){
+  if (a.length !== b.length) return 99;
+  var d = 0;
+  for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) d++;
+  return d;
+}
+function minSheetDistance(){
+  var m = 99;
+  for (var i = 0; i < SHEET.length; i++)
+    for (var j = i + 1; j < SHEET.length; j++)
+      m = Math.min(m, hamming(SHEET[i].index, SHEET[j].index));
+  return m;
+}
+// A read is assigned only when EXACTLY ONE sheet index is the closest acceptable
+// match. If none qualifies, or two tie, the read is undetermined.
+//
+// The first version used `if (d < bestD)`, which silently kept whichever sample
+// happened to come first in the array. That is not a tie-break, it is array
+// order deciding a sample assignment. It fires on the current data: read 8
+// (GGTACCTA) sits 5 bases from BOTH Sample 1 and Sample 3, and the table
+// confidently named Sample 1.
+function assign(obs, tol){
+  var bestD = 99, tied = [];
+  SHEET.forEach(function(s){
+    var d = hamming(obs, s.index);
+    if (d < bestD){ bestD = d; tied = [s]; }
+    else if (d === bestD){ tied.push(s); }
+  });
+  var ambiguous = tied.length > 1;
+  return {
+    sample: (bestD <= tol && !ambiguous) ? tied[0] : null,
+    closest: tied,            // one entry, or several when equally close
+    ambiguous: ambiguous,
+    d: bestD
+  };
+}
+
+function drawSheet(){
+  var tb = document.querySelector('#sheet-tbl tbody');
+  tb.innerHTML = SHEET.map(function(s){
+    return '<tr><td class="word">' + s.name + '</td><td>' + s.index
+         + '</td><td class="word">' + s.label + '</td></tr>';
+  }).join('');
+  var m = minSheetDistance();
+  document.getElementById('sheet-note').innerHTML =
+      'Real Illumina TruSeq indexes. No two of them are closer than <b>' + m
+    + ' bases apart</b>, which is what makes correcting a misread base safe rather than a guess.';
+}
+
+function drawMmPicker(){
+  var host = document.getElementById('mm-picker');
+  host.innerHTML = '';
+  [0, 1, 2].forEach(function(v){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = String(v);
+    b.setAttribute('aria-pressed', v === MM ? 'true' : 'false');
+    b.setAttribute('aria-label', v + ' mismatches allowed per index');
+    b.onclick = function(){
+      MM = v; MM_SEEN[v] = 1; chosenTolerance = true;
+      if (Object.keys(MM_SEEN).length >= 2) milestone('tolerance');
+      drawMmPicker(); demux(true);
+    };
+    host.appendChild(b);
+  });
+  var m = minSheetDistance(), need = 2 * MM + 1;
+  var el = document.getElementById('mm-note');
+  if (MM === 0){
+    el.innerHTML = 'Nothing is corrected. A single misread base in the index read loses the whole '
+      + 'read, even though the insert was sequenced perfectly.';
+  } else if (need <= m){
+    el.innerHTML = 'Correcting ' + MM + ' mismatch' + (MM > 1 ? 'es' : '') + ' needs indexes at least '
+      + '<b>' + need + '</b> bases apart. These are ' + m + ' apart, so every corrected read has '
+      + 'exactly one possible origin.';
+  } else {
+    el.innerHTML = 'Correcting ' + MM + ' mismatches needs indexes at least <b>' + need + '</b> bases '
+      + 'apart. These are only ' + m + ' apart, so a corrected read is no longer <i>guaranteed</i> to '
+      + 'have one possible origin. It usually does. That is a different claim.';
+  }
+}
+
+// The table used to arrive fully sorted at the default tolerance, so the
+// instruction to "sort them" described something already done. Assignment now
+// waits until the student has actually chosen a rule.
+var chosenTolerance = false;
+
+function demux(fromClick){
+  var rows = '', assigned = 0, undet = 0;
+  POOL.forEach(function(r){
+    var a = assign(r.obs, MM);
+    if (a.sample) assigned++; else undet++;
+    var hopped = revealed && a.sample && a.sample.name !== r.truth;
+    rows += '<tr tabindex="0" class="' + (a.sample ? '' : 'undet ')
+      + (hopped ? 'hopped' : '') + '">'
+      + '<td class="word">' + r.id + '</td>'
+      + '<td>' + r.obs + '</td>'
+      + '<td>' + a.closest.map(function(c){ return c.index + ' (' + c.name + ')'; }).join('<br>')
+      + (a.ambiguous ? '<br><span class="tieflag">equally close, so ambiguous</span>' : '') + '</td>'
+      + '<td>' + a.d + '</td>'
+      + '<td class="word verdict' + (hopped ? ' truth' : '') + '">'
+      + (!chosenTolerance ? '<span class="pending">choose a tolerance</span>'
+         : a.sample ? a.sample.name
+         : a.ambiguous ? 'Undetermined (ambiguous)' : 'Undetermined')
+      + (revealed ? (hopped ? ' &larr; really ' + r.truth : '') : '')
+      + '</td></tr>';
+  });
+  document.getElementById('dmx-rows').innerHTML = rows;
+
+  if (!chosenTolerance){
+    document.getElementById('dmx-readout').innerHTML =
+      '<b>Choose how many index mismatches to permit.</b> A read is assigned only when exactly one '
+      + 'sample-sheet index is the closest acceptable match. If no index qualifies, or two are equally '
+      + 'close, the read is undetermined.';
+    return;
+  }
+
+  var m = minSheetDistance();
+  var out = '<b>' + assigned + ' of ' + POOL.length + ' reads assigned, ' + undet
+    + ' undetermined.</b> ';
+  if (MM === 0){
+    out += 'At zero tolerance an index has to be perfect, so read 6 is thrown away over a single '
+      + 'base, and read 7 over two. Their inserts were sequenced perfectly well. Nothing was wrong '
+      + 'with the data; the rule was too strict.';
+  } else if (MM === 1){
+    out += 'This is what the tools do by default. Read 6 is one base off Sample 2 and nothing else is '
+      + 'within ' + m + ' bases, so it can only have meant Sample 2 and it is corrected. Read 7 is two '
+      + 'bases off and stays undetermined. Read 8 resembles nothing on the sheet and never will.';
+  } else {
+    out += 'Read 7 is now recovered as well. Notice that you did not gather more evidence, you '
+      + 'accepted a weaker match. Undetermined reads are not lost data, they are data that failed to '
+      + 'answer the question, and the way to have fewer of them is to lower the bar.';
+  }
+  out += ' <b>Read 8 is undetermined at every setting</b>, and it is worth looking at why. It sits '
+    + '5 bases from Sample 1 and 5 bases from Sample 3, equally close to both, so even at a tolerance '
+    + 'that admitted it there would be no way to say which one it meant. That is an ambiguous read '
+    + 'rather than a distant one, and the two are different failures. Either way its index matches '
+    + 'nothing on the sheet: an index read that failed, or a library that should not have been in the '
+    + 'pool. Real runs write these to a file called <code>Undetermined_S0</code>, and the most common '
+    + 'sequences in it are the first thing to look at when a pool goes wrong.';
+  document.getElementById('dmx-readout').innerHTML = out;
+
+  if (fromClick) nb('Demultiplexed nine reads at ' + MM + ' mismatch'
+    + (MM === 1 ? '' : 'es') + ' allowed: ' + assigned + ' assigned, ' + undet + ' undetermined.');
+}
+
+function reveal(){
+  revealed = true;
+  demux(false);
+  var el = document.getElementById('reveal-readout');
+  el.style.display = 'block';
+  el.className = 'readout alarm';
+  el.innerHTML = '<b>Read 9 came from Sample 4 and carried Sample 2\'s index, perfectly.</b> There is '
+    + 'no mismatch to notice, no threshold that would have caught it, and no column in this table that '
+    + 'looks wrong. It has been counted as Sample 2 and it will stay counted as Sample 2 through '
+    + 'alignment, quantification and every figure you make. <b>This is the difference between a read '
+    + 'that fails to answer and a read that answers wrongly.</b> Catching contamination like this needs '
+    + 'something other than the demultiplexing step itself: unique dual indexes, so that a hop produces '
+    + 'a combination absent from the sample sheet, or independent biological evidence such as sample '
+    + 'genotypes.';
+  document.getElementById('btn-reveal').disabled = true;
+  milestone('hop');
+  nb('Revealed the pool: one of the nine reads had hopped index and was silently misassigned.');
+}
+
+wireNotebookDownload();
+render(0);
+showTrim(false);
+drawSheet();
+drawMmPicker();
+demux(false);
+document.getElementById('btn-trim').onclick = function(){
+  showTrim(true);
+  this.disabled = true;
+  milestone('adapter');
+  nb('Found the adapter in read D by searching for the Illumina stub.');
+};
+document.getElementById('btn-reveal').onclick = reveal;
+</script>
+</body>
+</html>

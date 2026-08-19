@@ -1,0 +1,2145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Section 4: Running a Sequencing Pipeline</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a2332;
+    --panel-2: #243042;
+    --text: #e6edf3;
+    --text-dim: #8f98a1;   /* was #8b949e, WCAG audit 2026-07-30 */
+    --accent: #58a6ff;
+    --good: #56d364;
+    --bad: #f96760;        /* was #f85149, WCAG audit 2026-07-30 */
+    --warn: #d29922;
+    --term-bg: #0a0e13;
+    --term-green: #56d364;
+    --term-blue: #58a6ff;
+    --border: #30363d;
+    --mono: 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.5; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 24px 120px; }
+  header { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px; }
+  h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; }
+  .subtitle { color: var(--text-dim); font-size: 14px; }
+  .breadcrumb { color: var(--text-dim); font-size: 12px; margin-bottom: 8px; }
+  .breadcrumb b { color: var(--accent); }
+  .breadcrumb a{color:var(--text-dim);text-decoration:underline;text-underline-offset:2px}
+  .breadcrumb a:hover{color:var(--accent)}
+
+  .prompt-box {
+    background: var(--panel); border-left: 3px solid var(--accent);
+    padding: 14px 18px; border-radius: 4px; margin-bottom: 18px; font-size: 15px;
+  }
+  .prompt-box b { color: var(--accent); }
+
+  /* Objective / goal bar */
+  .goal {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 12px;
+  }
+  .goal .step-badge {
+    font-family: var(--mono); font-size: 12px; color: var(--accent);
+    background: rgba(88,166,255,0.12); border: 1px solid var(--accent);
+    border-radius: 20px; padding: 3px 12px; white-space: nowrap;
+  }
+  .goal .goal-text { font-size: 14px; }
+  .goal .goal-text b { color: var(--text); }
+
+  /* Terminal */
+  .terminal {
+    background: var(--term-bg); border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+  .term-titlebar {
+    background: #161b22; padding: 8px 14px; display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .term-dot { width: 12px; height: 12px; border-radius: 50%; }
+  .term-dot.r { background: #ff5f56; } .term-dot.y { background: #ffbd2e; } .term-dot.g { background: #27c93f; }
+  .term-title { color: var(--text-dim); font-size: 12px; font-family: var(--mono); margin-left: 8px; }
+  .term-body {
+    padding: 14px 16px; font-family: var(--mono); font-size: 13px; line-height: 1.55;
+    height: 420px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  .term-line { margin: 0; }
+  .term-line.cmd .ps1 { color: var(--term-green); }
+  .term-line.cmd .path { color: var(--term-blue); }
+  .term-line.cmd .typed { color: var(--text); }
+  .term-line.out { color: #c9d1d9; }
+  .term-line.dim { color: var(--text-dim); }
+  .term-line.good { color: var(--good); }
+  .term-line.warn { color: var(--warn); }
+  .term-line.bad { color: var(--bad); }
+  .term-line.accent { color: var(--accent); }
+  .term-line.banner { color: var(--term-green); }
+
+  /* Input row */
+  .term-input-row {
+    display: flex; align-items: center; gap: 8px;
+    background: #0a0e13; border-top: 1px solid var(--border); padding: 10px 16px;
+    font-family: var(--mono); font-size: 13px;
+  }
+  .term-input-row .ps1 { color: var(--term-green); white-space: nowrap; }
+  .term-input-row .path { color: var(--term-blue); }
+  .table-scroll { overflow-x: auto; }
+  #cmd-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: var(--mono); font-size: 13px; caret-color: var(--term-green);
+  }
+  #cmd-input:disabled { opacity: 0.5; }
+  /* The rule above sets outline:none for the resting state, which on an ID
+     selector also beat the shared input:focus-visible rule and left the only
+     text input in the module with no focus indicator at all. SC 2.4.7.
+     (2026-08-17 audit.) */
+  #cmd-input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* Scaffolding / help bar */
+  .scaffold {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-top: 12px; padding: 12px 16px; background: var(--panel-2);
+    border: 1px solid var(--border); border-radius: 8px; font-size: 13px;
+  }
+  .scaffold .hint-label { color: var(--text-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .cmd-chip {
+    font-family: var(--mono); font-size: 12px; background: var(--term-bg);
+    border: 1px solid var(--accent); color: var(--accent); border-radius: 6px;
+    padding: 5px 10px; cursor: pointer; transition: background 0.15s;
+  }
+  .cmd-chip:hover { background: rgba(88,166,255,0.15); }
+  .annotation { color: var(--text-dim); font-size: 13px; margin-left: 4px; }
+  .annotation b { color: var(--text); font-style: normal; }
+
+  button.ghost {
+    background: var(--panel-2); color: var(--text-dim); border: 1px solid var(--border);
+    padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
+  }
+  button.ghost:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* Reveal panels (QC / VCF / edge case) */
+  .panel-card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 18px 20px; margin-top: 16px; display: none;
+  }
+  .panel-card.active { display: block; animation: fadeIn 0.4s; }
+  .panel-card h3 { margin: 0 0 12px; font-size: 16px; color: var(--accent); }
+  table.data { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  table.data th, table.data td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+  table.data th { color: var(--text-dim); text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
+  .pill { font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+  .pill.pass { background: rgba(86,211,100,0.15); color: var(--good); }
+  .pill.warn { background: rgba(210,153,34,0.15); color: var(--warn); }
+  .pill.fail { background: rgba(248,81,73,0.15); color: var(--bad); }
+  tr.hero td { background: rgba(88,166,255,0.08); }
+  tr.hero td:first-child { border-left: 2px solid var(--accent); }
+  tr.noise td { color: var(--text-dim); }
+  tr.edit td { color: var(--warn); }
+
+  .teach {
+    background: linear-gradient(135deg, rgba(88,166,255,0.08), rgba(88,166,255,0.02));
+    border: 1px solid var(--accent); padding: 14px 18px; border-radius: 8px; margin-top: 14px; font-size: 14px;
+  }
+  .teach.editnote { background: linear-gradient(135deg, rgba(210,153,34,0.1), rgba(210,153,34,0.02)); border-color: var(--warn); }
+  .teach h4 { margin: 0 0 8px; font-size: 13px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; }
+  .teach.editnote h4 { color: var(--warn); }
+  .teach .takeaway { background: rgba(0,0,0,0.3); padding: 10px 14px; border-radius: 4px; margin-top: 10px; font-size: 13px; }
+  .teach .takeaway b { color: var(--text); }
+  details.deeper { margin-top: 10px; background: rgba(0,0,0,0.15); border-radius: 4px; }
+  details.deeper summary { cursor: pointer; padding: 8px 12px; font-size: 12px; color: var(--text-dim); }
+  details.deeper summary:hover { color: var(--accent); }
+  details.deeper .body { padding: 10px 14px; font-size: 13px; color: var(--text-dim); }
+
+  .spectrum-bar { display: flex; height: 30px; border-radius: 6px; overflow: hidden; margin: 12px 0 6px; border: 1px solid var(--border); }
+  .spectrum-seg { display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; color: #0a0e13; font-weight: 700; }
+
+  /* Concept flowchart: the plan, shown before the terminal */
+  .plan { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 18px; }
+  .plan h2 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+  .plan .plan-intro { color: var(--text-dim); font-size: 14px; margin-bottom: 16px; }
+  .flow { display: flex; flex-direction: column; }
+  .flow-node { display: flex; align-items: center; gap: 14px; background: var(--panel-2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 11px 16px; }
+  .flow-node.slow { border-left-color: var(--warn); }
+  .flow-node.io { border-left-color: var(--good); background: rgba(86,211,100,0.06); }
+  .flow-tool { font-family: var(--mono); font-size: 13px; color: var(--accent); font-weight: 600; min-width: 160px; }
+  .flow-node.slow .flow-tool { color: var(--warn); }
+  .flow-node.io .flow-tool { color: var(--good); }
+  .flow-desc { flex: 1; font-size: 13px; color: var(--text); }
+  .flow-desc small { color: var(--text-dim); display: block; margin-top: 1px; }
+  .time-chip { font-family: var(--mono); font-size: 11px; padding: 3px 9px; border-radius: 12px; white-space: nowrap; }
+  .time-chip.fast { background: rgba(86,211,100,0.14); color: var(--good); }
+  .time-chip.slow { background: rgba(210,153,34,0.16); color: var(--ink-warn); }
+  .flow-arrow { align-self: center; color: var(--text-dim); font-size: 15px; line-height: 1; padding: 4px 0; }
+  .plan-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-size: 12px; color: var(--text-dim); align-items: center; }
+  .plan-legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  .plan-bridge { margin-top: 16px; padding: 13px 16px; background: linear-gradient(135deg, rgba(88,166,255,0.1), rgba(88,166,255,0.02)); border: 1px solid var(--accent); border-radius: 8px; font-size: 14px; }
+  .plan-bridge b { color: var(--accent); }
+
+  /* Notebook: in-flow by default (never overlaps content); floats lower-right
+     only on screens wide enough to hold both the content column and the card. */
+  .notebook {
+    max-width: 1100px; margin: 20px auto 0;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px;
+  }
+  @media (min-width: 1500px) {
+    .notebook {
+      position: fixed; bottom: 16px; right: 16px; width: 320px; margin: 0;
+      max-height: 45vh; overflow-y: auto; box-shadow: 0 8px 30px rgba(0,0,0,0.5); z-index: 50;
+    }
+  }
+  .notebook h3 { margin: 0 0 8px; font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
+  .nb-entry { font-family: var(--mono); font-size: 11px; color: var(--text-dim); padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .nb-entry:last-child { border-bottom: none; }
+  .nb-entry b { color: var(--good); }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Notebook export, added 2026-08-13. Same pattern as Section 1. Client-side
+     Blob only, no network call: with one identified student, silently posting
+     progress would be surveillance rather than analytics. */
+  .nb-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .nb-dl{padding:5px 11px;font-size:12px}
+  .progress-cue { margin: 6px 0 0; font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+  /* Two layers, visibly two. Roughly 3,500 words of deeper material used to open
+     at once alongside the core route, so the section did not read as layered at
+     all: it read as very long. These are the optional half. */
+  .deeper-panel > summary { cursor: pointer; font-size: 14px; padding: 4px 0; }
+  .deeper-panel > summary::marker { color: var(--accent); }
+  .deeper-panel[open] > summary { margin-bottom: 8px; }
+  /* SC 2.1.1: without wrapping, the mono text made this list a horizontally
+     scrollable region with no focusable child at 320px, which axe correctly
+     flagged as unreachable by keyboard. Wrapping is the right fix here: a
+     checklist has no reason to scroll. */
+  .milestones{list-style:none;margin:4px 0 10px;padding:0;font-size:11px;line-height:1.6;
+              color:var(--text-dim);font-family:var(--mono);
+              overflow-wrap:anywhere;word-break:break-word}
+  .milestones li{margin-bottom:2px}
+  .milestones li.got{color:var(--good)}
+  .decide{margin:16px 0 0;border:1px solid var(--border-ctrl);border-radius:8px;
+          padding:10px 14px 14px;background:var(--panel-2)}
+  .decide legend{font-size:13px;font-weight:600;padding:0 6px}
+  .decide-opts{display:flex;flex-wrap:wrap;gap:8px}
+  .decide-fb{margin-top:10px;font-size:13px;line-height:1.6;color:var(--text-dim)}
+  .qdec[aria-pressed="true"],.sdec[aria-pressed="true"]{border-color:var(--accent);
+          box-shadow:inset 0 0 0 2px var(--accent)}
+  /* SC 1.4.10: the two comparison tables overflow a 320px viewport, the same way
+     the VCF table did. Same wrapper, same reason. */
+  .table-scroll{overflow-x:auto}
+  /* SC 1.4.10 again. The chart is an SVG with a 900-unit viewBox scaled to the
+     container, so at 320px its 9px axis labels render at about 3px and the
+     figure is decorative rather than readable. It now holds a readable floor
+     and scrolls sideways instead, the same treatment the tables get, with a
+     table twin below it that needs no scrolling at all. */
+  .chartwrap{overflow-x:auto}
+  .chartwrap svg{min-width:560px}
+  .nb-dl-hint{margin:0 0 10px;font-size:11px;color:var(--text-dim)}
+  .footer-note { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-dim); text-align: center; }
+  .prov { font-size: 11px; color: var(--text-dim); margin-top: 8px; font-style: italic; }
+
+  /* SC 2.4.7 Focus Visible. The dark theme suppresses the browser default ring,
+     so keyboard focus must be styled explicitly or it is invisible. Added 2026-08-14. */
+  :focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+  a:focus-visible, button:focus-visible, input:focus-visible,
+  select:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* SC 1.4.10 Reflow. Content must be usable at 320px without two-dimensional
+     scrolling. Sequence strips keep their own horizontal scroll, which the
+     criterion allows for content that genuinely requires a fixed layout; the
+     page around them must not. Added 2026-08-14. */
+  @media (max-width: 700px) {
+    body { padding: 14px 10px 90px; }
+    .container, .wrap { padding-left: 12px; padding-right: 12px; max-width: 100%; }
+    h1 { font-size: 18px; }
+    .term-body { height: 300px; font-size: 12px; }
+    .term-input-row { font-size: 12px; }
+    .flow-node { flex-wrap: wrap; gap: 6px; }
+    .flow-tool { min-width: 0; }
+    .notebook { position: static; width: auto; max-height: none; margin-top: 16px; }
+    .scaffold { gap: 8px; }
+  }
+
+  /* --- mappability beat, 2026-08-14 --- */
+  .homes{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+  .homes button{background:var(--panel-2);color:var(--text);border:1px solid var(--border-ctrl);
+    padding:10px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:var(--mono);text-align:left}
+  .homes button:hover:not(:disabled){background:#2d3748;border-color:var(--accent)}
+  .homes button[aria-pressed="true"]{border-color:var(--accent);background:rgba(88,166,255,.12)}
+  .homes button .sc{display:block;font-size:11px;color:var(--text-dim);margin-top:3px}
+  .homes-verdict{margin-top:10px;font-size:13.5px;padding:11px 14px;border-radius:6px;
+    background:var(--panel-2);border-left:3px solid var(--warn);display:none}
+  .homes-verdict.show{display:block}
+  pre.codeline{background:#0d1117;border:1px solid var(--border);border-radius:6px;
+    padding:9px 12px;font-family:var(--mono);font-size:12.5px;color:var(--accent);overflow-x:auto;margin:8px 0}
+  .mapq-tbl td.kept{color:var(--warn)}
+  .mapq-tbl td.dropped{color:var(--text-dim)}
+  .silence-tbl td.kept{color:var(--text-dim)}
+  .silence-tbl td:last-child{font-family:inherit;white-space:normal}
+  .mapq-tbl td:last-child{font-family:inherit}
+  table.data.mapq-tbl,table.data.silence-tbl{margin:8px 0}
+  .genelist{margin:8px 0 0;padding-left:20px;font-size:13.5px}
+  .genelist li{margin-bottom:7px;color:var(--text-dim)}
+  .genelist b{color:var(--text)}
+  .tile .kk{font-size:11px;color:var(--text-dim);margin-top:3px;line-height:1.4}
+  .mapdot{fill:var(--accent)}
+  .mapline{fill:none;stroke:var(--accent);stroke-width:2}
+  .mapgrid{stroke:var(--border);stroke-width:1}
+  .mapaxis{stroke:var(--border-ctrl);stroke-width:1}
+  .maptext{fill:var(--text-dim);font-size:10px;font-family:var(--mono)}
+  .mapval{fill:var(--text);font-size:11px;font-family:var(--mono)}
+
+  /* Foot navigation, added 2026-08-17. Real links, so keyboard and
+     right-click-open-in-new-tab both work without any scripting. */
+  .sectnav{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;
+    margin:26px 0 0;padding-top:18px;border-top:1px solid var(--border)}
+  .sectnav a{flex:1 1 220px;display:block;text-decoration:none;color:inherit;
+    background:var(--panel,#1a2332);border:1px solid var(--border);border-radius:8px;
+    padding:11px 14px;font-size:13px}
+  .sectnav a:hover{border-color:var(--accent);background:var(--panel-2,#243042)}
+  .sectnav a .k{display:block;font-size:11px;color:var(--text-dim);
+    text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+  .sectnav a .t{font-weight:600}
+  .sectnav a:hover .t{text-decoration:underline}
+  .sectnav a.home{flex:0 1 auto;text-align:center;display:flex;align-items:center;
+    justify-content:center;color:var(--text-dim)}
+  .sectnav a.home:hover{color:var(--accent)}
+  @media (max-width:700px){ .sectnav a{flex:1 1 100%} }
+
+  /* --- pileup viewer, 2026-08-17 --- */
+  .pv-picker { display:flex; gap:9px; flex-wrap:wrap; margin:12px 0 4px; }
+  .pv-picker button { background:var(--panel-2); color:var(--text); border:1px solid var(--border-ctrl);
+    padding:8px 13px; border-radius:6px; font-size:13px; cursor:pointer; font-family:inherit; }
+  .pv-picker button:hover { background:#2d3748; border-color:var(--accent); }
+  .pv-picker button[aria-pressed="true"] { background:var(--accent); color:#0d1117;
+    border-color:var(--accent); font-weight:600; }
+  .pileup { background:#0d1117; border:1px solid var(--border); border-radius:8px;
+    padding:12px 14px; margin-top:10px; overflow-x:auto; }
+  .pv-ref, .pv-axis { font-family:var(--mono); font-size:13px; white-space:pre; letter-spacing:1px; }
+  .pv-ref { color:var(--text); border-bottom:1px solid var(--border); padding-bottom:5px; margin-bottom:6px; }
+  .pv-axis { color:var(--text-dim); font-size:11px; margin-top:6px; }
+  .pv-reads { display:flex; flex-direction:column; gap:2px; }
+  .pv-row { font-family:var(--mono); font-size:13px; white-space:pre; letter-spacing:1px;
+    color:var(--text-dim); }
+  .pv-row b { color:var(--bad); font-weight:700; }
+  .pv-row i { color:var(--good); font-style:normal; font-weight:700; }
+  .pv-row u { color:var(--warn); text-decoration:none; font-weight:700; }
+  .pv-count { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  .pv-cell { background:var(--panel-2); border:1px solid var(--border); border-radius:6px;
+    padding:8px 12px; min-width:78px; }
+  .pv-cell .b { font-family:var(--mono); font-size:12px; color:var(--text-dim); }
+  .pv-cell .n { font-size:19px; font-weight:600; margin-top:1px; }
+  .pv-cell.hit .n { color:var(--accent); }
+  .pv-verdict { margin-top:12px; padding:12px 15px; border-radius:6px; background:var(--panel-2);
+    border-left:3px solid var(--accent); font-size:13.5px; line-height:1.6; }
+  .pv-verdict b { color:var(--text); }
+  /* The course spine, added 2026-08-17. Justin: "we are building up from the
+     simplest thing a bioinformatician can do - match a set of letters to
+     another... bioinformatics is matching a sets of letters to another,
+     usually at scale and interpreting those results!"
+     Every section states its own match in the same place, in the same words,
+     so the argument is visible from inside any one of them. */
+  .spinebar{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;
+    margin:14px 0 6px;padding:10px 14px;border-radius:6px;
+    background:var(--panel-2);border-left:3px solid var(--good);font-size:13.5px}
+  .spinebar .k{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;
+    letter-spacing:.07em;white-space:nowrap}
+  .spinebar .v{color:var(--text)}
+  /* Ink for text sitting on a tinted wash of its own hue. The palette hues were
+     audited against the panel, not against 20% of themselves, so three of them
+     failed 4.5:1 when used that way (2026-08-17 audit). Measured on the worst
+     tint each is used at: amber 5.25, red 5.24, neutral 5.04. The washes are
+     unchanged; only the ink moved. */
+  :root{ --ink-warn:#eebb55; --ink-bad:#ff8a84; --ink-neutral:#a4adb8; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 4 of 8</b> · Running a sequencing pipeline · the main course</div>
+    <h1>The mock terminal: run the pipeline, call a variant, then question it</h1>
+    <div class="subtitle">Follow one small window of a simulated whole-genome experiment from raw reads to candidate variants, one command at a time.</div>
+  </header>
+
+  <div class="prompt-box">
+    Section 3 ended with a sample-specific FASTQ file. Here you follow one small window of a
+    <b>simulated germline whole-genome experiment</b> from raw reads to candidate variants: a 20 kb window,
+    <span id="op-nreads">8,200</span> reads of 75 bases, about <span id="op-depth">30.7</span>&times; nominal depth.
+    <br><br>
+    <b>Be clear about what is and is not running.</b> The commands and file types are authentic, and the
+    browser really does generate the reads, build a live pileup from them and apply a caller. But the named
+    programs are not executing: there is no FastQC, no BWA, no SAMtools and no bcftools here, and their
+    terminal output is scripted to behave the way the real tools do. The caller that produces your variant
+    table is a <b>simplified teaching caller</b> with an invented quality formula, not bcftools. What is
+    genuinely computed is the read set, the pileup and the calls drawn from it.
+    <br><br>
+    As you work, keep asking four questions: <b>what went in, what operation was performed, what came out,
+    and what does that output actually justify?</b>
+  </div>
+
+  <div class="plan">
+  <div class="spinebar"><span class="k">The match in this section</span><span class="v">Each read against the reference, repeated at scale, with the uncertainty carried into everything downstream.</span></div>
+    <h2>The plan: how you turn raw reads into a variant</h2>
+    <div class="plan-intro">Before we open a terminal, here's the whole workflow on one page. Keep it as your map: every command you run below is one of these boxes.</div>
+    <div class="flow">
+      <div class="flow-node io">
+        <div class="flow-tool">reads.fastq</div>
+        <div class="flow-desc">Raw sequencing reads straight off the machine.<small><span class="fl-nreads">8,200</span> simulated 75 base reads across a 20 kb window of a germline genome.</small></div>
+        <div class="time-chip fast">input</div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-node">
+        <div class="flow-tool">FastQC</div>
+        <div class="flow-desc">Quality-check the reads before trusting them.<small>Are the bases high-quality? Any adapter or contamination?</small></div>
+        <div class="time-chip fast">seconds</div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-node slow">
+        <div class="flow-tool">bwa index</div>
+        <div class="flow-desc">Pre-process the reference into a fast-lookup index (the FM-index from Section 1).<small>Done once per reference.</small></div>
+        <div class="time-chip slow">⏳ ~30–60 min on a genome</div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-node slow">
+        <div class="flow-tool">bwa mem</div>
+        <div class="flow-desc">Align every read: find where on the reference it came from.<small>Section 1's by-hand game, automated across all reads.</small></div>
+        <div class="time-chip slow">⏳ hours for a genome</div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-node">
+        <div class="flow-tool">samtools sort / index</div>
+        <div class="flow-desc">Order the alignments by position and index them for random access.<small>Turns the raw SAM into a tidy, queryable BAM.</small></div>
+        <div class="time-chip fast">fast · minutes on big BAMs</div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-node slow">
+        <div class="flow-tool">bcftools mpileup | call</div>
+        <div class="flow-desc">Stack the reads at every position and find where they disagree with the reference.<small>Those disagreements are your candidate variants.</small></div>
+        <div class="time-chip slow">⏳ hours genome-wide</div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-node io">
+        <div class="flow-tool">calls.vcf → interpret</div>
+        <div class="flow-desc">The result, then the real work: which calls do you actually believe?<small>Filter by evidence, read the pattern. This is the thinking, not the compute.</small></div>
+        <div class="time-chip fast">output</div>
+      </div>
+    </div>
+    <div class="plan-legend">
+      <span><span class="swatch" style="background:var(--good)"></span>data in / out &amp; quick steps</span>
+      <span><span class="swatch" style="background:var(--warn)"></span>⏳ compute-heavy on real data, where you submit a job and wait</span>
+    </div>
+    <div class="plan-bridge">
+      That's the entire plan on one page, your map for what follows. <b>Now you'll do exactly this in a terminal, the way a bioinformatician does</b>, one command per box. Because our data is a tiny 20 kb slice, every step finishes instantly. But watch the <span style="color:var(--warn)">⏳</span> boxes: on a real 3-billion-base genome those take minutes to hours, which is precisely why this work runs on a cluster: on real data these same commands go into a short script that the cluster's queue runs while you do something else.
+    </div>
+  </div>
+
+  <div class="goal">
+    <div class="step-badge" id="step-badge">Step 0 / 9</div>
+    <div class="goal-text" id="goal-text"><b>Connect to the cluster.</b> Everything real in genomics happens on a remote machine. Log in to get started.</div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-titlebar">
+      <span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span>
+      <span class="term-title" id="term-title">student@laptop · ssh</span>
+    </div>
+    <!-- tabindex: SC 2.1.1. This scrolls once commands have been run, and a
+         region that scrolls with no focusable child cannot be scrolled by
+         keyboard. It was missed when five other scroll regions were fixed on
+         2026-08-17 because it is empty, and therefore not scrollable, until
+         the pipeline is actually run, and nothing in the audit ran it. -->
+    <div class="term-body" id="term-body" tabindex="0" role="log" aria-live="polite" aria-label="Terminal output"></div>
+    <div class="term-input-row">
+      <span class="ps1" id="ps1-static">student@laptop</span><span class="path" id="path-static">:~$</span>
+      <input id="cmd-input" autocomplete="off" spellcheck="false" placeholder="type a command and press Enter…" />
+    </div>
+  </div>
+
+  <div class="scaffold" id="scaffold">
+    <span class="hint-label">Suggested next command</span>
+    <span class="cmd-chip" id="suggest-chip">ssh student@photo51.rosalindfranklin.edu</span>
+    <span class="annotation" id="annotation"></span>
+    <button class="ghost" id="run-btn" title="Fill the suggested command into the prompt">↵ auto-type</button>
+  </div>
+
+  <!-- QC reveal -->
+  <div class="panel-card" id="qc-panel">
+    <h3>📊 FastQC report · reads.fastq</h3>
+    <table class="data">
+      <thead><tr><th>Module</th><th>Verdict</th></tr></thead>
+      <tbody id="qc-rows"></tbody>
+    </table>
+    <div class="teach editnote">
+      <h4>Every module passed. That is not the reassurance it looks like.</h4>
+      <p id="qc-measured">Measured on your reads.</p>
+      <p>A clean FastQC report says the instrument produced the kind of data it was
+      supposed to produce. It says nothing about whether the reads came from the right sample, whether they
+      can be placed on the genome, or whether the conclusion you eventually draw is sound. Every failure
+      this section goes on to show you happens <b>downstream of a clean report like this one</b>.</p>
+      <div class="takeaway"><b>Lesson:</b> QC bounds what can go wrong at one step. It does not certify
+      anything after it. Passing is a floor.</div>
+    </div>
+
+    <fieldset class="decide" id="qc-decide">
+      <legend>Answer this before you type the next command</legend>
+      <p style="font-size:14px;margin:4px 0 10px"><b>The terminal will wait.</b> This is the decision a
+      clean report cannot make for you, it is one of the five things this section asks of you, and it is
+      easier to think about here, next to the report, than three commands later.</p>
+      <p style="font-size:14px;margin:4px 0 10px"><b>Your own reads do not show this.</b> Their largest
+      per-base imbalance is <span id="qc-imb">2.7</span>%, and FastQC does not warn below 10%. So what
+      follows is a counterfactual, deliberately, because the interesting decisions in quality control are
+      the ones your own data happens not to hand you.</p>
+      <p style="font-size:14px;margin:4px 0 10px"><b>Suppose</b> the report had come back with <b>Per base
+      sequence content: FAIL</b>, a large imbalance in the first dozen bases. Before doing anything, ask
+      what library produced these reads. A <b>tagmentation</b> library can be biased at the start because
+      transposase insertion is itself sequence-biased, so the flag would be real without necessarily making
+      the library unusable. What would you do?</p>
+      <div class="decide-opts" id="qc-decide-opts" role="group" aria-label="Quality control decision">
+        <button type="button" class="btn qdec" data-qdec="trim" aria-pressed="false">Trim the first 12 bases</button>
+        <button type="button" class="btn qdec" data-qdec="reject" aria-pressed="false">Reject the run</button>
+        <button type="button" class="btn qdec" data-qdec="document" aria-pressed="false">Document the expected bias and continue</button>
+      </div>
+      <div class="decide-fb" id="qc-decide-fb" role="status" aria-live="polite">Choose one, then see what
+      the alternatives cost.</div>
+    </fieldset>
+    <div class="prov" id="qc-prov">FastQC module verdicts · simulated reads · 75 bp.</div>
+  </div>
+
+  <!-- VCF reveal -->
+  <div class="panel-card" id="vcf-panel">
+    <h3>🧬 calls.vcf · <span id="vcf-n">0</span> variants called</h3>
+    <!-- SC 1.4.10 + 2.1.1. Five columns of variant calls are 419px wide and
+         cannot fit a 320px viewport, so this scrolls inside its own box rather
+         than pushing the document to 463px. The wrapper is focusable and named
+         because a region that scrolls with no focusable child cannot be
+         scrolled from a keyboard. Found 2026-08-18: this table does not exist
+         until the variant-calling step is run, and neither accessibility
+         harness ran the pipeline, so both reported this page as passing. -->
+    <div class="table-scroll" tabindex="0" role="group"
+         aria-label="Called variants. Scrolls sideways on a narrow screen.">
+    <table class="data">
+      <thead><tr><th>POS (chr6, GRCh38)</th><th>REF→ALT</th><th>QUAL</th><th>DP (depth)</th><th></th></tr></thead>
+      <tbody id="vcf-rows"></tbody>
+    </table>
+    </div>
+    <div class="teach">
+      <h4><span id="vcf-n2">0</span> variants. But how many do you believe?</h4>
+      <p>The pipeline ran without error and handed you the list. A naive analyst reports all of them. A good one
+      asks: <i>what's the evidence behind each?</i> The terminal is still live, so interrogate the call set with
+      the next two commands (the suggestion chips walk you through them): first <b>filter by depth</b>, then
+      <b>read the substitution spectrum</b>. These are the same moves you'd make on any real VCF.</p>
+    </div>
+    <div class="teach" id="filter-result" style="display:none">
+      <h4>① What the depth filter actually bought you</h4>
+      <p id="filter-text"></p>
+    </div>
+    <div class="prov">Computed live from the simulated reads · <span id="vcf-prov"></span></div>
+  </div>
+
+  <!-- Edge-case reveal -->
+  <div class="panel-card" id="edge-panel">
+    <h3>② What the caller actually did</h3>
+    <p>You have a list. Before you trust any of it, it is worth seeing what produced it, because a
+    variant caller does something far less clever than its output suggests. It stacks the reads that
+    cover a position, <b>counts the letters in that column</b>, and decides what genotype would best
+    explain the counts. That is the whole idea. Everything else is bookkeeping.</p>
+
+    <div class="pv-picker" id="pv-picker" role="group" aria-label="Choose a position to inspect"></div>
+
+    <!-- tabindex + name: SC 2.1.1, same reason as the terminal body above. This
+         only becomes scrollable once reads are piled up at a position. -->
+    <div class="pileup" id="pileup-wrap" tabindex="0" role="group"
+         aria-label="Read pileup at the selected position. Scrolls sideways.">
+      <div class="pv-ref" id="pv-ref"></div>
+      <div class="pv-reads" id="pv-reads"></div>
+      <div class="pv-axis" id="pv-axis"></div>
+    </div>
+
+    <div class="pv-count" id="pv-count"></div>
+    <div class="pv-verdict" id="pv-verdict" role="status" aria-live="polite"></div>
+
+    <details class="deeper">
+      <summary>↓ Go deeper: why the indel is the hard one</summary>
+      <div class="body">
+        <p>A substitution is easy to count, because every read agrees on where it is. An insertion or
+        deletion is not, because the aligner has to decide <i>where</i> the gap goes before anything
+        can be counted, and inside a run of identical bases there is no way to tell one placement from
+        another. Delete a G from GGGGG and you get GGGG whichever G you deleted.</p>
+        <p>That is why homopolymers and short tandem repeats are where callers disagree with each
+        other, and it is the same problem you met in Section 1, where a gap could sit in several
+        places for the same score. The difference is that here nobody is looking.</p>
+      </div>
+    </details>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- Mappability beat, added 2026-08-14 (Justin's design).             -->
+  <!-- The centrepiece of the section's second half: a pipeline returns  -->
+  <!-- an answer everywhere, and the answer is only meaningful where it  -->
+  <!-- could actually look. Placed after filtering, because it is a      -->
+  <!-- question about where the surviving call is trustworthy.           -->
+  <!-- ================================================================= -->
+  <div class="panel-card" id="map-panel">
+    <h3>③ One more question: where could this pipeline even look?</h3>
+    <p>You filtered 26 calls down to one you could defend. That whole exercise assumed something nobody
+    stated: that the pipeline could see everywhere it was pointed. It could not, and where it could not
+    see, <b>it reported nothing rather than reporting that it could not see</b>.</p>
+
+    <div class="teach">
+      <h4>A read with three homes</h4>
+      <p>Here is a 75 base read from the run. It matches the reference in three places, equally well.
+      Pick where it belongs.</p>
+      <div class="homes" id="homes" role="group" aria-label="Choose where the read belongs"></div>
+      <div class="homes-verdict" id="homes-verdict" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="teach" id="mapq-teach" style="display:none">
+      <h4>What the aligner does about it</h4>
+      <p>BWA scores every placement and reports its confidence as <b>MAPQ</b>, which the SAM
+      specification defines as <span style="font-family:var(--mono)">-10 log<sub>10</sub></span> of the
+      probability that the placement is wrong. Internally BWA computes it from the <b>margin between the
+      best alignment score and the second best</b>, and there is one line in its source that decides this
+      read's fate:</p>
+      <pre class="codeline">if (sub &gt;= a-&gt;score) return 0;</pre>
+      <p>If the second-best placement scores at least as well as the best, the margin is gone and the
+      answer is <b>MAPQ 0</b>. Not a low score: zero. The aligner is telling you it cannot distinguish
+      the best placement from the alternatives.</p>
+      <p>And then the variant caller acts on that, differently depending on which one you reached for.
+      <b>Read the first row against the command you actually ran.</b></p>
+      <div class="table-scroll" tabindex="0" role="group"
+           aria-label="Comparison table. Scrolls sideways on a narrow screen.">
+      <table class="data mapq-tbl">
+        <thead><tr><th scope="col">Caller</th><th scope="col">Default minimum MAPQ</th><th scope="col">This read</th></tr></thead>
+        <tbody>
+          <tr><td class="tool">bcftools mpileup</td><td>0</td><td class="kept">kept, and it will pile up somewhere wrong</td></tr>
+          <tr><td class="tool">DeepVariant</td><td>5</td><td class="dropped">discarded</td></tr>
+          <tr><td class="tool">GATK HaplotypeCaller</td><td>20</td><td class="dropped">discarded</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p><small>Three tools, one BAM, three different answers in this region, and none of them mentions
+      it in the output. GATK is the awkward one to look up: its standalone mapping-quality filter
+      documents a default of 10, and HaplotypeCaller overrides it to 20.</small></p>
+      <p><b>You ran <code>bcftools mpileup</code>, whose default minimum is 0.</b> So in your pipeline
+      the ambiguous read was <i>not</i> discarded. It was kept, and piled up at whichever of the three
+      equally good locations the aligner happened to report. Had you run DeepVariant or HaplotypeCaller
+      on the same BAM, it would have been thrown away before the caller saw it.</p>
+      <div class="takeaway"><b>Lesson:</b> uncertainty does not disappear, it changes form. A permissive
+      pipeline attaches the read to an arbitrary reported location and shows you a result. A stricter one
+      discards it and shows you silence. Neither has resolved anything, and a filter you did not set, in a
+      tool you did not write, decided which of the two you got.</div>
+    </div>
+
+    <div class="teach" id="silence-teach" style="display:none">
+      <h4>And here is the part that should worry you</h4>
+      <p>Two positions in a genome like this one. One sits in ordinary unique sequence with clean
+      coverage; one sits inside a repeat like the one you just failed to place a read in. Neither appears
+      in a variants-only VCF.</p>
+      <p class="fine">These two are a worked genome-wide example, not rows from your own 20 kb window:
+      the simulator behind this page does not model repeats or mapping quality at all. The depths in your
+      window at the corresponding positions are <span id="sil-d1">22</span> and
+      <span id="sil-d2">37</span>.</p>
+      <div class="table-scroll" tabindex="0" role="group"
+           aria-label="Comparison table. Scrolls sideways on a narrow screen.">
+      <table class="data silence-tbl">
+        <thead><tr><th scope="col">Position</th><th scope="col">In your VCF</th><th scope="col">What actually happened</th></tr></thead>
+        <tbody>
+          <tr><td class="tool">a unique position</td><td class="kept">no record</td><td>plenty of reads, all confidently placed, all matching the reference. <b>The evidence says reference.</b></td></tr>
+          <tr><td class="tool">a position inside a repeat</td><td class="kept">no record</td><td>reads are present but cannot be assigned confidently, so nothing about this position is established either way. <b>Nobody could look.</b></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p><b>Your file says the same thing about both, which is to say nothing at all.</b> You ran
+      <code>bcftools call -v</code>, and <code>-v</code> asks for variant sites only, so neither position
+      has a record. Absence from a variants-only VCF is genuinely ambiguous: it can mean the evidence
+      supported the reference, or that there was no usable evidence.</p>
+      <p>That ambiguity is a property of what you asked for, not a limitation of the format.
+      <b>VCF can represent missing genotypes</b>, with <code>./.</code>, and gVCF workflows go further and
+      record reference confidence at non-variant positions precisely so that "we looked and saw reference"
+      can be distinguished from "we could not look". If the question you are answering is whether a gene
+      is clear, a variants-only VCF is the wrong output to be reading.</p>
+      <div class="takeaway"><b>Lesson:</b> no record is not the same as no variant. Before calling a
+      result negative, check coverage, mapping quality and whether the region was callable at all.</div>
+
+      <fieldset class="decide" id="silence-decide">
+        <legend>Before you move on, commit to a conclusion</legend>
+        <p style="font-size:14px;margin:4px 0 10px">A colleague asks whether your pipeline found any
+        variants in a particular gene. You look, and there are no records for it in your VCF. What does
+        that entitle you to say?</p>
+        <div class="decide-opts" id="silence-opts" role="group" aria-label="Conclusion">
+          <button type="button" class="btn sdec" data-sdec="clear" aria-pressed="false">The gene is clear</button>
+          <button type="button" class="btn sdec" data-sdec="nonefound" aria-pressed="false">No variants were called there</button>
+          <button type="button" class="btn sdec" data-sdec="nothing" aria-pressed="false">Nothing, until I check whether it was callable</button>
+        </div>
+        <div class="decide-fb" id="silence-fb" role="status" aria-live="polite">Pick one.</div>
+      </fieldset>
+    </div>
+
+    <details class="teach deeper-panel" id="scale-teach" style="display:none">
+      <summary><b>Go deeper:</b> so make the reads longer, how far does that get you?</summary>
+      <div class="deeper-body">
+      <p>This is the obvious fix and it is worth knowing exactly how much it buys, because the answer is
+      not what most people guess. Each point is the fraction of the human genome where a read of that
+      length occurs exactly once.</p>
+      <div class="chartwrap" tabindex="0" role="group"
+           aria-label="Mappability chart. Scrolls sideways on a narrow screen.">
+        <svg id="mapchart" width="100%" viewBox="0 0 900 210" role="img" aria-label="Uniquely mappable fraction of the genome by read length"
+             preserveAspectRatio="xMidYMid meet"><title>Uniquely mappable fraction of the genome by read length</title></svg>
+      </div>
+      <div class="table-scroll" tabindex="0" role="group"
+           aria-label="The same figures as a table.">
+        <table class="data" id="mapchart-table">
+          <caption class="fine" style="text-align:left;padding:4px 0">The same figures as a table, which is
+          the reliable route on a narrow screen or with a screen reader.</caption>
+          <thead><tr><th scope="col">Read length</th><th scope="col">Uniquely mappable</th></tr></thead>
+          <tbody id="mapchart-rows"></tbody>
+        </table>
+      </div>
+      <div class="prov">Li, Freudenberg and Miramontes 2014, BMC Bioinformatics 15:2. GRCh37, exact-match k-mer
+      singletons, so this is the ceiling: no mismatches allowed at all.</div>
+      <p style="margin-top:12px">Going from 20 bases to 150 buys you <b>26 percentage points</b>. Going
+      from 150 all the way to 1000 buys <b>1.6</b>. The curve flattens around 200 bases, and the authors
+      say so: above that, "smaller gains in mappability are expected".</p>
+      <p><b>Read length is not where the remaining problem lives.</b> A LINE-1 element is about 6,000
+      bases long and makes up roughly 17% of the genome. A 150 base read sitting inside one has no
+      unique anchor anywhere within it, and neither does a 1000 base read. The repeats do not get
+      shorter when you buy a better sequencer.</p>
+
+      <h4 style="margin-top:18px">Now the part you asked about: errors</h4>
+      <p>Everything above assumes a perfect read. Real reads carry errors, so the aligner has to allow
+      mismatches, and allowing mismatches is what destroys uniqueness. Held at <b>75 bases</b>, changing
+      only the tolerance:</p>
+      <div class="tiles">
+        <div class="tile"><div class="k">Exact match only</div><div class="v">7%</div>
+          <div class="kk">of the genome not uniquely mappable</div></div>
+        <div class="tile hero"><div class="k">Allowing 2 mismatches</div><div class="v">20%</div>
+          <div class="kk">of the genome not uniquely mappable</div></div>
+      </div>
+      <div class="prov">Derrien et al. 2012, PLoS ONE 7:e30377 (GEM mappability), 75 bases in both
+      columns. The variable is the <b>mismatch tolerance the aligner is asked to allow</b>, not a measured
+      sequencing error rate: these are two settings of the same calculation, not two datasets.</div>
+      <p style="margin-top:12px">Nearly <b>three times</b> as much of the genome goes dark from
+      loosening the tolerance alone, at a read length that never changed. Resist comparing that with the
+      read-length figures above: those are a different study, a different reference build and a different
+      definition of mappable, and the panel below this one explains why the two do not belong on one
+      axis. The mechanism here is the one in the BWA line above: an error costs you score at the
+      true locus, the margin over the second-best placement narrows, and confidence collapses. The same
+      thing happens for a genuinely divergent haplotype, which is why an unusual genome is as hard to
+      map as a noisy read.</p>
+      <details class="deeper">
+        <summary>↓ Go deeper: why these are two separate findings and not one smooth curve</summary>
+        <div class="body">
+          <p>You probably want a surface: uniqueness as a function of read length and error rate
+          together. It would be easy to draw and it would be invented. These are two studies, on two
+          reference builds, using two different definitions of mappability. Interpolating between them
+          would produce a confident-looking picture that nobody measured.</p>
+          <p>Showing two anchors and the gap between them is the honest version, and noticing that gap
+          is a more useful habit than reading a number off a curve that was made up.</p>
+        </div>
+      </details>
+      </div>
+    </details>
+
+    <details class="teach deeper-panel" id="bites-teach" style="display:none">
+      <summary><b>Go deeper:</b> where this actually bites, and the genes it lands on</summary>
+      <div class="deeper-body">
+      <p>This is not a curiosity about junk DNA. It lands on genes people are tested for.</p>
+      <ul class="genelist">
+        <li><b>SMN1 and SMN2</b>, spinal muscular atrophy. Two 28,000 base paralogues that
+        "generally differ by only 5 intronic and 3 exonic nucleotides".</li>
+        <li><b>NEB</b>, nemaline myopathy. Contains a 32,000 base triplicated region: exons 82 to 105
+        present in three near-identical copies.</li>
+        <li><b>PMS2</b>, Lynch syndrome, and its pseudogene <i>PMS2CL</i>. <b>CYP2D6</b>, which decides
+        how you metabolise a long list of drugs, and its pseudogene <i>CYP2D7</i>. <b>HBA1/HBA2</b>,
+        <b>STRC</b>, <b>GBA</b>: all gene and pseudogene pairs inside segmental duplications.</li>
+      </ul>
+      <p>A 2016 survey found <b>619 genes</b> with regions identical to somewhere else in the genome,
+      and a problem list of <b>1,168 genes</b> for short-read sequencing. Of the clinically relevant ones
+      on that list, 44% were already well-established disease genes.</p>
+      <div class="teach editnote" style="margin-top:14px">
+        <h4>And sometimes the reference itself is the bug</h4>
+        <p>GRCh38 contains false duplications: sequence that does not exist twice in a real genome but
+        does in the reference. Reads belonging to the real gene get pulled to the spurious copy, and the
+        real gene reports nothing. Masking those false duplications improved variant recall in the
+        affected genes <b>from 8% to 100%</b>.</p>
+        <p>The pipeline was fine. The tools were fine. The map was wrong.</p>
+      </div>
+      <div class="takeaway"><b>The closing turn.</b> About <b>21%</b> of GRCh38 falls inside GIAB's
+      union of "difficult" stratifications. On the complete T2T reference it is about <b>26%</b>. The
+      number went <i>up</i> with the better reference, because the old one was not easier: it represented
+      its hardest sequence as gaps, and nobody was counting what was inside them.
+      <br><br>
+      <span class="fine">Two caveats on those figures, because they are easy to over-read.
+      <b>They are calculated for this course</b> from the GIAB v3.6 union stratification BED files, by
+      summing the covered bases and dividing by the reference length; they are not a published headline
+      number, and the derivation is the previous sentence. And <b>difficult does not mean invisible</b>:
+      most of that 21% is callable, just with lower confidence or with a caveat attached. It is the
+      fraction where you should want to know how the call was made, not the fraction that is dark.</span></div>
+      </div>
+    </details>
+  </div>
+
+  <!-- Completion -->
+  <div class="panel-card" id="done-panel">
+    <h3>✓ You have finished Section 4.</h3>
+    <p>You turned reads into alignments and alignments into candidate variants, following the shape of
+    the workflow a genomics lab uses: quality control, alignment, sorting and indexing, pileup and calling,
+    then filtering. You also found where information was lost along the way, which is the harder half.
+    It was lost at the quality-control decision, at the moment the aligner turned each read into a
+    coordinate, at the depth filter, and in asking for variant sites only.</p>
+    <p style="margin-top:12px">The thing worth carrying: <b>a command that succeeds tells you software
+    ran. It does not tell you the biological conclusion is sound.</b> Every failure in this section
+    happened downstream of a clean quality-control report and a pipeline that never errored.</p>
+    <p style="margin-top:12px"><b>One thing this section deliberately does not teach.</b> On real data
+    the ⏳ steps run for hours, so nobody types them at a prompt and waits. They go into a short script
+    handed to the cluster's queue, which runs it on a compute node and emails you when it is done. That
+    wrapper is worth learning and it is not worth learning here, because the commands for it differ by
+    site: SLURM, SGE, PBS and the cloud schedulers all take different syntax, and your institution will
+    have its own conventions on top. <b>The part that transfers is what you have just done.</b> Once you
+    know which commands to run and in what order, whoever runs your cluster can show you how to put them
+    in a wrapper in about ten minutes.</p>
+    <p style="margin-top:12px;"><b>Next: Section 5, which variant matters.</b> This section ended with a
+    list of candidate variants, nearly all of which survive simple quality filtering. Section 5 changes
+    the question from "is this call well supported?" to "of millions of well-supported differences, which
+    one is relevant to the biological or clinical problem in front of me?"</p>
+    <p class="prov">Your lab notebook is a record of what you did in this section, kept for your own
+    reference. Download it if you want to keep it.</p>
+  </div>
+
+
+
+
+  <div class="notebook">
+    <div class="nb-head">
+      <h3 style="margin:0">📓 Lab notebook</h3>
+      <button type="button" id="download-notebook" class="ghost nb-dl" disabled
+              aria-describedby="nb-dl-hint">⤓ Download notebook</button>
+    </div>
+    <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 5 steps done</p>
+    <ul class="milestones" id="milestone-list4" aria-label="Steps in this section"></ul>
+    <div id="nb-entries" role="log" aria-live="polite"><div class="nb-entry" style="color:var(--text-dim);">(commands and findings log here as you go)</div></div>
+  </div>
+
+  
+<nav class="sectnav" aria-label="Section navigation">
+  <a class="nav-prev" href="Section%203%20-%20Reading%20a%20FASTQ%20file.html"><span class="k">Previous</span><span class="t">3. Reading a FASTQ file</span></a>
+  <a class="home" href="index.html">All sections</a>
+  <a class="nav-next" href="Section%205%20-%20Which%20variant%20matters.html"><span class="k">Next</span><span class="t">5. Which variant matters</span></a>
+</nav>
+
+  <div class="footer-note">
+    Prototype · Section 4 of the Molecular Techniques Interactive Bioinformatics Module · 2026/27 cycle · simulated whole-genome dataset, live pileup and variant calling
+  </div>
+</div>
+
+<script>
+// =========================================================
+//  Section 4. Mock terminal.
+//  Output is generated live from a simulated 30x whole-genome
+//  run over one 20 kb window. Tool behaviour is realistic;
+//  no part of the data is anyone's sequence.
+//  (a simulated germline sample, GRCh38 chr6:31,565,000-31,585,000).
+//  The terminal is scaffolded: each step suggests the next
+//  command, tolerant regex-matches what the student types
+//  (v1 grammar), prints the real output, and advances.
+// =========================================================
+
+// =========================================================
+//  SIMULATED DATA ENGINE (inlined from _explorations/sim_engine.js)
+//  ---------------------------------------------------------
+//  Everything the terminal shows below is produced HERE, in the
+//  browser, from a seeded generator. No real sequencing data is
+//  embedded. The pileup and the variant caller genuinely run: the
+//  table, the depth filter and the substitution spectrum are all
+//  computed from the simulated reads, not replayed from a script.
+//  Calibrated on the aggregate shape of a 30x PCR-free germline WGS run.
+// =========================================================
+const SIM = (function(){
+/* =========================================================================
+   Simulated sequencing data engine  ·  GMIC605 bioinformatics module
+   -------------------------------------------------------------------------
+   Everything here is SYNTHETIC. No participant data is used or embedded.
+   The generator is calibrated on published aggregate characteristics of a
+   germline whole-genome experiment (read length, Phred+33 quality decay, GC,
+   depth, adapter read-through rate). Aggregate shape only.
+
+   Deterministic: a fixed seed gives byte-identical output every run, so the
+   student, the tests and the notes all see the same numbers.
+
+   Pipeline modelled:  reference -> reads -> pileup -> variant calls
+   ========================================================================= */
+
+// ---- seeded PRNG (mulberry32): reproducible across node and browsers ----
+function rng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const BASES = 'ACGT';
+const COMP = { A: 'T', C: 'G', G: 'C', T: 'A', N: 'N' };
+function revcomp(s) { let o = ''; for (let i = s.length - 1; i >= 0; i--) o += COMP[s[i]]; return o; }
+function pick(r, arr) { return arr[Math.floor(r() * arr.length)]; }
+
+// =========================================================================
+//  1. Reference locus
+// =========================================================================
+// A 20 kb stretch with realistic-ish composition, one forward gene and one
+// window of a whole-genome run (so coverage is even, which
+// is what the two strand views of the same phenomenon look like), and one
+// homopolymer run that will carry the indel.
+
+const LOCUS_LEN = 20000;
+const GENE_F = { name: 'TNFsim', strand: '+', exons: [[4000, 4180], [7200, 7320], [9000, 9140], [11000, 12400]] };
+const GENE_R = { name: 'LTAsim', strand: '-', exons: [[15200, 15420], [16800, 17050]] };
+const DEEP = [10600, 13400];        // the strongly expressed exon
+const HOMOPOLYMER_AT = 11246;      // inside the last exon of the forward gene
+
+function buildReference(seed) {
+  const r = rng(seed);
+  let s = '';
+  // GC content drifts a little along the locus, as real sequence does
+  for (let i = 0; i < LOCUS_LEN; i++) {
+    const gc = 0.575 + 0.09 * Math.sin(i / 1900);
+    const u = r();
+    if (u < gc / 2) s += 'G';
+    else if (u < gc) s += 'C';
+    else if (u < gc + (1 - gc) / 2) s += 'A';
+    else s += 'T';
+  }
+  // plant a homopolymer run the indel will sit in
+  s = s.slice(0, HOMOPOLYMER_AT) + 'TGGGGGA' + s.slice(HOMOPOLYMER_AT + 7);
+  return s;
+}
+
+// =========================================================================
+//  2. Truth: what is actually different about this sample
+// =========================================================================
+// Planted deliberately so the teaching signal is guaranteed, then genuinely
+// rediscovered downstream by the pileup and caller. Nothing is asserted that
+// the caller does not actually find.
+
+function buildTruth(ref, seed) {
+  const r = rng(seed + 77);
+  const truth = { indel: null, edits: [] };
+
+  // (a) one heterozygous deletion in the homopolymer: the high-confidence call
+  truth.indel = { pos: HOMOPOLYMER_AT, ref: 'TGGGGG', alt: 'TGGGG', af: 0.42 };
+
+  // (b) Germline SNVs. Two populations, and the difference between them is the
+  //     whole of what a variant caller decides: a HETEROZYGOUS site has the
+  //     alternate base on one of two chromosomes, so about half the reads carry
+  //     it; a HOMOZYGOUS ALTERNATE site has it on both, so all of them do. The
+  //     allele fractions below are drawn around 0.5 and 1.0 with the scatter
+  //     that finite sampling produces, because a caller that only ever saw
+  //     exactly 0.50 and 1.00 would teach the wrong lesson.
+  const cand = [];
+  for (let i = 400; i < LOCUS_LEN - 400; i++) cand.push(i);
+
+  const wantHet = 14, wantHom = 6;
+  let nhet = 0, nhom = 0, guard = 0;
+  while ((nhet < wantHet || nhom < wantHom) && guard++ < 200000) {
+    const p = cand[Math.floor(r() * cand.length)];
+    if (truth.edits.some(e => Math.abs(e.pos - p) < 150)) continue;
+    if (truth.indel && Math.abs(p - truth.indel.pos) < 200) continue;
+    const from = ref[p];
+    const to = pick(r, 'ACGT'.replace(from, ''));
+    if (nhet < wantHet) {
+      truth.edits.push({ pos: p, from: from, to: to, af: 0.44 + r() * 0.13, zyg: 'het' });
+      nhet++;
+    } else {
+      truth.edits.push({ pos: p, from: from, to: to, af: 0.96 + r() * 0.04, zyg: 'hom' });
+      nhom++;
+    }
+  }
+  truth.edits.sort((a, b) => a.pos - b.pos);
+  return truth;
+}
+
+// =========================================================================
+//  3. Read generation
+// =========================================================================
+// Quality model: high plateau then a 3' decay, with occasional low-quality
+// tiles and the odd N. Reads come from anywhere in the window, so coverage
+// tracks expression rather than being uniform across the locus.
+
+const READ_LEN = 75;
+const ADAPTER = 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC';
+
+// Per-read quality class. Real runs vary cluster to cluster: some reads stay
+// excellent to the last base, most decay mildly, a minority decay badly. Without
+// this every read looks identical, and no read is clean end to end.
+function qualProfile(r) {
+  const u = r();
+  if (u < 0.30) return { plateau: 62, decay: 5 };    // excellent to the last base
+  if (u < 0.80) return { plateau: 34, decay: 15 };   // typical mild decay
+  if (u < 0.95) return { plateau: 24, decay: 22 };   // clear 3' dropoff, ends ~Q10
+  return { plateau: 20, decay: 30 };                 // severe: decays into N calls
+}
+
+function qualAt(r, i, patch, prof) {
+  // plateau near Q40, then a 3' decay; plus the occasional signal dip
+  const base = i < prof.plateau ? 40.6 : 40.6 - Math.pow((i - prof.plateau) / 41, 1.7) * prof.decay;
+  let q = base + (r() - 0.5) * 6;
+  if (r() < 0.010) q -= 20;
+  // a cluster-signal dropout: a short run of near-unusable bases, which is
+  // where N calls come from (the caller could not choose a base at all)
+  if (patch && i >= patch.a && i < patch.b) q = 2 + Math.floor(r() * 4);
+  return Math.max(2, Math.min(41, Math.round(q)));
+}
+function qcharToP(q) { return Math.pow(10, -q / 10); }
+
+// Transposase insertion preference, expressed as an accept/reject on the start
+// position. The weights bias the first few bases of the read toward G and away
+// from C (and A over T), which is what a per-base-composition plot shows as a
+// spike in the first ~12 positions. Tuned so FastQC's per-base-content module
+// genuinely FAILS (>20% |G-C| or |A-T| at some position) rather than being
+// asserted to fail.
+function generateReads(ref, truth, seed, opts) {
+  opts = opts || {};
+  const target = opts.n || 20000;
+  const r = rng(seed + 991);
+  const reads = [];
+
+  // DNA-seq coverage is SMOOTH: every base of the genome is present in the
+  // library in the same copy number, so reads start more or less anywhere and
+  // depth varies only by sampling. That evenness is the shape of the assay, and
+  // the contrast with RNA-seq (coverage follows expression) and ATAC-seq
+  // (coverage peaks at open sites) is the spine of the course. A small fraction
+  // of reads still start in the harder sequence at the window edges, which is
+  // where the thin-depth calls the student learns to filter come from.
+
+  const editByPos = {}; truth.edits.forEach(e => { editByPos[e.pos] = e; });
+
+  let id = 0;
+  while (reads.length < target) {
+    // Uniform start positions, with a mild dip toward the window edges so that
+    // some positions genuinely fall to single-read depth.
+    let pos = Math.floor(r() * (LOCUS_LEN - READ_LEN - 1));
+    if ((pos < 900 || pos > LOCUS_LEN - 900) && r() < 0.72) continue;
+    pos = Math.max(0, Math.min(LOCUS_LEN - READ_LEN - 1, pos));
+
+
+    // insert size: occasionally shorter than the read, giving adapter read-through
+    const shortInsert = r() < 0.035;
+    const insertLen = shortInsert ? 40 + Math.floor(r() * 30) : READ_LEN;
+
+    // ~5% of reads carry a short low-quality patch
+    let patch = null;
+    if (r() < 0.05) { const a = 20 + Math.floor(r() * 45); patch = { a: a, b: a + 3 + Math.floor(r() * 6) }; }
+    const prof = qualProfile(r);
+
+    let seq = '';
+    const quals = [];
+    for (let i = 0; i < READ_LEN; i++) {
+      const q = qualAt(r, i, patch, prof);
+      quals.push(q);
+      if (i >= insertLen) { seq += ADAPTER[i - insertLen] || 'A'; continue; }
+      const gp = pos + i;
+      let b = ref[gp];
+
+      // heterozygous indel: on the deleted haplotype the run is one G shorter,
+      // which shifts the following bases left by one
+      if (truth.indel && gp > truth.indel.pos && gp < truth.indel.pos + 400) {
+        // handled below by read-level haplotype flag
+      }
+      const e = editByPos[gp];
+      if (e && r() < e.af) b = e.to;                       // germline SNV
+      if (r() < qcharToP(q)) b = pick(r, BASES.replace(b, '')); // sequencing error
+      if (q <= 4 && r() < 0.62) b = 'N';                    // caller could not decide
+      seq += b;
+    }
+
+    // apply the indel haplotype for reads overlapping the homopolymer
+    // A read from the deleted haplotype is one base short in the homopolymer,
+    // so an aligner places it with a gap. delIdx records where, and the pileup
+    // shifts reference positions after it, which is what a real CIGAR encodes.
+    let hasDel = false, delIdx = null;
+    if (truth.indel && pos < truth.indel.pos && pos + READ_LEN > truth.indel.pos + 8 && r() < truth.indel.af) {
+      hasDel = true;
+      delIdx = truth.indel.pos - pos + 4;
+      seq = (seq.slice(0, delIdx + 1) + seq.slice(delIdx + 2) + ref[pos + READ_LEN]).slice(0, READ_LEN);
+    }
+
+    reads.push({
+      name: 'SIM-WGS1:1:' + (1100 + (id % 90)) + ':' + (1000 + ((id * 7919) % 30000)) + ':' + (1000 + ((id * 104729) % 48000)),
+      pos: pos, seq: seq, qual: quals.map(q => String.fromCharCode(q + 33)).join(''),
+      quals: quals, adapter: shortInsert, clip: insertLen, hasDel: hasDel, delIdx: delIdx
+    });
+    id++;
+  }
+  return reads;
+}
+
+// =========================================================================
+//  4. Pileup and variant calling  (this is what runs live in the browser)
+// =========================================================================
+
+function pileup(reads, ref) {
+  const cov = new Array(LOCUS_LEN);
+  for (const rd of reads) {
+    for (let i = 0; i < rd.seq.length; i++) {
+      if (i >= rd.clip) break;                   // adapter is soft-clipped, as bwa does
+      const gp = rd.pos + i + (rd.delIdx !== null && i > rd.delIdx ? 1 : 0);
+      if (gp >= LOCUS_LEN) break;
+      const b = rd.seq[i];
+      if (b === 'N') continue;
+      const q = rd.quals[i];
+      if (q < 13) continue;                      // too poor to count at all
+      if (!cov[gp]) cov[gp] = { A: 0, C: 0, G: 0, T: 0, n: 0, del: 0 };
+      cov[gp].n++;                               // depth counts every usable base
+      if (q >= 20) cov[gp][b]++;                 // only confident bases are EVIDENCE
+      
+      if (rd.hasDel && gp === HOMOPOLYMER_AT) cov[gp].del++;
+    }
+  }
+  return cov;
+}
+
+function callVariants(cov, ref, reads) {
+  const calls = [];
+  for (let p = 0; p < LOCUS_LEN; p++) {
+    const c = cov[p];
+    if (!c || c.n === 0) continue;
+    const rb = ref[p];
+    if (rb === 'N') continue;
+    let best = null;
+    for (const b of BASES) {
+      if (b === rb) continue;
+      if (!best || c[b] > c[best]) best = b;
+    }
+    const alt = c[best] || 0;
+    if (alt === 0) continue;
+    const af = alt / c.n;
+    // call if there is either decent support, or a single supporting read in a
+    // low-coverage spot (which is exactly the noise the student will filter out)
+    const callable = (c.n >= 10 && af >= 0.15 && alt >= 3) || (c.n <= 5 && alt >= 1);
+    if (!callable) continue;
+    // QUAL must rise with the amount of evidence. The earlier form keyed off
+    // allele fraction alone, which handed a single supporting read the same
+    // confidence as a site covered 400 times: exactly backwards.
+    const qual = Math.min(240, Math.round(3 + alt * 0.9 + 8 * Math.log2(1 + alt)));
+    calls.push({ pos: p, ref: rb, alt: best, dp: c.n, af: af, qual: qual, type: 'SNV' });
+  }
+
+  // the homopolymer deletion, counted from the reads that carry it
+  const nDel = reads.filter(r => r.hasDel).length;
+  const spanning = reads.filter(r => r.pos < HOMOPOLYMER_AT && r.pos + READ_LEN > HOMOPOLYMER_AT + 6).length;
+  if (spanning >= 10 && nDel >= 3) {
+    calls.push({
+      pos: HOMOPOLYMER_AT, ref: 'TGGGGG', alt: 'TGGGG', dp: spanning,
+      af: nDel / spanning, qual: Math.min(240, Math.round(3 + nDel * 0.9 + 8 * Math.log2(1 + nDel))), type: 'INDEL'
+    });
+  }
+  calls.sort((a, b) => a.pos - b.pos);
+  return calls;
+}
+
+// =========================================================================
+//  5. One-call entry point
+// =========================================================================
+function simulate(seed, nReads) {
+  const ref = buildReference(seed);
+  const truth = buildTruth(ref, seed);
+  const reads = generateReads(ref, truth, seed, { n: nReads || 20000 });
+  const cov = pileup(reads, ref);
+  const calls = callVariants(cov, ref, reads);
+  return { ref, truth, reads, cov, calls };
+}
+  return { simulate: simulate, LOCUS_LEN: LOCUS_LEN, HOMOPOLYMER_AT: HOMOPOLYMER_AT, READ_LEN: READ_LEN };
+})();
+const SIM_SEED = 20260814;
+let SIMDATA = null;                 // populated when the student runs bcftools
+
+// FastQC verdicts, MEASURED FROM THE GENERATED READS.
+//
+// They used to be a hand-written list, and it asserted things the data did not
+// support: "Per base sequence content: FAIL" on reads whose largest A/T or G/C
+// imbalance is 2.71%, where FastQC warns above 10% and fails above 20%; and
+// "Adapter Content: WARN" at 3.68%, where it warns above 5%. The panel then
+// asked the student to interpret flags their own run had not raised.
+//
+// Adding a real tagmentation bias to the generator was tried and reverted. It
+// works (a start-position preference does produce a 25% imbalance) but it moves
+// coverage enough to destroy a better lesson: on the current reads the caller
+// makes 20 calls, every one of them a planted true variant, and DP>=10 discards
+// exactly one, which is real. No bias setting kept both. The composition lesson
+// is now taught as an explicit scenario instead of being faked into the data.
+//
+// Thresholds are FastQC's own, from its module documentation.
+function fastqcModules(){
+  const R = runSimulation().reads, L = 75;
+  const cnt = Array.from({length: L}, () => ({A:0,C:0,G:0,T:0,N:0}));
+  R.forEach(r => { for (let i=0;i<L&&i<r.seq.length;i++){ const b=r.seq[i]; if(cnt[i][b]!==undefined)cnt[i][b]++; } });
+  let maxImb = 0, maxN = 0;
+  cnt.forEach(c => { const t=c.A+c.C+c.G+c.T+c.N; if(!t)return;
+    maxImb = Math.max(maxImb, Math.abs(c.A-c.T)/t*100, Math.abs(c.G-c.C)/t*100);
+    maxN   = Math.max(maxN, 100*c.N/t); });
+  const qAt = Array.from({length: L}, () => []);
+  R.forEach(r => { for (let i=0;i<L&&i<r.quals.length;i++) qAt[i].push(r.quals[i]); });
+  const quant = (a,p) => { const x=a.slice().sort((u,v)=>u-v); return x[Math.floor(p*(x.length-1))]; };
+  let worstMed = 99, worstLQ = 99;
+  qAt.forEach(a => { if(!a.length)return; worstMed=Math.min(worstMed,quant(a,0.5)); worstLQ=Math.min(worstLQ,quant(a,0.25)); });
+  const meanQ = R.reduce((s,r)=>s+r.quals.reduce((a,b)=>a+b,0)/r.quals.length,0)/R.length;
+  const seen = {}; R.forEach(r => { seen[r.seq]=(seen[r.seq]||0)+1; });
+  const dupPct = 100 - 100*Object.keys(seen).length/R.length;
+  const overPct = 100*Math.max.apply(null, Object.keys(seen).map(k=>seen[k]))/R.length;
+  const adPct = 100*R.filter(r=>r.adapter).length/R.length;
+  const band = (x,w,f) => x > f ? "FAIL" : (x > w ? "WARN" : "PASS");
+  FASTQC_MEASURED = { maxImb: maxImb, adPct: adPct, dupPct: dupPct, overPct: overPct,
+                      maxN: maxN, worstMed: worstMed, meanQ: meanQ };
+  return [
+    ["Basic Statistics","PASS"],
+    ["Per base sequence quality", worstMed<20?"FAIL":(worstMed<25?"WARN":"PASS")],
+    ["Per sequence quality scores", meanQ<20?"FAIL":(meanQ<27?"WARN":"PASS")],
+    ["Per base sequence content", band(maxImb,10,20)],
+    ["Per sequence GC content","PASS"],
+    ["Per base N content", band(maxN,5,20)],
+    ["Sequence Length Distribution","PASS"],
+    ["Sequence Duplication Levels", band(dupPct,20,50)],
+    ["Overrepresented sequences", band(overPct,0.1,1)],
+    ["Adapter Content", band(adPct,5,10)]
+  ];
+}
+let FASTQC_MEASURED = null;
+
+// The records from calls.vcf, as the live caller produced them: [pos, ref, alt, qual, dp]
+// pos is the position on the 20 kb analysis window; add OFFSET to read it back
+// in real GRCh38 chr6 coordinates (the window starts at chr6:31,565,000).
+const OFFSET = 31564999;   // simulated locus pos -> chr6 coordinate (local 1 = chr6:31,565,000)
+let VCF = [];              // filled by runSimulation() from the live caller
+
+// Run the generator, the pileup and the caller. Called when the student runs
+// bcftools, which is where the terminal already shows a pause, so the work is
+// visible rather than hidden.
+function runSimulation(){
+  if (SIMDATA) return SIMDATA;
+  SIMDATA = SIM.simulate(SIM_SEED, 8200);
+  VCF = SIMDATA.calls.map(c => [c.pos, c.ref, c.alt, c.qual, c.dp]);
+  buildVcf();
+  var n1 = document.getElementById('vcf-n'), n2 = document.getElementById('vcf-n2');
+  if (n1) n1.textContent = String(VCF.length);
+  if (n2) n2.textContent = String(VCF.length);
+  setTimeout(buildPileupSites, 0);
+  return SIMDATA;
+}
+// Aggregate read statistics, computed from the simulated set so every number
+// the terminal prints agrees with the data the caller actually saw.
+function readStats(){
+  const S = runSimulation();
+  const n = S.reads.length;
+  let gc = 0, bases = 0;
+  for (const r of S.reads) { for (const b of r.seq) { if (b === 'G' || b === 'C') gc++; bases++; } }
+  // a read whose insert is mostly adapter has too little sequence left to place
+  const mapped = S.reads.filter(r => r.clip >= 30).length;
+  const supp = Math.round(n * 0.032);
+  return { n: n, gc: (100*gc/bases).toFixed(0), mapped: mapped, supp: supp,
+           pctMapped: (100*mapped/n).toFixed(2) };
+}
+
+function vcfStats(){
+  const snv  = VCF.filter(v => v[1].length === 1 && v[2].length === 1);
+  const deep = VCF.filter(v => v[4] >= 10);
+  const thin = VCF.filter(v => v[4] <= 3);
+  const dropped = VCF.filter(v => v[4] < 10);
+  // The simulator knows which variants it planted, so the page can say what the
+  // filter DID rather than what a filter is supposed to do. On this dataset the
+  // answer is uncomfortable and worth showing: every call is a true positive,
+  // and the only one DP>=10 removes is real.
+  const S = SIMDATA;
+  const planted = {};
+  if (S) {
+    S.truth.edits.forEach(e => { planted[e.pos] = 1; });
+    if (S.truth.indel) planted[S.truth.indel.pos] = 1;
+  }
+  const isTrue = v => !!(planted[v[0]] || planted[v[0]+1] || planted[v[0]-1]);
+  return { total: VCF.length, snv: snv.length, deep: deep, thin: thin.length,
+           dropped: dropped, droppedTrue: dropped.filter(isTrue).length,
+           falsePositives: VCF.filter(v => !isTrue(v)).length };
+}
+
+
+const STEPS = [
+  {
+    id:0, badge:"Step 0 / 9",
+    goal:"<b>Connect to the cluster.</b> Everything real in genomics happens on a remote machine. Log in to get started.",
+    suggest:"ssh student@photo51.rosalindfranklin.edu",
+    annotation:"<b>ssh</b> opens a secure shell on a remote computer: here, a compute cluster with the tools and the data already on it.",
+    match:/^ssh\s+\S+/i,
+    ps1after:{user:"student@photo51-login01", path:":~$"},
+    out:[
+      ["banner","=================================================================="],
+      ["banner","  PHOTO 51 · Rosalind Franklin University · Genomics Teaching Cluster"],
+      ["banner","  Rocky Linux 9   ·   SLURM fair-share scheduling"],
+      ["banner","------------------------------------------------------------------"],
+      ["dim","  Named for Photograph 51, Rosalind Franklin's 1952 X-ray"],
+      ["dim","  diffraction image of DNA, the data behind the double helix."],
+      ["dim","  (A teaching cluster, aspirational for now: RFU doesn't actually"],
+      ["dim","   run one yet, so this is a faithful simulation. Maybe one day.)"],
+      ["banner","=================================================================="],
+      ["dim","Last login: Fri Jul 17 2026 from teaching-vlan"],
+      ["good","Connection established. You are now on photo51-login01."],
+      ["dim","Your data is in ~/tnf/ :  reads.fastq  tnf_ref.fa"]
+    ],
+    nb:"Logged into cluster (photo51-login01)."
+  },
+  {
+    id:1, badge:"Step 1 / 9",
+    goal:"<b>Load the tools.</b> Clusters keep software in versioned modules so everyone's results are reproducible. Load the four you'll need.",
+    suggest:"module load fastqc bwa samtools bcftools",
+    annotation:"<b>module load</b> puts specific tool versions on your PATH. Reproducibility starts here: the version is part of the result.",
+    // Required all four, because the output says "4 modules loaded". The old
+    // pattern matched "module load bwa" and then printed that fastqc, samtools
+    // and bcftools had loaded too.
+    match: function(c){
+      return /^module\s+load\s+/i.test(c)
+        && ['fastqc','bwa','samtools','bcftools'].every(t => new RegExp('\\b' + t + '\\b','i').test(c));
+    },
+    out:[
+      ["dim","Loading fastqc/0.12.1"],["dim","Loading bwa/0.7.17"],
+      ["dim","Loading samtools/1.19"],["dim","Loading bcftools/1.19"],
+      ["good","4 modules loaded."]
+    ],
+    nb:"Loaded fastqc, bwa, samtools, bcftools."
+  },
+  {
+    id:2, badge:"Step 2 / 9",
+    goal:"<b>Quality-check the raw reads.</b> Before aligning anything, look at what came off the sequencer. Run FastQC on the reads.",
+    suggest:"fastqc reads.fastq",
+    annotation:"<b>FastQC</b> scans the raw reads and flags quality problems <i>before</i> you waste compute aligning junk. Always the first step.",
+    match:/^fastqc\s+\S*reads\.fastq/i,
+    out:[
+      ["out","Started analysis of reads.fastq"],
+      ["dim","Approx 25% complete for reads.fastq"],
+      ["dim","Approx 50% complete for reads.fastq"],
+      ["dim","Approx 75% complete for reads.fastq"],
+      ["good","Analysis complete for reads.fastq"],
+      ["dim","→ wrote reads_fastqc.html"],
+      ["warn","↓ The report is below the terminal, and it comes with a question. Answer that before you run the next command."]
+    ],
+    onComplete: function(){
+      // First command that touches the data, so this is where the reads are
+      // generated. Every downstream number derives from this same dataset.
+      buildQc();
+      const rs = readStats();
+      document.getElementById('qc-prov').textContent =
+        'Module verdicts computed from ' + rs.n.toLocaleString() + ' simulated reads · 75 bp · '
+        + rs.gc + '% GC. FastQC itself is not running; these are the thresholds applied to your data.';
+    },
+    reveal:"qc-panel",
+    nb:"Ran quality control: every module inside its threshold."
+  },
+  {
+    id:3, badge:"Step 3 / 9",
+    goal:"<b>Index the reference.</b> To align fast, the aligner pre-processes the reference into a searchable structure (the FM-index from Section 1). Build it once.",
+    suggest:"bwa index tnf_ref.fa",
+    annotation:"<b>bwa index</b> builds the Burrows–Wheeler / FM-index: the exact trick from Section 1 that lets the aligner skip brute-force searching.",
+    match:/^bwa\s+index\s+\S+/i,
+    out:[
+      ["dim","[bwa_index] Pack FASTA... 0.00 sec"],
+      ["dim","[bwa_index] Construct BWT for the packed sequence..."],
+      ["dim","[bwa_index] 0.01 seconds elapse."],
+      ["dim","[bwa_index] Construct SA from BWT and Occ... 0.00 sec"],
+      ["good","[main] index built. Real time: 0.040 sec"],
+      ["warn","⏳ Reality check: instant here (20 kb). Indexing a whole human genome takes ~30–60 min and several GB of RAM, but you only do it once."]
+    ],
+    nb:"Built BWA/FM-index for the reference."
+  },
+  {
+    id:4, badge:"Step 4 / 9",
+    goal:"<b>Align the reads.</b> Map every read back to where it came from on the reference. This is Section 1's by-hand game, automated once per read.",
+    suggest:"bwa mem tnf_ref.fa reads.fastq > aln.sam",
+    annotation:"<b>bwa mem</b> aligns each read to the reference and writes <b>SAM</b> (Sequence Alignment/Map). The <b>&gt;</b> saves it to a file.",
+    match:/^bwa\s+mem\s+\S+\s+\S+/i,
+    out:[
+      ["dim","[M::bwa_idx_load_from_disk] read 0 ALT contigs"],
+      ["dim", function(){ const r = readStats();
+        return "[M::process] read " + r.n + " sequences (" + (r.n*75) + " bp)..."; }],
+      ["dim", function(){ const r = readStats();
+        return "[M::mem_process_seqs] Processed " + r.n + " reads in 0.270 CPU sec"; }],
+      ["good","[main] done. Real time: 0.324 sec  →  aln.sam"],
+      ["warn","⏳ Reality check: 0.3 s here. Aligning a real genome or exome is hours of compute: this is the step you'd hand to the cluster's queue and come back to tomorrow."]
+    ],
+    nb: function(){ return "Aligned " + readStats().n.toLocaleString() + " reads with bwa mem → aln.sam."; },
+    teachAfter:{cls:"editnote", h:"What the aligner just decided on your behalf", html:"Every read now has a coordinate, and that coordinate is an <b>assertion</b>, not a measurement. bwa took each read, found the best place it fits, and wrote that down. For most reads the best place is far better than any alternative and the assertion is safe. For some it is not, and the SAM file records that too, in a field called <b>MAPQ</b> that nothing downstream is obliged to look at. <b>Alignment is where a set of sequences becomes a set of claims about the genome</b>, and every later step inherits those claims without re-examining them. You will meet the read that breaks this at the end of the section."}
+  },
+  {
+    id:5, badge:"Step 5 / 9",
+    goal:"<b>Sort &amp; index the alignments.</b> Downstream tools need reads ordered by genomic position and indexed for random access. Convert, sort, index in one go.",
+    suggest:"samtools sort aln.sam -o aln.sorted.bam \u0026\u0026 samtools index aln.sorted.bam",
+    annotation:"Two commands, not one. <b>samtools sort</b> orders reads by position and writes compact binary <b>BAM</b>; it does <i>not</i> create an index. <b>samtools index</b> is a separate step that builds the <span style='font-family:var(--mono)'>.bai</span>, and without it a genome browser or a variant caller cannot jump to a region without reading the whole file.",
+    // The annotation says "Two commands, not one" and the output attributes the
+    // .bai to "the second command", but the pattern accepted the sort alone.
+    match: function(c){
+      return /^samtools\s+sort\s+\S+/i.test(c) && /samtools\s+index\s+\S+/i.test(c);
+    },
+    out:[
+      ["dim","[bam_sort_core] merging from 0 files and 1 in-memory blocks..."],
+      ["good","→ aln.sorted.bam       (coordinate sorted)"],
+      ["good","→ aln.sorted.bam.bai   (index, written by the second command)"]
+    ],
+    nb:"Sorted + indexed alignments → aln.sorted.bam."
+  },
+  {
+    id:6, badge:"Step 6 / 9",
+    goal:"<b>Check the alignment worked.</b> Before trusting any downstream result, ask: what fraction of reads actually mapped?",
+    suggest:"samtools flagstat aln.sorted.bam",
+    annotation:"<b>samtools flagstat</b> summarises the SAM flags: your one-glance sanity check that alignment succeeded.",
+    match:/^samtools\s+flagstat\s+\S+/i,
+    out: function(){
+      const r = readStats();
+      return [
+        ["out",(r.n + r.supp) + " + 0 in total (QC-passed reads + QC-failed reads)"],
+        ["out",r.n + " + 0 primary"],
+        ["out",r.supp + " + 0 supplementary"],
+        ["good",(r.mapped + r.supp) + " + 0 mapped (" + r.pctMapped + "% : N/A)"],
+        ["good",r.mapped + " + 0 primary mapped (" + r.pctMapped + "% : N/A)"]
+      ];
+    },
+    nb:"flagstat: almost every read placed on the reference." 
+  },
+  {
+    id:7, badge:"Step 7 / 9",
+    goal:"<b>Call variants.</b> Scan every position: where do the reads consistently disagree with the reference? Pipe the pileup into the caller.",
+    suggest:"bcftools mpileup -f tnf_ref.fa aln.sorted.bam | bcftools call -mv -o calls.vcf",
+    annotation:"<b>bcftools mpileup</b> stacks the reads at each position; <b>bcftools call -mv</b> keeps positions that look variant. The <b>|</b> pipes one into the next.",
+    match:/^bcftools\s+mpileup.*\|\s*bcftools\s+call/i,
+    out:[
+      ["dim","[mpileup] 1 sample in 1 input file"],
+      ["dim","[mpileup] maximum number of reads per input file set to 250"],
+      ["good","→ calls.vcf written"],
+      ["warn","⏳ Reality check: instant on 20 kb. Genome-wide pileup + calling runs for hours, another job you'd queue and wait on."]
+    ],
+    onComplete: function(){
+      const v = vcfStats();
+      printLine('good','    ' + v.total + ' variant sites written');
+      document.querySelector('#vcf-panel h3').textContent = '🧬 calls.vcf · ' + v.total + ' variants called';
+      recordNb('Called ' + v.total + ' variants → calls.vcf.');
+    },
+    reveal:"vcf-panel" 
+  },
+  {
+    id:8, badge:"Step 8 / 9",
+    goal:"<b>Don't trust it yet: filter by evidence.</b> Depth is the cheapest check and the first one most people type, so type it. Then look carefully at what it did to the list, because the result is not the one the exercise is usually built to produce.",
+    suggest:"bcftools view -i 'DP>=10' calls.vcf",
+    annotation:"<b>bcftools view -i</b> keeps only records matching an expression: here, depth (<b>DP</b>) of at least 10. This is how you separate signal from single-read noise.",
+    match:/^bcftools\s+view\s+.*dp\s*>=?\s*10/i,
+    out: function(){
+      const v = vcfStats();
+      const lines = [["dim","##fileformat=VCFv4.2       (" + v.deep.length + " of " + v.total + " records passes DP>=10)"],
+                     ["out","#CHROM  POS          REF     ALT     QUAL   INFO"]];
+      v.deep.forEach(function(d){
+        const isIndel = d[1].length > 1 || d[2].length > 1;
+        lines.push(["good","chr6    " + (d[0]+OFFSET).toLocaleString() + "   " + d[1] + "  " + d[2] +
+          "   " + d[3] + "    " + (isIndel ? "INDEL;" : "") + "DP=" + d[4]]);
+      });
+      return lines;
+    },
+    reveal:"edge-panel",
+    onComplete: revealFilter,
+    nb: function(){ const v = vcfStats();
+          return 'Depth filter DP>=10: ' + v.deep.length + ' of ' + v.total + ' calls survive; '
+            + v.droppedTrue + ' real variant(s) removed.'; }
+  },
+  {
+    id:9, badge:"Step 9 / 9",
+    goal:"<b>Now read the pattern in what you filtered out.</b> Tally the substitution types across every SNV call: the shape of the noise is itself a clue.",
+    suggest:"bcftools query -f '%REF>%ALT\\n' calls.vcf | sort | uniq -c | sort -rn",
+    annotation:"<b>bcftools query</b> pulls chosen fields from each record; piping to <b>sort | uniq -c</b> tallies how often each substitution type appears.",
+    match:/^bcftools\s+query.*\|\s*sort/i,
+    out: function(){
+      const tally = {};
+      VCF.filter(v => v[1].length === 1 && v[2].length === 1)
+         .forEach(v => { const k = v[1] + '>' + v[2]; tally[k] = (tally[k] || 0) + 1; });
+      const rows = Object.keys(tally).map(k => [tally[k], k]).sort((a,b) => b[0]-a[0] || a[1].localeCompare(b[1]));
+      return rows.map(([n,k]) => [n >= 2 ? "out" : "dim", String(n).padStart(7) + " " + k]);
+    },
+    onComplete: revealSpectrum,
+    nb:"Substitution spectrum: flat, as germline DNA should be. No class of change dominates."
+  }
+];
+/* Two bonus steps used to follow: `sbatch align_job.sh` and `squeue -u student`.
+   Removed 2026-08-19 on Justin's instruction. The point they made is real and is
+   kept in the conclusion, but the commands themselves are site-specific (SLURM,
+   SGE, PBS and the cloud schedulers all differ), and a student who knows which
+   commands to run and in what order can be shown the local wrapper by whoever
+   runs the local cluster. That is a different lesson from this one. */
+
+// ------------------------------------------------------------------
+let stepIndex = 0;
+let ps1 = {user:"student@laptop", path:":~$"};
+const termBody = document.getElementById('term-body');
+const input = document.getElementById('cmd-input');
+const nbEntries = [];
+
+function scrollTerm(){ termBody.scrollTop = termBody.scrollHeight; }
+
+function printLine(cls, text){
+  const d = document.createElement('div');
+  d.className = 'term-line ' + (cls||'out');
+  d.textContent = text;
+  termBody.appendChild(d);
+}
+function printCmd(text){
+  const d = document.createElement('div');
+  d.className = 'term-line cmd';
+  d.innerHTML = `<span class="ps1">${ps1.user}</span><span class="path">${ps1.path}</span> <span class="typed">${escapeHtml(text)}</span>`;
+  termBody.appendChild(d);
+}
+function escapeHtml(s){ return s.replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function recordNb(text){
+  const t = new Date().toLocaleTimeString();
+  nbEntries.push({t, text});
+  noteExport(text);
+  const el = document.getElementById('nb-entries');
+  el.innerHTML = nbEntries.map(e=>`<div class="nb-entry"><b>${e.t}</b> · ${e.text}</div>`).join('');
+}
+
+function loadStep(i){
+  stepIndex = i;
+  const s = STEPS[i];
+  document.getElementById('step-badge').textContent = s.badge;
+  document.getElementById('goal-text').innerHTML = s.goal;
+  document.getElementById('annotation').innerHTML = s.annotation || '';
+  const chip = document.getElementById('suggest-chip');
+  const scaffold = document.getElementById('scaffold');
+  if (s.suggest) {
+    chip.textContent = s.suggest;
+    chip.style.display = ''; document.getElementById('run-btn').style.display = '';
+    scaffold.style.display = '';
+    input.disabled = false;
+    input.placeholder = 'type a command and press Enter…';
+  } else {
+    scaffold.style.display = 'none';
+  }
+}
+
+function updatePs1(){
+  document.getElementById('ps1-static').textContent = ps1.user;
+  document.getElementById('path-static').textContent = ps1.path;
+}
+
+function runStep(raw){
+  const s = STEPS[stepIndex];
+  const cmd = raw.trim();
+  if (!cmd) return;
+  printCmd(cmd);
+
+  // tolerant match
+  // A step's match may be a RegExp or a predicate. Two steps needed a predicate
+  // because a single regex could not say "names all four tools" or "contains both
+  // commands", and the loose regexes were accepting commands the step's own
+  // output then lied about.
+  const matched = !s.match || (typeof s.match === 'function' ? s.match(cmd) : s.match.test(cmd));
+  if (!matched) {
+    // gentle scaffolded nudge: never a hard error
+    printLine('warn', "Hmm, that isn't quite the command for this step.");
+    printLine('dim', "Try:  " + s.suggest + "   (or click the suggested-command chip / auto-type)");
+    scrollTerm();
+    return;
+  }
+
+  // print real output
+  const _out = (typeof s.out === 'function') ? s.out() : (s.out || []);
+  // A line's text may itself be a function, so a step can print a number that
+  // only exists once the simulation has run rather than a literal that drifts.
+  _out.forEach(([c,t]) => printLine(c, typeof t === 'function' ? t() : t));
+  if (s.ps1after) { ps1 = s.ps1after; updatePs1(); }
+  if (s.reveal) document.getElementById(s.reveal).classList.add('active');
+  if (s.onComplete) s.onComplete();
+  // nb may be a string or a function, because two steps can only word their
+  // notebook entry once the live numbers exist.
+  if (s.nb) recordNb(typeof s.nb === 'function' ? s.nb() : s.nb);
+  if (s.teachAfter) {
+    const box = document.createElement('div');
+    box.className = 'teach ' + (s.teachAfter.cls||'');
+    box.innerHTML = `<h4>${s.teachAfter.h}</h4><p>${s.teachAfter.html}</p>`;
+    // place after terminal, before scaffold
+    document.querySelector('.terminal').after(box);
+  }
+  scrollTerm();
+
+  // advance to next step, or close the terminal down. Leaving the last step's
+  // suggestion chip sitting under a live prompt implies there is more to type.
+  if (stepIndex < STEPS.length - 1) {
+    loadStep(stepIndex + 1);
+  } else {
+    document.getElementById('step-badge').textContent = 'Pipeline complete';
+    document.getElementById('goal-text').innerHTML =
+        '<b>That is the whole pipeline.</b> Reads in, a quality-control decision, alignments, calls, a '
+      + 'filtered list, and a look at what the filter threw away. Nothing left to type. The rest of the '
+      + 'section is below.';
+    document.getElementById('scaffold').style.display = 'none';
+    input.disabled = true;
+    input.placeholder = 'pipeline complete';
+  }
+
+  // scroll to any panel THIS step revealed (s is the step just run)
+  if (s.reveal) {
+    const el = document.getElementById(s.reveal);
+    if (el && el.scrollIntoView) el.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+}
+
+// QC table
+function buildQc(){
+  const tb = document.getElementById('qc-rows');
+  tb.innerHTML = fastqcModules().map(([m,v])=>{
+    const cls = v==='PASS'?'pass':v==='WARN'?'warn':'fail';
+    return `<tr><td>${m}</td><td><span class="pill ${cls}">${v}</span></td></tr>`;
+  }).join('');
+  const m = FASTQC_MEASURED;
+  if (m) {
+    const el = document.getElementById('qc-measured');
+    if (el) el.innerHTML = 'Measured on your reads: largest per-base A/T or G/C imbalance <b>'
+      + m.maxImb.toFixed(2) + '%</b> (FastQC warns above 10%), adapter-bearing reads <b>'
+      + m.adPct.toFixed(2) + '%</b> (warns above 5%), duplicated sequences <b>'
+      + m.dupPct.toFixed(1) + '%</b> (warns above 20%), mean quality <b>Q'
+      + m.meanQ.toFixed(0) + '</b>. Every module is inside its threshold.';
+    const imb = document.getElementById('qc-imb');
+    if (imb) imb.textContent = m.maxImb.toFixed(1);
+  }
+}
+
+// The tagmentation decision. Presented as a scenario, and answered with what
+// each choice costs rather than with a mark.
+const QC_VERDICT = {
+  trim: '<b>Trimming the first 12 bases</b> removes the biased positions, and with them 16% of every '
+      + 'read. FastQC\'s own documentation says this kind of bias "isn\'t something which can be '
+      + 'corrected by trimming", because the bias is in which fragments exist, not in which bases were '
+      + 'read. You would pay real coverage for a cosmetic improvement to one plot.',
+  reject: '<b>Rejecting the run</b> is the expensive answer, and the one to be most careful about. A flag '
+      + 'that a library type is known to produce is not evidence that the library failed. Rejecting here '
+      + 'costs a resequencing and gains nothing.',
+  document: '<b>Documenting the expected bias and continuing</b> is what most groups do, and it is the '
+      + 'answer this scenario is built to reward, with one condition: "expected" has to mean you checked '
+      + 'the library type, not that you assumed it. The same flag on a PCR-free ligation library would be '
+      + 'a real problem worth chasing.'
+};
+function wireQcDecision(){
+  const opts = document.querySelectorAll('#qc-decide-opts .qdec');
+  opts.forEach(function(btn){
+    btn.onclick = function(){
+      opts.forEach(function(b){ b.setAttribute('aria-pressed', String(b === btn)); });
+      const fb = document.getElementById('qc-decide-fb');
+      fb.innerHTML = QC_VERDICT[btn.dataset.qdec]
+        + '<br><br><b>That is the quality-control decision made.</b> Back to the terminal above, where '
+        + 'step 3 is waiting: nothing you have done so far has compared a read to anything.';
+      fb.style.color = 'var(--text)';
+      milestone4('qc');
+      recordNb('QC scenario: chose to ' + btn.textContent.trim().toLowerCase() + '.');
+    };
+  });
+}
+
+// VCF table
+function buildVcf(){
+  const tb = document.getElementById('vcf-rows');
+  tb.innerHTML = VCF.map(([pos,ref,alt,qual,dp])=>{
+    const hero = dp>=10;
+    const isEdit = (ref==='A'&&alt==='G')||(ref==='T'&&alt==='C');
+    let cls = hero ? 'hero' : (dp===1 ? 'noise' : '');
+    const dpFlag = dp>=10 ? `<b style="color:var(--good)">${dp}</b>` : (dp===1 ? `<span style="color:var(--bad)">${dp}</span>` : dp);
+    return `<tr class="${cls}"><td>chr6:${(pos+OFFSET).toLocaleString()}</td><td>${ref}→${alt}${isEdit?' <span style="color:var(--warn)">✎</span>':''}</td><td>${qual}</td><td>${dpFlag}</td><td>${hero?'high-confidence':(dp===1?'single read':'')}</td></tr>`;
+  }).join('');
+  const snv = VCF.filter(v=>v[1].length===1&&v[2].length===1);
+  const edit = snv.filter(v=>(v[1]==='A'&&v[2]==='G')||(v[1]==='T'&&v[2]==='C'));
+  const thin = VCF.filter(v => v[4] <= 3).length, deep = VCF.filter(v => v[4] >= 10).length;
+  document.getElementById('vcf-prov').textContent =
+    `${VCF.length} sites · ${thin} at DP≤3 · ${deep} at DP≥10 · ✎ marks A→G/T→C (${edit.length}/${snv.length} SNVs).`;
+}
+
+// Kept as a no-op hook. It used to draw the A-to-I editing bar, which was the
+// RNA section's payoff; on germline DNA the substitution spectrum is flat and
+// there is no signature to find, which is why the beat is now the pileup.
+
+// events
+document.getElementById('suggest-chip').addEventListener('click', ()=>{
+  input.value = STEPS[stepIndex].suggest; input.focus();
+});
+document.getElementById('run-btn').addEventListener('click', ()=>{
+  input.value = STEPS[stepIndex].suggest; input.focus();
+});
+input.addEventListener('keydown', e=>{
+  if (e.key === 'Enter') { runStep(input.value); input.value=''; }
+});
+// Edge-case reveals: now driven by the two typed bcftools commands (steps 8 & 9)
+function revealFilter(){
+  const v = vcfStats();
+  var txt = '<b>' + v.deep.length + ' of ' + v.total + '</b> calls clear a depth of 10, so the filter '
+    + 'barely shortened the list. Now the part worth sitting with. Every one of these ' + v.total
+    + ' calls corresponds to a variant this simulation actually planted: there are <b>'
+    + v.falsePositives + ' false positives</b> for the filter to remove. And of the '
+    + v.dropped.length + ' call' + (v.dropped.length === 1 ? '' : 's') + ' it did remove, <b>'
+    + v.droppedTrue + '</b> ' + (v.droppedTrue === 1 ? 'was a real variant' : 'were real variants') + '.';
+  if (v.dropped.length && v.droppedTrue === v.dropped.length){
+    var d0 = v.dropped[0];
+    txt += ' The one it discarded is a genuine heterozygous SNV at chr6:'
+      + (d0[0]+OFFSET).toLocaleString() + ', seen on only ' + d0[4] + ' reads because coverage happened '
+      + 'to be thin there.';
+  }
+  txt += '<br><br>That does not make the rule useless: a call on five reads really is less secure than '
+    + 'a call on thirty, and on a real dataset with real artefacts this filter earns its place. It does '
+    + 'mean that <b>a threshold is a policy for trading sensitivity against specificity, not a machine '
+    + 'for separating truth from error.</b> You met that idea in Section 3, where the minimum length and '
+    + 'the index tolerance were yours to choose. It is the same idea, and it is about to matter more: '
+    + 'Section 5 is entirely about which of many well-supported variants is the relevant one.';
+  document.getElementById('filter-text').innerHTML = txt;
+  document.getElementById('edge-panel').classList.add('active');
+  document.getElementById('filter-result').style.display = 'block';
+}
+function revealSpectrum(){
+  document.getElementById('edge-panel').classList.add('active');
+  buildPileupSites();
+  pipelineDone = true;
+  document.getElementById('map-panel').classList.add('active');
+  checkDone();
+  if (!mapSeen){
+    var m = document.getElementById('map-panel');
+    if (m && m.scrollIntoView) m.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+}
+
+/* Finishing this section means the pipeline was run, the mappability beat was
+   worked, and something was written down. Before 2026-08-14 the panel appeared
+   the moment the last command's output was revealed. */
+var pipelineDone = false, mapSeen = false;
+// Completion used to need two things: the pipeline run, and one click on any of
+// the three candidate homes. That click set mapSeen and immediately scrolled to
+// the completion panel, which meant the page carried the student from page
+// position 6,211 to 15,931, past the MAPQ explanation, the no-record argument,
+// the read-length curve and the difficult-gene examples, to be told they had
+// finished. The scroll is gone, and the milestones are the things the section
+// is actually about. None of them blocks anything.
+var MILESTONES4 = [
+  { key:'pipeline', text:'Ran the pipeline end to end' },
+  { key:'qc',       text:'Made the quality-control decision' },
+  { key:'evidence', text:'Looked at the evidence behind a call' },
+  { key:'map',      text:'Tried to place a multi-mapping read' },
+  { key:'silence',  text:'Concluded what an absent record permits' }
+];
+var milestones4 = {};
+function milestone4(key){
+  if (milestones4[key]) return;
+  milestones4[key] = 1;
+  checkDone();
+}
+function checkDone(){
+  if (pipelineDone) milestones4.pipeline = 1;
+  if (mapSeen) milestones4.map = 1;
+  var done = MILESTONES4.filter(function(m){ return milestones4[m.key]; });
+  var cue = document.getElementById('progress-cue');
+  if (cue) cue.textContent = done.length + ' of ' + MILESTONES4.length + ' steps done';
+  var list = document.getElementById('milestone-list4');
+  if (list) list.innerHTML = MILESTONES4.map(function(m){
+    var got = !!milestones4[m.key];
+    return '<li class="' + (got ? 'got' : '') + '"><span aria-hidden="true">'
+      + (got ? '\u2713' : '\u25cb') + '</span> ' + m.text
+      + '<span class="sr-only">' + (got ? ' (done)' : ' (not done yet)') + '</span></li>';
+  }).join('');
+  if (done.length < MILESTONES4.length) return;
+  var p = document.getElementById('done-panel');
+  if (p && !p.classList.contains('active')){
+    p.classList.add('active');
+    recordNb('Section 4 complete.');
+    // No scrollIntoView. The panel is at the end of the page and the student
+    // arrives at it by reading, which is the point.
+  }
+}
+
+// The conclusion the silence panel asks for.
+var SILENCE_VERDICT = {
+  clear: '<b>No.</b> "Clear" is a claim about the gene. Your file supports a claim about your file. '
+       + 'This is the sentence that turns a pipeline result into a clinical error, and it is usually '
+       + 'said in good faith by someone who ran everything correctly.',
+  nonefound: '<b>True, and almost useless on its own.</b> It is accurate: no variants were called there. '
+       + 'But whoever asked wanted to know about the gene, and they will hear it as "the gene is clear" '
+       + 'unless you say what the absence does and does not establish.',
+  nothing: '<b>Yes.</b> Absence from a variants-only VCF is compatible with the evidence supporting the '
+       + 'reference AND with there having been no usable evidence. Coverage, mapping quality and whether '
+       + 'the region was callable at all separate those two, and none of them is in the file you are '
+       + 'looking at.'
+};
+function wireSilenceDecision(){
+  var opts = document.querySelectorAll('#silence-opts .sdec');
+  [].forEach.call(opts, function(btn){
+    btn.onclick = function(){
+      [].forEach.call(opts, function(b){ b.setAttribute('aria-pressed', String(b === btn)); });
+      var fb = document.getElementById('silence-fb');
+      fb.innerHTML = SILENCE_VERDICT[btn.dataset.sdec];
+      fb.style.color = 'var(--text)';
+      milestone4('silence');
+      recordNb('Concluded what an absent VCF record permits: "' + btn.textContent.trim() + '".');
+    };
+  });
+}
+
+var nbLog=[];
+
+// =========================================================
+//  Notebook export, added 2026-08-13 (pattern from Section 1)
+//  Replaces "take a screenshot of your lab notebook". A screenshot is awkward to
+//  file, easy to fake, and caps the record at one screenful. This hands back a
+//  work product instead, and nothing is transmitted anywhere.
+// =========================================================
+
+
+function buildNotebookText(){
+  var now=new Date(), L=[];
+  L.push('Molecular Techniques: Interactive Bioinformatics Module');
+  L.push('Section 4: Running the real tools');
+  L.push('');
+  L.push('Student: ______________________________');
+  L.push('Downloaded: '+now.toLocaleDateString()+', '+now.toLocaleTimeString());
+  if(nbLog.length>0){
+    var f=nbLog[0], l=nbLog[nbLog.length-1];
+    var mins=Math.max(1,Math.round((l.at-f.at)/60000));
+    L.push('Time working: about '+mins+' min (first entry '+f.ts+', last entry '+l.ts+')');
+  }
+  L.push('Entries: '+nbLog.length);
+  L.push('');
+  L.push('----------------------------------------------------------------');
+  if(nbLog.length===0){ L.push('(no entries yet)'); }
+  else { nbLog.forEach(function(e){ L.push(e.ts+'  '+e.text); }); }
+  L.push('----------------------------------------------------------------');
+  L.push('');
+  L.push('');
+  L.push('Written by the module in your browser. Nothing was sent anywhere.');
+  return L.join('\n');
+}
+function downloadNotebook(){
+  var d=new Date();
+  var stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  var blob=new Blob([buildNotebookText()],{type:'text/plain;charset=utf-8'});
+  var url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download='section4_lab_notebook_'+stamp+'.txt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},0);
+}
+function noteExport(text){
+  var d=new Date();
+  nbLog.push({ts:d.toLocaleTimeString(), text:text, at:d});
+  var b=document.getElementById('download-notebook');
+  if(b) b.disabled=false;
+}
+function wireNotebookDownload(){
+  var b=document.getElementById('download-notebook');
+  if(b) b.addEventListener('click',downloadNotebook);
+}
+
+
+/* ================================================================== *
+ * Mappability beat, 2026-08-14. The section's second teaching half:
+ * a pipeline returns an answer everywhere, and the answer is only
+ * meaningful where it could actually look.
+ *
+ * Every number here is quoted from a named source, and the two studies
+ * are deliberately NOT blended into one smooth surface. See the design
+ * note _section4_rebuild_design_2026-08-14.md.
+ * ================================================================== */
+var MAP_HOMES = [
+  { id:'chr6:31,583,916', ctx:'inside an L1 element',        score:150 },
+  { id:'chr6:31,921,470', ctx:'inside an L1 element',        score:150 },
+  { id:'chr9:12,404,881', ctx:'inside the same L1 family',   score:150 }
+];
+var mapStage = 0;   /* 0 not started, 1 picked, 2 read on, 3 finished */
+
+function buildHomes(){
+  var wrap = document.getElementById('homes');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  MAP_HOMES.forEach(function(h, i){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('aria-pressed', 'false');
+    b.innerHTML = h.id + '<span class="sc">alignment score ' + h.score + ' · ' + h.ctx + '</span>';
+    b.onclick = function(){ pickHome(i); };
+    wrap.appendChild(b);
+  });
+}
+
+function pickHome(i){
+  var wrap = document.getElementById('homes');
+  [].forEach.call(wrap.children, function(b, j){
+    b.setAttribute('aria-pressed', j === i ? 'true' : 'false');
+  });
+  var v = document.getElementById('homes-verdict');
+  v.className = 'homes-verdict show';
+  v.innerHTML = 'You picked <b>' + MAP_HOMES[i].id + '</b>. So would the aligner, or either of the '
+    + 'other two, because all three score exactly ' + MAP_HOMES[i].score + '. '
+    + '<b>Nothing about this read distinguishes them.</b> That is not a limitation of your judgement '
+    + 'or of BWA: the information required to choose is not in the read.';
+  if (mapStage === 0){
+    mapStage = 1;
+    document.getElementById('mapq-teach').style.display = 'block';
+    document.getElementById('silence-teach').style.display = 'block';
+    document.getElementById('scale-teach').style.display = 'block';
+    document.getElementById('bites-teach').style.display = 'block';
+    drawMapChart();
+    recordNb('Tried to place a multi-mapping read: three equally good locations, MAPQ 0.');
+    mapSeen = true;
+    checkDone();
+  }
+}
+
+/* Li, Freudenberg and Miramontes 2014, BMC Bioinformatics 15:2. GRCh37, exact-match
+   k-mer singletons. These are quoted values, not a fitted curve. */
+var MAP_CURVE = [
+  { len:20,   pct:71.65 }, { len:50,  pct:91.84 }, { len:100, pct:96.60 },
+  { len:150,  pct:97.56 }, { len:400, pct:98.67 }, { len:1000, pct:99.18 }
+];
+
+function drawMapChart(){
+  // The table twin. Every figure in this module has one, and this chart did not:
+  // it was the only route to these six numbers, on a chart that renders its axis
+  // labels at about 3px on a 320px screen.
+  var rows = document.getElementById('mapchart-rows');
+  if (rows) rows.innerHTML = MAP_CURVE.map(function(p){
+    return '<tr><td>' + p.len + ' bases</td><td>' + p.pct.toFixed(2) + '%</td></tr>';
+  }).join('');
+  var svg = document.getElementById('mapchart');
+  if (!svg) return;
+  /* A DOT PLOT, not bars, and deliberately so. The interesting differences all
+     sit between 70% and 100%, which needs a truncated axis to be visible at
+     all. A bar chart may not have one: bar LENGTH encodes the value, so cutting
+     the baseline makes 20bp look like a sixth of 1000bp when it is 72% of it.
+     A dot encodes by POSITION, where a non-zero axis is legitimate as long as
+     it is labelled, which it is below. (2026-08-14.) */
+  var W = 900, H = 210, PADL = 46, PADR = 30, PADT = 22, AXIS = 44;
+  var plotH = H - PADT - AXIS;
+  var lo = 65, hi = 100;
+  var step = (W - PADL - PADR) / (MAP_CURVE.length - 1);
+  var x = function(i){ return PADL + i * step; };
+  var y = function(v){ return PADT + plotH - (v - lo) / (hi - lo) * plotH; };
+  var g = '';
+
+  [70, 80, 90, 100].forEach(function(t){
+    g += '<line class="mapgrid" x1="' + PADL + '" y1="' + y(t).toFixed(1)
+      +  '" x2="' + (W - PADR) + '" y2="' + y(t).toFixed(1) + '"></line>';
+    g += '<text class="maptext" x="' + (PADL - 6) + '" y="' + (y(t) + 3.5).toFixed(1)
+      +  '" text-anchor="end">' + t + '%</text>';
+  });
+
+  var pts = MAP_CURVE.map(function(d, i){ return x(i).toFixed(1) + ',' + y(d.pct).toFixed(1); });
+  g += '<polyline class="mapline" points="' + pts.join(' ') + '"></polyline>';
+
+  MAP_CURVE.forEach(function(d, i){
+    g += '<circle class="mapdot" cx="' + x(i).toFixed(1) + '" cy="' + y(d.pct).toFixed(1) + '" r="5"></circle>';
+    g += '<text class="mapval" x="' + x(i).toFixed(1) + '" y="' + (y(d.pct) - 11).toFixed(1)
+      +  '" text-anchor="middle">' + d.pct.toFixed(2) + '%</text>';
+    g += '<text class="maptext" x="' + x(i).toFixed(1) + '" y="' + (PADT + plotH + 17)
+      +  '" text-anchor="middle">' + d.len + ' bp</text>';
+  });
+
+  g += '<line class="mapaxis" x1="' + PADL + '" y1="' + (PADT + plotH) + '" x2="' + (W - PADR)
+    +  '" y2="' + (PADT + plotH) + '"></line>';
+  g += '<line class="mapaxis" x1="' + PADL + '" y1="' + PADT + '" x2="' + PADL
+    +  '" y2="' + (PADT + plotH) + '"></line>';
+  g += '<text class="maptext" x="' + PADL + '" y="' + (PADT + plotH + 34)
+    +  '">vertical axis starts at 65%, not 0</text>';
+
+  var desc = 'Fraction of the human genome where a read occurs exactly once, by read length: '
+    + MAP_CURVE.map(function(d){ return d.len + ' bases ' + d.pct.toFixed(2) + ' percent'; }).join(', ')
+    + '. The gain flattens above about 200 bases. The vertical axis starts at 65 percent, not zero.';
+  svg.innerHTML = '<title>' + desc + '</title>' + g;
+  svg.setAttribute('aria-label', desc);
+}
+
+buildHomes();
+
+/* ================================================================== *
+ * Pileup viewer, 2026-08-17. The moment the course's spine becomes
+ * concrete: a variant caller stacks reads and counts letters in a
+ * column. Homozygous is every read agreeing, heterozygous is roughly
+ * half, and an indel is a gap somebody had to place first.
+ * Built from the SAME simulated reads the caller used, so what the
+ * student sees is what the caller saw.
+ * ================================================================== */
+var PV_W = 41;            // bases shown either side of centre, odd so there is a middle
+var pvSites = [];
+var pvCurrent = 0;
+
+function buildPileupSites(){
+  var d = runSimulation();
+  if (!d) return;
+  var calls = d.calls.slice();
+  var snv = calls.filter(function(c){ return c.type === 'SNV' && c.dp >= 18; });
+  var het = null, hom = null;
+  snv.forEach(function(c){
+    if (!het && c.af >= 0.35 && c.af <= 0.65) het = c;
+    if (!hom && c.af >= 0.9) hom = c;
+  });
+  var indel = calls.filter(function(c){ return c.type === 'INDEL'; })[0] || null;
+  // A position with no variant, so the student sees what agreement looks like.
+  var quiet = null;
+  for (var p = 6000; p < 6400 && !quiet; p++){
+    if (!calls.some(function(c){ return Math.abs(c.pos - p) < 60; })) quiet = { pos: p, type: 'REF' };
+  }
+  pvSites = [];
+  if (quiet) pvSites.push({ label: 'Position C', site: quiet, kind: 'ref' });
+  // Labelled by position, not by verdict. "Heterozygous SNV" on the button is
+  // the answer to the question the panel then asks.
+  if (het)   pvSites.push({ label: 'Position A', site: het, kind: 'het' });
+  if (hom)   pvSites.push({ label: 'Position B', site: hom, kind: 'hom' });
+  if (indel) pvSites.push({ label: 'Position D', site: indel, kind: 'indel' });
+
+  var wrap = document.getElementById('pv-picker');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  pvSites.forEach(function(x, i){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = x.label;
+    b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+    // Choosing a position yourself is the 'looked at the evidence' step.
+    // showPileup(0) runs at build time to populate the panel, so the milestone
+    // hangs off the click rather than off the render, exactly the trap Section 3
+    // had with render(0) marking Read A inspected before anyone touched it.
+    b.onclick = function(){ showPileup(i); milestone4('evidence'); };
+    wrap.appendChild(b);
+  });
+  showPileup(0);
+}
+
+function showPileup(idx){
+  var d = runSimulation();
+  if (!d || !pvSites.length) return;
+  pvCurrent = idx;
+  var entry = pvSites[idx], site = entry.site;
+  [].forEach.call(document.getElementById('pv-picker').children, function(b, i){
+    b.setAttribute('aria-pressed', i === idx ? 'true' : 'false');
+  });
+
+  var centre = site.pos;
+  var half = Math.floor(PV_W / 2);
+  var from = centre - half, to = centre + half;
+  var refSeq = d.ref.slice(from, to + 1);
+
+  // reads covering the centre, most-left-starting first, capped for legibility
+  // Take an EVEN SPREAD of the covering reads, not the first N by start
+  // position. Taking the first N samples one end of the pile and skewed the
+  // heterozygous example to 71%, which is a bad number to teach half with.
+  var all = d.reads.filter(function(r){
+    return r.pos <= centre - 4 && r.pos + 75 >= centre + 4;
+  }).sort(function(a, b){ return a.pos - b.pos; });
+  var MAXROWS = 20;
+  var covering = all;
+  if (all.length > MAXROWS){
+    covering = [];
+    for (var k = 0; k < MAXROWS; k++) covering.push(all[Math.floor(k * all.length / MAXROWS)]);
+  }
+
+  var refB = d.ref[centre];
+  var counts = { A:0, C:0, G:0, T:0, del:0 };
+  var rows = covering.map(function(r){
+    var line = '';
+    for (var g = from; g <= to; g++){
+      var i = g - r.pos;
+      if (i < 0 || i >= 75 || i >= r.clip){ line += ' '; continue; }
+      var b = r.seq[i];
+      if (entry.kind === 'indel' && r.hasDel && g >= centre + 1 && g <= centre + 1){
+        line += '<u>-</u>'; continue;
+      }
+      if (g === centre){
+        if (b !== refB) line += '<b>' + b + '</b>';
+        else line += '<i>' + b + '</i>';
+      } else {
+        line += b;
+      }
+    }
+    return '<div class="pv-row">' + line + '</div>';
+  });
+
+  covering.forEach(function(r){
+    var i = centre - r.pos;
+    if (i < 0 || i >= 75 || i >= r.clip) return;
+    if (entry.kind === 'indel' && r.hasDel){ counts.del++; return; }
+    var b = r.seq[i];
+    if (counts[b] !== undefined) counts[b]++;
+  });
+
+  document.getElementById('pv-ref').innerHTML =
+    'reference  ' + refSeq.slice(0, half) + '<b style="color:var(--accent)">' + refB
+    + '</b>' + refSeq.slice(half + 1);
+  document.getElementById('pv-reads').innerHTML =
+    rows.map(function(x){ return x.replace('<div class="pv-row">', '<div class="pv-row">           '); }).join('');
+  var axis = ' '.repeat(11 + half) + '^';
+  document.getElementById('pv-axis').textContent = axis + '  chr6:'
+    + (centre + OFFSET).toLocaleString();
+
+  var total = counts.A + counts.C + counts.G + counts.T + counts.del;
+  var order = ['A','C','G','T'];
+  var html = order.map(function(b){
+    var hit = counts[b] > 0 && (b !== refB);
+    return '<div class="pv-cell' + (hit ? ' hit' : '') + '"><div class="b">' + b
+      + (b === refB ? ' (reference)' : '') + '</div><div class="n">' + counts[b] + '</div></div>';
+  }).join('');
+  if (counts.del > 0){
+    html += '<div class="pv-cell hit"><div class="b">deletion</div><div class="n">'
+         + counts.del + '</div></div>';
+  }
+  document.getElementById('pv-count').innerHTML = html;
+
+  var altN = counts.del > 0 ? counts.del
+    : order.filter(function(b){ return b !== refB; }).reduce(function(a,b){ return a + counts[b]; }, 0);
+  var frac = total ? altN / total : 0;
+  var v = document.getElementById('pv-verdict');
+  var pct = Math.round(frac * 100);
+
+  if (entry.kind === 'ref'){
+    v.innerHTML = '<b>Every read agrees with the reference.</b> ' + total + ' reads, '
+      + 'all reading ' + refB + '. There is nothing to call here, and this is what the vast majority '
+      + 'of the twenty thousand positions in this window look like. A caller '
+      + 'walks every one of them and says nothing, which is most of what it spends its time doing.';
+  } else if (entry.kind === 'het'){
+    v.innerHTML = '<b>About half the reads disagree with the reference: ' + altN + ' of ' + total
+      + ', ' + pct + '%.</b> You have two copies of this chromosome and the alternate base is on one '
+      + 'of them, so a read drawn at random has roughly an even chance of carrying it. That is a '
+      + '<b>heterozygous</b> genotype, written <span style="font-family:var(--mono)">0/1</span> in a '
+      + 'VCF. It will not land on exactly 50%, because ' + total + ' reads is a small sample.';
+  } else if (entry.kind === 'hom'){
+    v.innerHTML = '<b>Essentially every read disagrees with the reference: ' + altN + ' of ' + total
+      + ', ' + pct + '%.</b> Both copies carry the alternate base, so there is no other base to draw. '
+      + 'That is <b>homozygous alternate</b>, written <span style="font-family:var(--mono)">1/1</span>. '
+      + 'Notice that the reference is simply wrong about you here, which is worth remembering: the '
+      + 'reference is one assembled sequence, not the correct answer.';
+  } else {
+    v.innerHTML = '<b>' + altN + ' of ' + total + ' reads are missing a base, ' + pct + '%.</b> '
+      + 'The count looks like a heterozygous call, and the arithmetic is the same. But look at where '
+      + 'it sits: inside a run of identical bases, where the aligner had to <b>choose</b> which one to '
+      + 'delete before anything could be counted. Nothing in the reads distinguishes those choices. '
+      + 'This is the call on the list you should be least sure of, and it is the one a different '
+      + 'caller is most likely to disagree with you about.';
+  }
+}
+
+// init
+wireNotebookDownload();
+buildVcf(); updatePs1(); loadStep(0); buildHomes();
+wireQcDecision(); wireSilenceDecision(); checkDone();
+printLine('dim', "You're on your laptop. Connect to the cluster to begin. Type the suggested command or click the chip.");
+input.focus();
+</script>
+</body>
+</html>

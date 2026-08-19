@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Section 7: Functional Genomics and Analysis</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#1a2332; --panel-2:#243042;
+    --text:#e6edf3; --text-dim:#8f98a1; --accent:#58a6ff;
+    --good:#56d364; --bad:#f96760; --warn:#d29922; --gap:#9097a0;
+    --border:#30363d; --border-ctrl:#6c7989;
+    --mono:'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    line-height:1.55;padding:26px 20px 120px}
+  .wrap{max-width:1040px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 5px;font-weight:600}
+  h2{font-size:16px;margin:28px 0 8px;color:var(--accent)}
+  h4{font-size:13px;margin:0 0 6px;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
+  .breadcrumb{color:var(--text-dim);font-size:12px;margin-bottom:8px}
+  .breadcrumb b{color:var(--accent)}
+  .breadcrumb a{color:var(--text-dim);text-decoration:underline;text-underline-offset:2px}
+  .breadcrumb a:hover{color:var(--accent)}
+  .sub{color:var(--text-dim);font-size:14px;margin:0 0 6px}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:16px 18px;margin:14px 0}
+  .prompt{background:var(--panel);border-left:3px solid var(--accent);
+    padding:14px 18px;border-radius:4px;margin:16px 0;font-size:15px}
+  .prompt b{color:var(--accent)}
+  small{color:var(--text-dim)}
+  code{background:var(--panel-2);padding:1px 5px;border-radius:4px;
+    font-family:var(--mono);font-size:.86em}
+
+  button{background:var(--panel-2);color:var(--text);border:1px solid var(--border-ctrl);
+    padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit}
+  button:hover:not(:disabled){background:#2d3748;border-color:var(--accent)}
+  button[aria-pressed="true"]{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
+  /* SC 1.4.3. A <code> inside a button keeps its own dark --panel-2 background,
+     so when the button is pressed the rule above puts near-black ink on it:
+     1.2:1, invisible. Exactly the failure the Section 6 selected card had.
+     Inside a button the code element is a font choice, not a surface. */
+  button code{background:transparent;color:inherit;padding:0}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:3px}
+  button:focus-visible,summary:focus-visible,input:focus-visible,
+  [tabindex]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+  /* --- the spliced read --- */
+  .picker{display:flex;gap:9px;flex-wrap:wrap;margin:10px 0}
+  .seqwrap{overflow-x:auto;background:#0d1117;border:1px solid var(--border);
+    border-radius:8px;padding:12px 14px;margin-top:10px}
+  .seqline{display:flex;align-items:center;gap:8px;margin-bottom:7px;white-space:nowrap}
+  .rowlabel{color:var(--text-dim);font-size:11px;font-family:var(--mono);width:62px;flex:0 0 62px}
+  .strip{display:flex;gap:1px}
+  .tile{width:11px;height:19px;line-height:19px;text-align:center;font-family:var(--mono);
+    font-size:10px;border-radius:2px;background:var(--panel-2);color:var(--text-dim)}
+  .tile.ok{background:rgba(86,211,100,.20);color:var(--good)}
+  .tile.no{background:rgba(249,103,96,.20);color:var(--bad)}
+  .tile.clip{background:var(--panel-2);color:var(--gap);opacity:.7}
+  .gapmark{color:var(--warn);font-size:10px;font-family:var(--mono);padding:0 8px;
+    border-left:1px dashed var(--border-ctrl);border-right:1px dashed var(--border-ctrl);margin:0 2px}
+  .cigar{font-family:var(--mono);font-size:13px;margin-top:10px;color:var(--text)}
+  .cigar-key{background:var(--panel-2);border:1px solid var(--border);border-radius:6px;
+    padding:10px 13px;margin-top:8px;font-size:12.5px;color:var(--text-dim);line-height:1.6}
+  .cigar-key b{color:var(--text);font-family:var(--mono)}
+  .verdict{margin-top:10px;padding:11px 14px;border-radius:6px;background:var(--panel-2);
+    border-left:3px solid var(--warn);font-size:13.5px;line-height:1.6}
+  .verdict.win{border-left-color:var(--good)}
+
+  /* --- volcano --- */
+  .tiles{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 4px}
+  .tile-s{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:10px 14px;min-width:132px}
+  .tile-s .k{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em}
+  .tile-s .v{font-size:22px;font-weight:600;margin-top:2px}
+  .tile-s.hero .v{color:var(--accent)}
+  .chartwrap{margin-top:10px}
+  .vdot{fill:var(--accent);opacity:.55}
+  .vdot.big{opacity:.95}
+  .vaxis{stroke:var(--border-ctrl);stroke-width:1}
+  .vthresh{stroke:var(--warn);stroke-width:1.5;stroke-dasharray:4 3}
+  .vtext{fill:var(--text-dim);font-size:10px;font-family:var(--mono)}
+  .vlabel{fill:var(--text);font-size:10.5px;font-family:var(--mono)}
+  /* A leader is drawn only when a label had to move off its own point, so the
+     line always means "this label belongs to that dot" and never decorates. */
+  .vleader{stroke:var(--border-ctrl);stroke-width:1;fill:none}
+  .vaxname{fill:var(--text-dim);font-size:11px}
+  .fine{font-size:11.5px;color:var(--text-dim);margin:6px 2px 0}
+  td.dim{color:var(--text-dim)}
+  .chartwrap{overflow-x:auto}
+  .chartwrap svg{min-width:560px}
+  .decide{margin:16px 0 0;border:1px solid var(--border-ctrl);border-radius:8px;
+          padding:10px 14px 14px;background:var(--panel-2)}
+  .decide legend{font-size:13px;font-weight:600;padding:0 6px}
+  .decide-opts{display:flex;flex-wrap:wrap;gap:8px}
+  .decide-fb{margin-top:10px;font-size:13px;line-height:1.6;color:var(--text-dim)}
+  .dq{font-size:14px;margin:4px 0 10px}
+  .fdec[aria-pressed="true"],.sdec7[aria-pressed="true"]{border-color:var(--accent);
+          box-shadow:inset 0 0 0 2px var(--accent)}
+  .milestones{list-style:none;margin:4px 0 10px;padding:0;font-size:11px;line-height:1.6;
+              color:var(--text-dim);font-family:var(--mono);
+              overflow-wrap:anywhere;word-break:break-word}
+  .milestones li{margin-bottom:2px}
+  /* The milestone list lives inside .nb, and `.nb ul` caps its height and turns
+     on overflow for the notebook log. That made the milestone list a scrollable
+     region with no keyboard access at 320px as soon as it grew past the cap:
+     axe caught it in Section 8 on 2026-08-19 at seven milestones. `.nb ul` has
+     higher specificity than `.milestones`, so undoing it needs both classes. */
+  .nb ul.milestones{max-height:none;overflow:visible}
+  .milestones li.got{color:var(--good)}
+
+  .tvscroll{overflow-x:auto;margin-top:8px}
+  table.tv{width:100%;min-width:520px;border-collapse:collapse;font-size:12px}
+  table.tv th,table.tv td{text-align:left;padding:5px 9px;border-bottom:1px solid var(--border)}
+  table.tv th{color:var(--text-dim);font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+  table.tv td.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  table.tv tr:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+
+  .readout{margin-top:12px;padding:12px 15px;border-radius:6px;background:var(--panel-2);
+    border-left:3px solid var(--accent);font-size:13.5px;line-height:1.6}
+  .readout b{color:var(--text)}
+
+  .cmp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-top:12px}
+  .cmp-card{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+  .cmp-card h5{margin:0 0 6px;font-size:13.5px;color:var(--accent)}
+  .cmp-card dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:6px 0 0;font-size:12px}
+  .cmp-card dt{color:var(--text-dim);white-space:nowrap}
+  .cmp-card dd{margin:0}
+  .cmp-card .unit{margin-top:8px;padding-top:7px;border-top:1px solid var(--border);
+    font-size:12px;color:var(--warn)}
+
+  details{margin:8px 0;border:1px solid var(--border);border-radius:8px;background:var(--panel-2)}
+  details>summary{cursor:pointer;padding:9px 12px;color:var(--accent);font-size:13px;list-style:none}
+  details>summary::-webkit-details-marker{display:none}
+  details>summary::before{content:'▸ ';color:var(--text-dim)}
+  details[open]>summary::before{content:'▾ '}
+  details .body{padding:2px 14px 12px;font-size:13px;color:var(--text-dim)}
+  details .body p{margin:0 0 8px}
+  details .body p:last-child{margin-bottom:0}
+  details .body b{color:var(--text)}
+
+  .prov{margin-top:9px;font-size:11px;color:var(--text-dim);font-style:italic}
+
+  .nb{max-width:1040px;margin:18px auto 0;background:var(--panel);
+    border:1px solid var(--border);border-radius:10px;padding:13px 16px}
+  .nb-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .nb h3{margin:0;font-size:14px;color:var(--accent)}
+  .nb-dl{font-size:12px;padding:6px 11px}
+  .nb-dl-hint{font-size:11px;color:var(--text-dim);margin:4px 0 0}
+  .progress-cue{font-size:12px;color:var(--text-dim);margin:8px 0 0}
+  .nb ul{list-style:none;margin:8px 0 0;padding:0;max-height:190px;overflow:auto}
+  .nb li{font-size:12px;color:var(--text-dim);padding:3px 0;border-bottom:1px solid var(--border);
+    font-family:var(--mono)}
+  .nb li.empty{color:var(--text-dim);font-style:italic;font-family:inherit}
+
+  .section-done{background:var(--panel);border:1px solid var(--accent);border-radius:8px;
+    padding:18px 22px;margin-top:22px;display:none}
+  .section-done.show{display:block}
+  .section-done h3{color:var(--accent);font-size:16px;margin:0 0 8px}
+  .section-done p{margin:0 0 10px;font-size:14px;line-height:1.6}
+  .section-done p:last-child{margin-bottom:0}
+  .section-done .nb-aside{color:var(--text-dim);font-size:12px}
+
+  .sectnav{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;
+    margin:26px 0 0;padding-top:18px;border-top:1px solid var(--border)}
+  .sectnav a{flex:1 1 220px;display:block;text-decoration:none;color:inherit;
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    padding:11px 14px;font-size:13px}
+  .sectnav a:hover{border-color:var(--accent);background:var(--panel-2)}
+  .sectnav a .k{display:block;font-size:11px;color:var(--text-dim);
+    text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+  .sectnav a .t{font-weight:600}
+  .sectnav a:hover .t{text-decoration:underline}
+  .sectnav a.home{flex:0 1 auto;text-align:center;display:flex;align-items:center;
+    justify-content:center;color:var(--text-dim)}
+  .sectnav a.home:hover{color:var(--accent)}
+
+  .footer-note{margin-top:28px;padding-top:14px;border-top:1px solid var(--border);
+    font-size:11px;color:var(--text-dim);text-align:center}
+
+  @media (max-width:700px){
+    body{padding:14px 10px 90px}
+    h1{font-size:18px}
+    .tile-s{min-width:44%}
+    .picker button{flex:1 1 auto}
+    .cmp-grid{grid-template-columns:1fr}
+    .sectnav a{flex:1 1 100%}
+  }
+  .conseq{display:grid;gap:8px;margin-top:12px}
+  .conseq>div{display:grid;grid-template-columns:minmax(0,190px) minmax(0,1fr);gap:12px;
+    background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:9px 12px;font-size:13px}
+  .conseq b{color:var(--accent)}
+  .conseq span{color:var(--text-dim)}
+  @media (max-width:700px){ .conseq>div{grid-template-columns:1fr;gap:2px} }
+  /* The course spine, added 2026-08-17. Justin: "we are building up from the
+     simplest thing a bioinformatician can do - match a set of letters to
+     another... bioinformatics is matching a sets of letters to another,
+     usually at scale and interpreting those results!"
+     Every section states its own match in the same place, in the same words,
+     so the argument is visible from inside any one of them. */
+  .spinebar{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;
+    margin:14px 0 6px;padding:10px 14px;border-radius:6px;
+    background:var(--panel-2);border-left:3px solid var(--good);font-size:13.5px}
+  .spinebar .k{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;
+    letter-spacing:.07em;white-space:nowrap}
+  .spinebar .v{color:var(--text)}
+  /* File names and CIGAR strings are single unbreakable tokens, and one of them
+     pushed the page 39px wide at 320 CSS px. SC 1.4.10. (2026-08-17 audit.) */
+  code{overflow-wrap:anywhere;word-break:break-word}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 7 of 8</b> · Functional genomics and analysis</div>
+  <h1>From reads to a defensible result</h1>
+  <p class="sub">Section 6 ended with an experiment that <b>could not separate treatment from
+  batch</b>, so no analysis could have rescued it. The lab repeated it properly. Both conditions are
+  now represented in both batches, which gives twelve usable RNA-seq libraries and a treatment effect
+  that is actually estimable.</p>
+  <p class="sub">Quality control told you the libraries are technically usable. It did not tell you
+  what changed. That is the job here, and the last step is the hardest: turning a result into a
+  sentence you can defend.</p>
+  <p class="sub"><small>The counts are simulated. <b>The analysis is not.</b> Counts for 2,000 genes
+  across 12 samples were drawn from a negative binomial, then normalised and modelled with a per-gene
+  negative binomial GLM and a Wald test, adjusted with Benjamini-Hochberg. It was run once, offline,
+  and the output embedded; the scripts are in the project folder. It behaves like a real result,
+  including the false positives and the changes it misses.</small></p>
+
+  <div class="prompt">
+    <b>After immune stimulation, which RNA abundances changed?</b>
+    <br><br>
+    Be careful with what that question can be answered with. Bulk RNA-seq measures <b>the RNA
+    molecules present in a mixture of cells</b>. An abundance difference can come from more
+    transcription, from slower degradation, from a change in RNA processing, or from the mixture
+    containing different proportions of cell types than before. Steady-state RNA-seq cannot tell those
+    apart on its own. What you get is evidence of changed abundance, which is not yet an explanation
+    of mechanism.
+    <br><br>
+    <small>This section deliberately does <b>not</b> ask what a variant is doing. That question needs
+    a different experiment: expression stratified by genotype, allele-specific expression, an eQTL
+    design, or a direct perturbation. Nothing in these twelve libraries carries genotype information,
+    so nothing here could answer it.</small>
+  </div>
+
+  <div class="spinebar"><span class="k">The match in this section</span><span class="v">An RNA read against a genome that still has the intron in it, then counts against a model of the samples, and finally a gene list against a catalogue of gene sets.</span></div>
+  <h2>What the experiment actually is</h2>
+  <p class="sub">One paragraph of bench work, because two decisions made at the bench decide what your
+  count table can and cannot contain.</p>
+
+  <div class="panel">
+    <p style="font-size:14px;margin:0 0 10px"><b>Almost none of the RNA in a cell is the RNA you
+    want.</b> Ribosomal RNA is "the most highly abundant component of total RNA isolated from animal or
+    human cells and tissues, comprising the majority (&gt;80% to 90%) of the molecules". Sequence total
+    RNA and most of your run is ribosome. So <b>most</b> bulk workflows reduce that fraction, usually
+    one of two ways. Not all of them do: some designs sequence total RNA deliberately, and the choice
+    changes which RNA species can enter the library at all.</p>
+    <div class="conseq">
+      <div><b>PolyA selection</b><span>Oligo-dT beads capture anything with a polyA tail. Simple and
+        cheap, and it shapes your experiment: the library is strongly enriched for mature, polyadenylated
+        message, so non-polyadenylated species are heavily depleted. That means replication-dependent
+        histone messages and many long non-coding RNAs are largely absent, and unspliced or intronic RNA
+        is depleted rather than categorically excluded, which is why intronic reads still turn up in
+        polyA data. It also needs intact RNA, so a degraded or archival sample will fail.</span></div>
+      <div><b>Ribosomal depletion</b><span>Probes hybridise to the rRNA itself and pull it out. More
+        expensive, keeps the non-polyadenylated transcripts, and tolerates degraded input, which is why
+        clinical and fixed-tissue work uses it.</span></div>
+    </div>
+    <p style="font-size:14px;margin:12px 0 0">After that the RNA is fragmented and <b>reverse
+    transcribed to cDNA</b>, and from that point on the whole thing is DNA chemistry: the same
+    adapters, the same indexes, the same sequencer you met in Section 3. What arrives in your FASTQ is
+    a DNA copy of a piece of whatever RNA survived the selection step, which in a polyA library is
+    mostly mature message and in an rRNA-depleted library is a good deal more than that.</p>
+    <p style="font-size:14px;margin:10px 0 0"><b>One more decision leaves a mark on the data.</b> A read
+    on its own does not say which strand of the genome the transcript came from, and for overlapping or
+    antisense genes that ambiguity is expensive. A <b>stranded</b> library resolves it chemically, and
+    there is more than one way to do it. The most common marks the second cDNA strand with dUTP so that
+    it is <b>not amplified</b> in the final PCR, leaving the surviving molecules pointing the same way.
+    Other kits preserve direction differently, so the relationship between read orientation and
+    transcript strand is a property of the protocol rather than a universal rule. If you do not know
+    which one your library used, you do not know how to count it, and every quantification tool will
+    ask.</p>
+  </div>
+
+  <h2>First, the same problem in a new shape</h2>
+  <p class="sub">Before any of that, RNA has to be matched to the genome, and it does not fit. This is
+  the alignment problem from Section 1, arriving in a form that breaks the tool you used in Section 4.</p>
+
+  <div class="panel">
+    <div class="picker" id="aligner-picker" role="group" aria-label="Choose an aligner">
+      <button type="button" id="btn-bwa" aria-pressed="false">Align with bwa</button>
+      <button type="button" id="btn-star" aria-pressed="false">Align with STAR</button>
+    </div>
+    <p class="sub" style="margin-top:4px">One 75 base RNA read. It came from a transcript, so it is
+    two exons joined together. The genome still has the intron sitting between them.</p>
+    <div class="seqwrap" id="aln-out" tabindex="0" role="group"
+         aria-label="Alignment result">
+      <p style="color:var(--text-dim);font-size:13px;margin:0">Pick an aligner to see where the read lands.</p>
+    </div>
+  </div>
+
+  <h2>From reads to a number per gene</h2>
+  <div class="panel">
+    <p style="font-size:14px;margin:0 0 8px">Once the reads are placed, the analysis stops being about
+    sequence at all. Count how many reads landed in each gene, in each sample, and you have a table of
+    numbers: <b>genes down the side, samples across the top</b>. Everything that follows is statistics
+    on that table.</p>
+    <p style="font-size:14px;margin:0 0 10px">Twelve samples here: six stimulated and six not, and
+    crucially <b>three of each in each of the two batches</b>. The question is which of the
+    <b id="n-genes">0</b> genes that passed the count filter changed.</p>
+
+    <div class="tvscroll" tabindex="0" role="group"
+         aria-label="Count matrix for ten genes across twelve samples. Scrolls sideways on a narrow screen.">
+      <table class="vt" id="cnt-tbl"><thead><tr id="cnt-head"></tr></thead>
+        <tbody id="cnt-rows"></tbody></table>
+    </div>
+    <p class="fine">Ten genes from the table, chosen to show four kinds of row. Raw counts, exactly as
+    they come out of the counting step.</p>
+
+    <div class="spine" style="margin-top:14px">
+      <b>These numbers are not yet comparable.</b> The libraries were sequenced to different depths, so
+      a bigger number can simply mean a bigger library, and the composition differs too: if a handful
+      of genes take up much more of one sample's reads, every other gene in that sample is squeezed.
+      <b>Normalisation</b> puts the samples on a common scale before anything is compared. Then the
+      <b>design formula</b> tells the model which experimental effects it has to separate. Counts do
+      not become a biological comparison until the sample labels and the model say how.
+    </div>
+
+    <fieldset class="decide" id="design-pick">
+      <legend>Choose the model before you look at the answer</legend>
+      <p class="dq">Both conditions appear in both batches, and batch is a nuisance you did not care
+      about but cannot ignore. Which design formula would you fit?</p>
+      <div class="decide-opts" id="design-opts" role="group" aria-label="Design formula">
+        <button type="button" class="btn fdec" data-f="cond" aria-pressed="false"><code>~ condition</code></button>
+        <button type="button" class="btn fdec" data-f="batchcond" aria-pressed="false"><code>~ batch + condition</code></button>
+        <button type="button" class="btn fdec" data-f="inter" aria-pressed="false"><code>~ batch * condition</code></button>
+      </div>
+      <div class="decide-fb" id="design-fb" role="status" aria-live="polite">Pick one. The result below
+      was fitted with one of these.</div>
+    </fieldset>
+
+    <div class="prov">Counts simulated from a negative binomial; the analysis is real. Median-of-ratios
+    size factors, a per-gene negative binomial GLM, a Wald test on the condition term and
+    Benjamini-Hochberg adjustment across all genes tested. Run once offline by
+    <code>_s7_simulate.py</code>; the page displays its output rather than inventing one.</div>
+  </div>
+
+  <h2>Which genes changed</h2>
+  <p class="sub">A volcano plot is one compact way to view an estimated effect size alongside the
+  statistical evidence for it. A big change measured badly and a small change measured well are
+  different things, and either number alone will mislead you. Height here means <b>stronger evidence
+  under the fitted model</b>, which is not the same as a more precise effect or a more certain
+  biological claim.</p>
+  <p class="sub"><b>The reporting rule used below is adjusted p &lt; 0.05 and |log2 fold change|
+  &ge; 1.</b> That is a rule somebody chose, not a boundary between changed and unchanged genes.
+  Nothing happens to a gene when it crosses it.</p>
+
+  <div class="panel">
+    <div class="tiles">
+      <div class="tile-s hero"><div class="k">Significant</div><div class="v" id="t-sig">0</div></div>
+      <div class="tile-s"><div class="k">Up</div><div class="v" id="t-up">0</div></div>
+      <div class="tile-s"><div class="k">Down</div><div class="v" id="t-dn">0</div></div>
+      <div class="tile-s"><div class="k">Genes tested</div><div class="v" id="t-tested">0</div></div>
+    </div>
+
+    <!-- SC 1.4.10: a 900-unit viewBox scaled into 262px renders the 10px axis
+         labels at about 3px, which is a decorative picture rather than a
+         readable figure. Same treatment as the Section 4 chart: a readable
+         floor, a focusable scroll region, and the table twin below. -->
+    <div class="chartwrap" tabindex="0" role="group"
+         aria-label="Volcano plot. Scrolls sideways on a narrow screen.">
+      <svg id="volcano" width="100%" viewBox="0 0 900 400" role="img" aria-label="Volcano plot"
+           preserveAspectRatio="xMidYMid meet"><title>Volcano plot</title></svg>
+    </div>
+
+    <div class="readout" id="v-readout" role="status" aria-live="polite"></div>
+
+    <details>
+      <summary>Table view: the ten strongest changes</summary>
+      <div class="body">
+        <p>The same data as the plot. Rows are focusable, so this is also the keyboard route to any value.</p>
+        <div class="tvscroll">
+          <table class="tv"><thead><tr>
+            <th scope="col">Gene</th><th scope="col">log2 fold change</th>
+            <th scope="col">Adjusted p</th><th scope="col">Mean count</th><th scope="col">Direction</th>
+          </tr></thead><tbody id="tv-rows"></tbody></table>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Go deeper: why the p-values are adjusted, and why fold change alone is a trap</summary>
+      <div class="body">
+        <p>You just ran one test per gene, so you ran thousands of tests. At a raw threshold of 0.05,
+        thousands of tests produce hundreds of hits from nothing at all. Every axis on that plot uses
+        an <b>adjusted</b> p-value for that reason, and Section 6 did the arithmetic.</p>
+        <p>The other trap is the opposite one. A gene with three reads in one group and nine in the
+        other has a fold change of three, which sounds enormous and is measuring noise. That is why
+        the vertical axis exists: the plot refuses to let you read a fold change without also reading
+        how well it was measured.</p>
+        <p><b>And counts are not the kind of number a t-test was built for.</b> They are discrete,
+        their variance grows with their mean rather than staying constant, and with two or three
+        replicates a variance estimated separately for each gene is too noisy to trust. So DESeq2
+        applies a <b>Wald test on a negative binomial model of the raw counts</b>, and edgeR a
+        <b>quasi-likelihood F test on the same model</b>, in both cases after borrowing variance
+        information across all the genes at once rather than trusting each gene's own three
+        numbers.</p>
+        <p>Notice what that sentence does and does not say. DESeq2 and edgeR are software; the Wald
+        test and the F test are the tests; the negative binomial is the model. Setting a package
+        against a t-test compares three different kinds of thing. <b>And the objection is to the naive
+        t-test, not to t-statistics.</b> limma-voom turns the mean-variance relationship into a weight
+        on each observation and then runs an ordinary linear model, producing a <i>moderated</i>
+        t-statistic whose variance has also been shared across genes, and it performs about as well.
+        What all three have in common is not avoiding t-like statistics. It is refusing to estimate a
+        variance from three numbers when twenty thousand genes are available to inform it.</p>
+      </div>
+    </details>
+  </div>
+
+  <h2>And then: what are those genes doing?</h2>
+  <div class="panel">
+    <p style="font-size:14px;margin:0 0 10px">A list of significant genes is not a result, it is a
+    homework assignment. <b>Pathway enrichment</b> asks whether the list contains more genes from some
+    known group than you would expect by chance, which converts a list of names into something you can
+    say a sentence about.</p>
+    <button type="button" id="btn-enrich">Run enrichment on the significant genes</button>
+    <div id="enrich-out" style="display:none">
+      <div class="tvscroll" tabindex="0" role="group"
+           aria-label="Enrichment results. Scrolls sideways on a narrow screen.">
+        <table class="tv"><thead><tr>
+          <th scope="col">Gene set</th><th scope="col">In your list</th>
+          <th scope="col">Expected by chance</th>
+          <th scope="col">In the set</th><th scope="col">Adjusted p</th>
+        </tr></thead><tbody id="en-rows"></tbody></table>
+      </div>
+      <p class="fine" id="en-basis"></p>
+      <div class="readout" id="en-readout" role="status" aria-live="polite"></div>
+      <details>
+        <summary>Go deeper: what enrichment cannot tell you</summary>
+        <div class="body">
+          <p><b>It can only find what somebody already annotated.</b> Gene sets are built from
+          published work, so well-studied genes belong to many sets and poorly studied ones belong to
+          none. A pathway can come out enriched because it is popular rather than because it is
+          involved, and a gene nobody has studied cannot enrich anything.</p>
+          <p><b>The background matters and is usually wrong.</b> Enrichment compares your list against
+          all genes, but if your experiment could only detect expressed genes then the honest
+          background is the expressed genes, not the genome. Using the wrong one inflates everything.</p>
+          <p><b>It is a hypothesis, not a mechanism.</b> "Cytokine signalling is enriched" tells you
+          where to look. It does not tell you what your variant does, and it never identifies a
+          causal gene.</p>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <h2>The same analysis, on peaks instead of genes</h2>
+  <p class="sub">ATAC-seq and ChIP-seq end in peaks rather than counts per gene. Almost everything you
+  have just done still applies, and the one place it does not is the interesting place.</p>
+
+  <div class="panel">
+    <p style="font-size:14px;margin:0 0 10px"><b>A peak behaves like a gene.</b> Agree a set of
+    regions, count how many reads from each sample fall in each region, and you have a matrix with the
+    same shape as a count table. The standard tools say so out loud: DiffBind "uses statistical
+    routines developed in an RNA-Seq context (primarily the Bioconductor packages edgeR and DESeq2)".
+    The volcano plot you just read, the adjusted p-values and the trap of ranking by fold change all
+    carry over. <b>The count-matrix idea transfers; the assumptions do not come with it.</b>
+    DiffBind's own documentation warns that normalisation methods developed for RNA-seq rest on
+    assumptions that may not hold for ChIP or ATAC data, where the fraction of reads in peaks varies a
+    great deal between samples, and that the choice of what to normalise against can change the answer
+    more than the choice between edgeR and DESeq2. Defining the regions in the first place is a further
+    set of assumptions that RNA-seq never has to make.</p>
+
+    <div class="conseq">
+      <div><b>Then link peaks to genes</b><span>A peak with no gene attached is hard to say anything
+        about, so peaks get assigned to genes and the gene list goes through enrichment like the one
+        you ran above. How that assignment is made varies, and it matters. ChIPseeker will annotate to
+        the nearest gene; <b>GREAT does something different</b>, defining a regulatory domain around
+        each gene with a basal region plus an extension and then testing enrichment over regions
+        rather than over genes, which is the point of it.</span></div>
+      <div><b>Or ask what binds there</b><span>This is the analysis a gene list cannot support. Take
+        the sequence under each peak and ask which transcription factor motifs are over-represented
+        against a matched background: HOMER and the MEME suite do that, against databases such as
+        JASPAR. <b>chromVAR is not that.</b> It computes a bias-corrected measure of how much
+        accessibility deviates, per cell or per sample, across all the peaks sharing a motif, so it is
+        answering "is this factor's activity changing here?" rather than "is this motif unusually
+        common in this list?"</span></div>
+    </div>
+
+    <div class="readout" style="border-left-color:var(--warn)">
+      <b>The place it is easiest to go wrong.</b> Your genes were defined before the experiment
+      existed. Your peaks are defined <b>from the data you are about to test</b>, and if you define
+      them the wrong way the arithmetic stops holding. The authors of csaw are specific about which
+      way is wrong: "calling peaks in individual libraries or treatment groups can lead to loss of
+      error rate control during the DB analysis. This is because the definition of the regions to be
+      used for DB testing is not independent of the DB status of those regions."
+      <br><br>
+      Read that precisely. It is a warning about calling peaks <i>per library or per treatment group</i>
+      and then testing between those groups, not a claim that every region set derived from the data is
+      invalid. Defining regions once from the pooled data, without reference to the comparison, is a
+      normal and defensible thing to do. The choice between the union of every sample's peaks and only
+      the peaks they share still changes the answer, and neither is right in general.
+    </div>
+
+    <details>
+      <summary>Two caveats on the peak analyses, both worth knowing before you believe one</summary>
+      <div class="body">
+        <p><b>Nearest gene is a biased assignment, not a neutral one.</b> It was the motivating
+        example for GREAT: assigning regions to the nearest gene "introduces a strong bias toward
+        genes that are flanked by large intergenic regions", so that a term covering 14% of human
+        genes ended up associated with over 33% of the genome, producing "numerous false positive
+        enrichments". And enhancers genuinely skip past their neighbours to reach a target further
+        away, which no distance rule can capture. Contact-based and co-accessibility methods exist for
+        exactly this reason.</p>
+        <p><b>A motif nominates a family, not a protein.</b> A motif is a position weight matrix, a
+        summary of the bases a factor tends to sit on, and close relatives share them: as the ATAC
+        analysis guide puts it, "not all TFs have identified motifs and TFs from the same family can
+        share very similar motifs". So "a GATA motif is enriched in these peaks" is a real result and
+        it does not tell you which GATA. Deciding that needs expression data, a ChIP experiment, or a
+        perturbation.</p>
+        <p>For ATAC there is a further move, <b>footprinting</b>: a bound protein blocks the
+        transposase, so an occupied site shows a dip in insertions inside an otherwise open region.
+        The catch is that Tn5 has its own sequence preference, so an uncorrected footprint can be the
+        enzyme rather than the factor, and bias-correcting tools are not optional.</p>
+      </div>
+    </details>
+  </div>
+
+  <h2>The same machinery, three shapes</h2>
+  <p class="sub">RNA-seq is one of three assays that all match reads to the same genome and differ in
+  what the reads look like when they land. That difference is not a detail, it is the experiment.</p>
+
+  <div class="panel">
+    <div class="cmp-grid">
+      <div class="cmp-card">
+        <h5>RNA-seq</h5>
+        <dl>
+          <dt>At the bench</dt><dd>remove rRNA, fragment, reverse transcribe to cDNA</dd>
+          <dt>Measures</dt><dd>how much of each transcript</dd>
+          <dt>Coverage</dt><dd>follows expression, and is interrupted at every junction</dd>
+          <dt>Aligner</dt><dd>splice-aware, such as STAR</dd>
+          <dt>Endpoint</dt><dd>counts per gene</dd>
+        </dl>
+        <div class="unit">The unit is a <b>gene</b>, defined by an annotation somebody else maintains.</div>
+      </div>
+      <div class="cmp-card">
+        <h5>ATAC-seq</h5>
+        <dl>
+          <dt>At the bench</dt><dd>Tn5 transposase cuts and inserts adapters wherever it can reach</dd>
+          <dt>Measures</dt><dd>which chromatin is open</dd>
+          <dt>Coverage</dt><dd>peaks at accessible sites, and is otherwise background</dd>
+          <dt>Aligner</dt><dd>ordinary, such as bwa. This is DNA</dd>
+          <dt>Endpoint</dt><dd>peaks</dd>
+        </dl>
+        <div class="unit">The unit is a <b>peak</b>, defined by you and your threshold.</div>
+      </div>
+      <div class="cmp-card">
+        <h5>ChIP-seq</h5>
+        <dl>
+          <dt>At the bench</dt><dd>crosslink, shear, pull down with an antibody, reverse the crosslinks</dd>
+          <dt>Measures</dt><dd>where one protein is bound</dd>
+          <dt>Coverage</dt><dd>peaks where the antibody pulled something down</dd>
+          <dt>Aligner</dt><dd>ordinary, such as bwa. Also DNA</dd>
+          <dt>Endpoint</dt><dd>peaks, against a control</dd>
+        </dl>
+        <div class="unit">The unit is a <b>peak</b>, and it needs an input control to mean anything.</div>
+      </div>
+    </div>
+
+    <details>
+      <summary>ChIP-seq in full, because it is the one that is hardest to picture</summary>
+      <div class="body">
+        <p>Formaldehyde is added to living cells, which freezes proteins onto the DNA they are touching.
+        The cells are broken open and the chromatin sheared, usually by sonication, to fragments of
+        roughly 100 to 300 bases. Then an <b>antibody against one protein</b>, or one histone
+        modification, is used to pull that protein out of the mixture, bringing whatever DNA it was
+        crosslinked to with it. The crosslinks are reversed, the protein is digested away, and
+        <b>what you sequence is the DNA</b>. Never the protein.</p>
+        <p>So the antibody is the entire experiment. ENCODE's own guidelines list the two ways it fails:
+        "poor reactivity against the intended target and/or cross-reactivity with other DNA-associated
+        proteins". Neither failure produces an error message. Both produce peaks.</p>
+        <p><b>This is why ChIP needs an input control</b>, and why the other two assays on this page do
+        not. Shearing is not uniform: "DNA breakage during sonication is not uniform. In particular,
+        some regions of open chromatin are preferentially represented in the sonicated sample". So open
+        chromatin looks enriched whether or not your protein was there, and so do regions present at
+        higher copy number. An input is the same chromatin, crosslinked and sheared identically, with
+        the antibody step left out. ENCODE requires one: "Each ChIP-seq experiment should have a
+        corresponding input control experiment with matching run type, read length, and replicate
+        structure." Without it you are comparing your peaks against an assumption of uniformity that is
+        known to be false.</p>
+      </div>
+    </details>
+
+    <div class="readout" style="border-left-color:var(--warn)">
+      <b>The distinction worth carrying away, stated carefully.</b> An RNA-seq experiment counts into
+      <b>genes that were defined before you started</b>, so the object being counted is far more stable
+      than a peak and two laboratories have a much better chance of comparing numbers.
+      <br><br>
+      "Far more stable" is not "identical", and treating gene counts as automatically comparable is its
+      own mistake. Which annotation release you used changes gene models and boundaries; whether the
+      library was stranded changes what counts for overlapping genes; what you did with reads matching
+      several places changes the totals; and how transcripts were aggregated to genes changes them
+      again. The methods section still has to say all of that.
+      <br><br>
+      A peak is not like that. <b>You created it</b>, by choosing a caller, a threshold and a control.
+      Change any of those and the peaks move, split, merge or disappear, and your "same" region is a
+      different object. That is why peak-based results are harder to compare across studies than
+      expression results, and why the methods section of an ATAC or ChIP paper has to say far more
+      than "we called peaks".
+    </div>
+  </div>
+
+  <div class="nb" id="nb">
+    <div class="nb-head">
+      <h3>🗒 Lab notebook</h3>
+      <button type="button" id="download-notebook" class="nb-dl" disabled
+              aria-describedby="nb-dl-hint">⤓ Download notebook</button>
+    </div>
+    <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 4 steps done</p>
+    <ul class="milestones" id="milestone-list7" aria-label="Steps in this section"></ul>
+    <div role="log" aria-live="polite" aria-label="Lab notebook entries">
+      <ul id="nbList" tabindex="0"><li class="empty">Your observations will appear here.</li></ul>
+    </div>
+  </div>
+
+  <fieldset class="decide" id="claim-q">
+    <legend>Which sentence can you defend?</legend>
+    <p class="dq">You have a result. <b>Which sentence does this analysis support?</b></p>
+    <div class="decide-opts" id="claim-opts" role="group" aria-label="Which sentence is supported">
+      <button type="button" class="btn sdec7" data-c="cause" aria-pressed="false">Stimulation switched on these genes</button>
+      <button type="button" class="btn sdec7" data-c="transcription" aria-pressed="false">Stimulation increased transcription of these genes</button>
+      <button type="button" class="btn sdec7" data-c="abundance" aria-pressed="false">In this balanced repeat, these RNA abundances changed</button>
+      <button type="button" class="btn sdec7" data-c="variant" aria-pressed="false">This explains what the variant is doing</button>
+    </div>
+    <div class="decide-fb" id="claim-fb" role="status" aria-live="polite">Pick the strongest sentence
+    you could defend to somebody who read your methods.</div>
+  </fieldset>
+
+  <div class="section-done" id="section-done" role="status" aria-live="polite">
+    <h3>✓ You have finished Section 7.</h3>
+    <p>You watched an RNA read fail to match a genome it came from, fixed it with an aligner that
+    knows about introns, and then stopped looking at sequence entirely. From that point on it was a
+    table of numbers, and every step narrowed what the final sentence could say: <b>reads were
+    matched, counts were normalised, a model was chosen, a reporting rule made a shortlist, and
+    enrichment summarised it against the genes that were eligible to be there.</b></p>
+    <p>Notice how much the sentence had to give up on the way. Not "switched on", because abundance is
+    not transcription. Not "caused", because a stimulus and an abundance change are not a mechanism.
+    Not anything about a variant, because no genotype was ever measured. What survives is a claim
+    about changed RNA abundance in a balanced repeat, with a positive control that agrees with the
+    stimulus, and that is a real result rather than a deflated one.</p>
+    <p>The peak panel is worth keeping too. A gene is an object somebody else defined and largely
+    shares. A peak is an object you made, and it moves when you change your mind about a threshold.</p>
+    <p class="nb-aside">Your lab notebook is a record of what you did in this section, kept for your
+    own reference. Download it if you want to keep it.</p>
+  </div>
+
+<nav class="sectnav" aria-label="Section navigation">
+  <a class="nav-prev" href="Section%206%20-%20Functional%20genomics%20and%20quality%20control.html"><span class="k">Previous</span><span class="t">6. Functional genomics and quality control</span></a>
+  <a class="home" href="index.html">All sections</a>
+  <a class="nav-next" href="Section%208%20-%20A%20new%20assay.html"><span class="k">Next</span><span class="t">8. A new assay</span></a>
+</nav>
+
+  <p class="footer-note">Prototype · Section 7 of the Molecular Techniques Interactive Bioinformatics
+  Module · 2026/27 cycle · simulated expression data, real statistics</p>
+</div>
+
+<script>
+"use strict";
+
+var nbLog = [];
+var alignersRun = {};
+var enrichRun = false;
+
+/* ------------------------------------------------------------------ *
+ * 1. The spliced read. Kept from the previous build of this section
+ *    because it is the moment the course's spine reappears: the same
+ *    matching problem from Section 1, in a form where the letters are
+ *    not contiguous in the reference.
+ * ------------------------------------------------------------------ */
+var EXON1_TAIL = 'CAGGTCACTGAGCCTAGGACTTCAGGCTGAACCTGTAG';   // 38
+var EXON2_HEAD = 'GCTCCAAGTGACCTGCAAAGGTCCTGAAGCTTACCAG';    // 37
+var INTRON_LEN = 812;
+var READ = EXON1_TAIL + EXON2_HEAD;                          // 75
+
+function el(tag, cls, txt){
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (txt !== undefined) e.textContent = txt;
+  return e;
+}
+function tiles(host, seq, opts){
+  opts = opts || {};
+  for (var i = 0; i < seq.length; i++){
+    var t = el('span', 'tile' + (opts.marks && opts.marks[i] ? ' ' + opts.marks[i] : ''), seq[i]);
+    host.appendChild(t);
+  }
+}
+
+function alignBwa(){
+  var out = document.getElementById('aln-out');
+  out.innerHTML = '';
+  out.appendChild(el('p','',
+    'bwa expects a read to match the genome in one continuous stretch. It finds the first 38 bases, '
+  + 'then the genome carries on into the intron while the read carries on into the next exon, and the '
+  + 'two stop agreeing.'));
+
+  var marks = {};
+  for (var i = 0; i < 38; i++) marks[i] = 'ok';
+  for (var j = 38; j < 75; j++) marks[j] = 'clip';
+
+  var g = el('div','seqline');
+  g.appendChild(el('span','rowlabel','genome'));
+  var gs = el('div','strip'); tiles(gs, EXON1_TAIL + 'ATCGTGACGTATGCACGTATCGATCGTACGTAGCTAG'.slice(0,37));
+  g.appendChild(gs); out.appendChild(g);
+
+  var r = el('div','seqline');
+  r.appendChild(el('span','rowlabel','read'));
+  var rs = el('div','strip'); tiles(rs, READ, {marks:marks});
+  r.appendChild(rs); out.appendChild(r);
+
+  out.appendChild(el('p','cigar')).innerHTML =
+    'In this simulated alignment the non-splice-aware tool reports <b>38M37S</b>: one exon placed, '
+  + 'the rest clipped. <span class="fine">An illustrative outcome, not a promise about what BWA must '
+  + 'return. BWA-MEM can instead emit a split alignment with supplementary records for the second '
+  + 'piece. What no non-splice-aware aligner does is represent the junction as one intron-spanning '
+  + 'alignment.</span>';
+  out.appendChild(el('div','cigar-key')).innerHTML =
+    '<b>M</b> alignment match: 38 read bases placed against 38 reference bases. Note what M does '
+  + '<i>not</i> say: the SAM specification defines it as "alignment match (can be a sequence match or '
+  + 'mismatch)", so M means placed, not identical. <b>=</b> and <b>X</b> are the operations that '
+  + 'distinguish them, and most aligners do not emit them.<br>'
+  + '<b>S</b> soft clip: 37 read bases the aligner could not place. They stay in the file, which is '
+  + 'why the read is still 75 bases long even though only 38 were used.';
+
+  var v = el('div','verdict');
+  v.innerHTML = 'Be precise about what was lost. The 38 placed bases are still there and can still '
+    + 'contribute to a gene-level count, so this is not simply half a read thrown away. What is gone '
+    + 'is the <b>junction evidence</b>: nothing in this record says the read crossed from one exon to '
+    + 'the next, so it cannot support the junction, and assigning it to a transcript becomes '
+    + 'unreliable. Multiply that across every junction-spanning read and the parts of the experiment '
+    + 'that depend on knowing which isoform you are looking at stop being trustworthy, even though '
+    + 'the gene-level totals still look populated.';
+  out.appendChild(v);
+
+  if (!alignersRun.bwa){
+    alignersRun.bwa = 1;
+    nb('Ran the spliced read through bwa: 38M37S, 37 bases soft-clipped.');
+    updateProgress();
+  }
+}
+
+function alignStar(){
+  var out = document.getElementById('aln-out');
+  out.innerHTML = '';
+  out.appendChild(el('p','',
+    'STAR is allowed to split a read across a large gap, provided the edges of that gap look like a '
+  + 'splice site. Here the intron begins GT and ends AG, so the split is permitted and both halves match.'));
+
+  var mA = {}, mB = {};
+  for (var i = 0; i < 38; i++) mA[i] = 'ok';
+  for (var j = 0; j < 37; j++) mB[j] = 'ok';
+
+  var g = el('div','seqline');
+  g.appendChild(el('span','rowlabel','genome'));
+  var gs = el('div','strip');
+  tiles(gs, EXON1_TAIL);
+  gs.appendChild(el('span','gapmark','intron, ' + INTRON_LEN + ' bp'));
+  tiles(gs, EXON2_HEAD);
+  g.appendChild(gs); out.appendChild(g);
+
+  var r = el('div','seqline');
+  r.appendChild(el('span','rowlabel','read'));
+  var rs = el('div','strip');
+  tiles(rs, EXON1_TAIL, {marks:mA});
+  rs.appendChild(el('span','gapmark','skipped'));
+  tiles(rs, EXON2_HEAD, {marks:mB});
+  r.appendChild(rs); out.appendChild(r);
+
+  out.appendChild(el('p','cigar')).innerHTML =
+    'The splice-aware result: <b>38M' + INTRON_LEN + 'N37M</b>, which encodes the intron directly. '
+  + '<span class="fine">Also illustrative: a real run depends on the annotation, the index and the '
+  + 'parameters. What is not illustrative is the shape of the answer.</span>';
+  out.appendChild(el('div','cigar-key')).innerHTML =
+    '<b>M</b> 38 read bases placed, then <b>N</b> ' + INTRON_LEN + ' reference bases skipped, then '
+  + '<b>M</b> 37 more placed. All 75 read bases are used.<br>'
+  + '<b>N</b> is defined by the SAM specification as a "skipped region from the reference", and for '
+  + 'mRNA-to-genome alignment it represents an intron. Notice that N consumes reference and not read, '
+  + 'which is exactly why the gap can be 812 bases without the read being 812 bases longer.';
+
+  var v = el('div','verdict win');
+  v.innerHTML = 'The whole read is used, and it now carries extra information: it is direct evidence '
+    + 'that these two exons are joined in this sample. That is how splice junctions are discovered, '
+    + 'and it is why the CIGAR has an N operation at all.';
+  out.appendChild(v);
+
+  if (!alignersRun.star){
+    alignersRun.star = 1;
+    nb('Ran the spliced read through STAR: 38M' + INTRON_LEN + 'N37M, all 75 bases used.');
+    updateProgress();
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * 2. Differential expression. Seeded, so the volcano is the same every
+ *    time and a result can be returned to.
+ * ------------------------------------------------------------------ */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function gauss(r){ var u = 1 - r(), v = r(); return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v); }
+
+/* ------------------------------------------------------------------ *
+ * The result, computed once and embedded.
+ *
+ * This block used to be a generator that invented a log fold change and a
+ * p-value for each of 240 genes. Every planted gene came out significant,
+ * every other gene was forced to p >= 0.06, and so there were no false
+ * positives and no false negatives, no normalisation, no dispersion and no
+ * model. A section whose argument is that a threshold is a consequential
+ * decision cannot rest on a dataset where the threshold never decides
+ * anything.
+ *
+ * What is embedded below is the output of an actual analysis, run once by
+ * _s7_simulate.py and its two companions, which are in this folder:
+ *   counts drawn from a negative binomial for 2,000 genes x 12 samples,
+ *   a balanced design (2 conditions x 2 batches x 3 replicates) with a real
+ *   batch effect, median-of-ratios size factors, a per-gene negative binomial
+ *   GLM with design ~ batch + condition, a Wald test on the condition term,
+ *   and Benjamini-Hochberg adjustment across all 1,981 genes that passed the
+ *   count filter.
+ *
+ * It behaves like a result: 45 true positives, 3 FALSE positives, 75 real
+ * changes missed, 26 of those with a genuine |log2 fold change| above 1, and
+ * 57 null genes showing a big fold change with no support.
+ * ------------------------------------------------------------------ */
+/* Generated once, offline, by _explorations/_s7_simulate.py. Do not hand-edit. */
+var DE_SUMMARY = {"nGenesSimulated": 2000, "nTested": 1981, "nSamples": 12, "nPlanted": 120, "nReported": 48, "truePos": 45, "falsePos": 3, "missed": 75, "missedBigEffect": 26, "noisyNulls": 57, "medianDepth": [1.035, 0.856, 1.203, 0.914, 1.215, 0.803, 1.047, 1.325, 0.758, 1.106, 0.873, 1.035]};
+var DE_COND = [0,0,0,0,0,0,1,1,1,1,1,1];
+var DE_BATCH = [0,0,0,1,1,1,0,0,0,1,1,1];
+var DE_LFC = "0.094,-0.572,0.228,-0.142,-0.042,1.692,-0.117,-0.215,0.057,-0.391,-1.977,0.207,-0.396,-0.165,0.286,-0.629,-0.673,-0.396,-0.090,-0.609,0.177,-0.274,-0.559,-0.612,0.382,0.185,-0.232,-1.162,-1.393,-0.775,-0.060,0.190,0.498,0.948,-0.786,0.768,-0.143,0.016,0.190,0.610,1.311,-0.096,0.533,-0.671,0.032,-0.429,0.077,0.700,0.081,1.122,-0.566,0.442,-1.074,-0.992,0.735,-0.775,-0.240,0.069,-0.857,0.482,0.371,0.135,-0.618,0.559,3.597,-0.147,-0.310,1.130,-0.360,-0.087,-0.186,0.116,0.263,0.113,0.759,1.755,-0.027,-0.298,-0.600,0.041,0.613,0.917,-0.211,0.784,0.812,2.356,0.107,0.998,-0.383,0.531,0.539,0.503,0.436,0.358,0.531,0.833,-0.885,1.925,-0.689,-1.174,-0.377,0.582,-0.518,0.206,0.965,0.020,-1.064,0.504,-0.221,-0.885,0.443,-0.723,1.036,-0.144,-0.654,-0.069,-0.288,-0.261,0.673,0.279,-0.219,0.362,-0.648,4.015,-0.044,0.961,0.291,-1.380,0.639,-1.428,0.557,0.245,-0.325,-0.456,0.304,-0.325,0.819,0.822,0.411,-1.249,-0.329,0.776,-0.321,-0.384,-0.062,0.270,-0.771,0.255,0.043,-0.440,-0.434,-0.576,-0.321,-0.151,-0.043,0.078,-0.936,0.436,-0.953,-0.766,-0.573,-0.355,-1.514,1.048,0.032,-0.167,-0.453,0.485,-2.307,-0.023,0.391,-0.562,0.161,0.148,0.813,0.205,0.492,0.103,0.646,0.048,-0.005,0.401,-0.135,0.033,-0.069,0.307,0.430,0.246,-0.337,0.292,-0.058,-0.125,1.015,-0.590,1.124,-0.135,0.026,2.553,-0.490,-0.109,-0.367,-0.504,-0.194,0.860,-0.785,0.645,-1.235,0.294,-0.357,0.134,-0.243,0.571,-0.114,-0.217,0.216,2.385,-0.749,0.707,-0.073,1.734,-1.107,0.103,-0.076,0.025,-0.471,0.477,-0.113,0.489,1.389,3.064,0.740,0.713,0.110,1.084,0.062,-0.138,-0.106,0.352,-0.195,0.310,0.171,0.459,0.527,-0.082,-0.023,-0.424,-0.221,0.269,2.478,0.303,0.102,0.148,-0.009,0.627,-0.659,-0.032,1.276,-1.828,-0.999,0.615,0.761,0.631,-0.276,0.073,0.498,0.146,-0.144,-0.290,-0.742,0.310,0.619,-0.665,0.379,-1.195,-0.457,-0.839,0.051,-0.317,0.295,1.920,-0.497,0.418,0.513,-1.253,3.325,1.315,-0.096,-0.197,-0.380,-0.115,0.699,-0.789,-0.202,-0.635,-0.256,-0.040,-0.030,-0.432,-0.537,1.276,-0.557,-0.110,-0.124,1.709,0.010,-0.414,-1.595,-0.628,-0.566,-0.307,-0.078,-0.527,-0.120,-1.844,1.341,0.097,0.600,0.446,0.134,-0.006,0.586,-0.268,0.223,1.059,-0.330,-3.011,2.099,0.255,-0.511,-0.098,-0.664,-0.887,-0.068,-1.532,-0.034,0.119,0.462,1.974,-0.309,0.385,0.766,-0.095,0.371,-0.285,0.353,-0.339,-0.450,0.725,-0.281,0.280,0.382,0.162,0.454,-0.657,0.217,-0.074,0.312,0.432,0.532,0.271,0.154,-0.771,-0.198,-0.198,-1.343,0.834,0.441,0.182,-0.142,-2.169,-0.142,-0.233,0.752,0.617,0.458,-0.083,-0.060,0.478,-0.074,-0.311,1.754,4.305,-0.344,-0.270,0.531,0.073,-0.002,-0.098,0.016,-0.982,-0.850,2.146,-1.149,-0.336,-0.051,-0.507,0.775,-1.280,-0.204,-0.579,-0.137,0.148,0.241,-0.793,-0.019,-1.454,-0.988,-0.118,-0.996,0.922,0.210,0.043,-0.077,-0.205,0.563,-0.322,0.036,0.338,-0.278,-0.001,1.182,1.109,0.101,0.176,-0.151,-0.271,0.061,0.718,0.820,0.440,0.209,-0.597,0.304,0.019,0.732,-0.613,-0.314,0.656,-0.510,0.133,0.234,-1.006,-0.692,0.101,-0.303,1.084,-0.432,0.606,-0.138,0.436,-1.413,0.022,-0.669,-0.907,0.209,-0.299,-2.720,-0.111,-0.551,0.101,0.111,0.578,-0.085,-1.688,0.099,0.661,0.127,0.645,-0.241,-0.520,0.654,0.341,-0.923,0.014,-0.271,-0.113,0.070,-0.040,-0.652,0.532,-0.855,-0.397,-0.073,0.774,0.723,-0.229,0.150,0.138,-0.275,0.371,-0.302,0.683,-0.768,0.652,1.281,0.306,0.506,-0.133,-0.032,-0.327,-0.645,-0.361,0.128,-0.415,0.357,-0.033,-0.389,0.009,-0.391,0.087,-0.941,0.243,-0.611,0.296,-1.108,1.151,0.699,-0.818,0.434,0.260,-0.586,-0.061,0.920,-0.267,-0.045,-0.054,0.063,0.758,-0.311,0.156,-0.481,4.693,0.135,-0.743,-0.057,0.202,-0.697,-1.366,-1.085,1.277,-0.053,0.384,0.038,-0.251,0.752,-0.145,1.285,0.551,0.374,-0.255,-0.887,0.006,0.006,0.054,-0.174,-0.280,0.612,0.285,-0.871,0.240,-0.115,-0.618,-0.209,-0.847,-0.808,0.634,0.065,-0.060,-0.320,0.146,-0.311,0.755,0.397,0.978,-0.140,0.593,0.010,-0.513,0.472,-0.725,-0.595,0.260,-0.657,1.388,0.816,-0.138,-0.114,-1.828,1.956,-0.269,0.111,0.030,-0.765,-0.024,0.083,0.172,0.442,-0.963,-0.063,-0.164,0.424,-0.591,-0.210,-0.168,-0.007,-0.167,-0.738,-0.043,0.685,-0.139,-1.510,0.545,3.243,-0.489,-0.523,0.277,-0.207,0.543,1.078,-0.501,0.440,-0.128,-0.069,-0.825,0.587,1.069,-0.535,-1.383,-0.070,-0.920,-1.301,-0.084,-0.318,0.240,-0.970,-0.093,-1.138,-0.112,0.193,0.420,0.090,0.442,0.529,-0.120,0.773,-0.762,0.669,1.585,1.291,-2.591,-0.945,0.068,-0.263,-0.146,-0.310,0.711,0.781,0.209,-0.342,0.278,-0.602,-0.532,0.130,-0.293,-0.147,-0.727,0.871,-0.499,-1.684,-0.459,-1.876,-0.521,0.405,-0.668,0.790,-0.155,-0.526,-1.722,-0.161,-0.491,0.044,0.954,0.104,1.000,-0.558,-0.682,-0.876,-0.507,1.118,-0.595,-0.251,0.278,-1.335,0.853,-0.307,0.506,-0.759,0.742,-0.148,0.502,0.178,-0.583,0.211,-0.453,0.506,-0.804,0.345,0.571,-0.157,-1.938,-0.857,-0.394,0.999,-0.212,-0.292,-0.099,-1.072,0.582,-0.252,0.205,-0.670,-0.021,0.292,-0.696,0.303,0.312,-0.649,-0.842,1.060,-1.163,0.954,-0.896,-0.230,0.158,0.528,1.338,0.131,-0.111,0.724,0.133,-0.544,-0.520,-0.289,-0.711,-0.124,1.094,-0.200,0.375,0.224,1.133,-0.953,0.980,0.011,0.868,-1.135,-0.166,-0.356,-1.426,-0.243,0.176,0.713,-1.423,-0.137,0.315,0.730,-1.104,0.068,-0.113,0.543,-0.811,1.402,-0.351,-0.143,0.109,-0.185,1.004,-0.685,0.786,0.396,0.924,-1.352,0.042,0.421,-0.736,-0.480,0.017,0.264,-0.039,0.175,-0.133,-0.358,0.354,0.795,-0.186,-0.972,2.015,-1.552,1.449,0.201,-1.144,0.768,-0.603,-0.038,-0.580,-0.514,0.286,1.327,-0.242,0.323,-0.961,-0.158,1.079,0.517,1.222,0.297,-0.388,-0.651,-0.254,0.109,0.465,0.330,-0.041,0.796,-0.110,-0.504,-0.275,-0.957,0.288,-0.250,-0.265,0.455,-0.179,0.695,1.548,0.069,-0.049,0.796,-0.369,1.136,0.084,-0.318,-0.179,-0.141,-0.119,-0.361,0.634,-1.477,-0.400,-0.749,1.160,-1.726,-0.074,-0.138,-0.698,0.329,-0.692,0.814,0.085,0.387,-0.515,0.130,0.307,-0.187,0.809,-0.104,-1.677,-0.351,0.146,1.240,0.120,-0.053,-0.769,-0.432,2.369,2.212,0.501,-0.395,-0.651,-0.253,-0.330,-0.689,0.285,-0.595,-0.591,-0.262,0.011,-0.037,0.710,-0.472,-0.010,0.099,-0.084,-0.003,0.793,-0.582,-0.789,0.337,1.465,-2.829,0.613,-0.184,-0.195,-0.653,-0.441,-0.982,-0.509,-0.032,0.673,-0.593,0.200,0.168,1.919,0.364,0.337,-0.331,-0.179,1.838,-0.333,-0.521,0.141,0.365,0.578,0.168,-0.119,-0.290,0.202,-0.319,-0.627,-0.001,0.380,-0.271,-0.043,0.415,-3.208,-0.267,0.350,-0.857,-0.808,-0.807,0.022,0.347,-0.532,0.693,-0.011,-0.200,-0.584,-0.318,0.007,-0.390,-0.227,1.315,0.656,0.082,-0.915,-0.782,-1.049,0.442,1.233,0.044,0.281,-0.414,0.480,-0.092,-0.062,0.240,0.656,0.491,0.457,-0.024,-0.164,0.087,-0.371,0.369,1.245,1.607,0.828,0.043,1.389,-0.088,0.456,-0.255,-0.502,-0.769,0.313,-0.086,-0.443,0.296,0.896,1.719,0.063,0.254,0.880,-0.061,-0.478,-0.427,0.737,-0.653,0.052,-0.659,0.600,1.389,0.100,-0.653,0.065,0.499,-0.452,-0.389,0.571,0.169,-0.892,0.668,0.108,-0.437,0.436,-0.470,-0.734,0.186,0.087,-0.520,-0.487,-0.772,-0.432,-2.488,-0.460,-0.007,-1.034,1.105,-0.373,0.112,-0.009,0.635,-0.075,0.200,-0.588,0.147,-0.305,0.410,-0.176,-0.453,0.362,-0.140,-0.200,-0.343,-0.851,0.869,-0.415,0.338,-1.565,-1.280,-0.507,1.312,0.256,1.548,-0.370,-0.098,1.728,0.291,-0.183,-0.018,-1.095,-0.141,0.140,-0.619,0.614,-0.182,0.565,-1.823,0.634,-0.376,-0.118,0.137,-0.280,-0.975,-1.442,-0.261,1.885,-0.687,0.245,0.585,-0.140,0.561,0.795,0.429,-0.130,0.462,0.198,-0.542,-0.313,-1.694,-0.012,-0.668,0.025,-0.423,-0.794,-0.678,0.344,-0.549,-0.088,0.510,0.155,-0.311,0.681,0.442,-0.213,0.232,-0.816,-0.199,-0.393,-0.050,-0.154,0.689,1.421,-2.899,-0.375,0.656,2.176,0.518,0.698,-1.051,-0.322,0.235,-2.382,-0.395,-2.046,-1.151,-0.389,0.086,-0.746,-0.028,-0.476,0.263,0.090,1.993,1.473,-0.659,0.314,-0.119,-0.950,-1.010,1.787,-0.344,-0.014,0.088,0.632,0.215,0.617,-0.354,0.509,0.486,0.282,0.737,0.179,1.670,1.149,0.508,0.315,0.013,-0.684,-0.677,0.067,-2.076,-0.061,-0.010,-0.677,1.416,0.448,0.164,0.874,-0.339,-2.719,-1.669,-0.473,-0.097,-0.267,-0.381,-0.964,0.604,-0.443,-0.233,0.144,0.421,0.146,0.419,-0.686,-0.591,-0.967,0.540,-0.056,-0.549,-0.352,0.452,-0.286,0.278,3.338,0.271,0.396,-0.423,-0.096,-1.388,-0.402,0.019,-0.424,-0.379,-0.363,-0.044,0.629,0.405,1.058,-1.193,-0.330,0.627,0.529,-0.389,-0.042,0.529,0.728,-0.206,0.568,0.355,0.216,0.491,-1.389,1.156,1.914,0.568,-0.657,0.132,-0.203,-1.317,-0.535,-0.098,0.595,-0.245,-0.121,33.453,-0.186,0.236,0.725,0.614,0.139,1.004,1.425,0.395,0.134,-0.127,0.737,0.083,-0.230,-0.863,0.305,-0.458,-0.126,0.072,-0.116,2.023,0.850,-1.084,0.996,-0.953,0.500,-0.183,0.794,0.421,0.629,0.585,-0.038,0.142,0.475,0.697,0.590,0.631,0.303,0.068,0.921,-0.633,-1.118,0.156,-0.183,0.748,-0.087,0.467,0.277,1.152,-0.594,0.899,-0.277,-0.599,-0.336,-1.066,0.107,0.289,0.522,0.240,-0.751,0.243,-0.517,-0.378,-0.860,0.282,0.530,-0.417,1.009,-0.665,0.389,1.936,0.216,0.743,0.703,0.067,0.238,-0.413,0.022,0.052,-0.921,0.454,-0.028,0.367,0.048,-0.153,-0.523,0.749,0.223,-0.318,0.233,-0.327,-0.548,-0.383,-0.369,0.145,2.248,-0.199,-0.204,-0.758,-0.638,-0.059,-0.707,-1.217,1.028,-0.302,-0.712,-0.045,0.489,0.122,0.594,0.058,1.137,0.505,0.675,0.997,-0.665,1.636,0.240,-0.925,1.312,-0.788,-0.225,-0.858,2.005,0.126,-1.134,-0.331,0.037,0.911,0.007,0.227,-0.074,-0.416,-0.327,-2.339,0.649,0.479,-0.572,-0.653,-0.484,0.041,0.495,-0.520,-0.417,-0.261,-2.011,-0.318,-0.589,1.722,-0.334,0.550,0.269,-0.332,1.926,1.770,1.363,-0.991,0.321,0.886,-0.363,0.131,-0.623,-0.645,0.234,-33.233,-0.099,-0.003,0.746,-0.119,0.227,0.881,0.272,-0.264,0.242,0.062,0.955,-0.386,0.340,-0.116,-0.807,0.666,0.011,-0.736,-0.136,-0.364,0.854,0.644,0.178,1.516,1.030,0.322,-0.154,4.393,-0.506,-0.018,1.556,-0.716,-0.914,-0.812,1.120,0.256,-0.474,-0.310,0.664,-0.226,-0.239,0.062,0.640,-1.436,-1.537,0.206,0.181,-2.329,0.284,-0.787,-0.200,2.498,0.064,-0.296,1.205,-0.094,-0.636,0.041,0.168,-0.277,-0.523,-0.160,0.419,-0.260,-0.267,-0.751,-0.186,-1.815,-0.355,-0.118,0.223,2.701,0.223,-0.551,0.582,-1.246,-0.751,-1.861,1.691,-0.278,0.403,-0.391,-0.698,0.259,-0.096,0.771,-0.040,0.263,0.728,0.393,1.367,-0.127,-0.638,-0.518,-0.389,0.655,0.136,-1.109,-3.254,-0.208,-0.988,0.187,0.543,0.071,1.037,0.111,-0.202,0.134,0.149,0.174,-0.109,0.412,0.701,0.890,0.341,-0.229,-0.025,-0.164,2.141,-0.081,0.636,0.598,-0.420,-0.169,-0.496,0.077,-0.701,0.193,1.083,0.164,-0.507,-1.074,0.794,0.228,-0.012,0.356,-0.236,0.197,-0.179,-0.002,-0.607,1.190,0.258,1.196,0.450,0.102,1.204,-0.644,-0.867,1.619,-0.211,-0.593,0.267,1.162,-0.171,-0.660,0.529,0.185,0.181,-0.621,0.137,-0.910,-2.122,1.499,0.243,-0.053,0.426,0.020,-0.782,-0.426,0.058,-0.350,-0.306,-0.684,-0.172,-0.504,-0.711,-0.238,-0.134,-0.354,2.967,-0.206,2.571,-0.306,-0.296,0.774,-0.149,0.806,-0.100,-0.086,-0.162,-0.383,-0.315,0.317,1.842,-0.342,-0.468,2.428,-0.425,0.310,3.914,-0.842,0.353,-0.510,0.268,-0.449,-0.160,-0.518,0.854,-0.479,0.460,0.157,-0.298,1.699,-1.298,0.102,-0.337,1.103,0.298,0.295,-0.114,-0.593,0.290,-0.608,0.218,-0.647,-0.085,-0.204,-0.940,-0.015,0.116,0.834,1.071,0.146,0.551,-1.041,0.243,0.252,0.042,0.156,0.159,0.640,-0.101,-0.331,1.510,0.032,-0.344,0.359,-0.695,0.237,-0.153,-0.599,0.342,0.268,1.004,-0.598,0.032,-0.154,0.794,0.515,0.153,0.346,0.091,0.094,-0.072,1.976,-0.202,-0.377,-0.628,0.126,0.727,-0.863,-0.031,0.056,1.527,-0.122,0.503,0.616,0.349,0.330,0.061,0.242,-0.226,0.554,-0.556,-0.089,-0.704,-1.348,-0.550,0.968,-0.515,-0.913,0.325,0.036,0.115,-0.350,1.487,-0.852,0.288,0.208,-0.495,1.041,-0.106,-0.052,-0.308,-0.528,-0.377,-0.120,2.535,0.451,0.442,0.155,-0.722,-0.952,-0.266,-0.381,-0.763,-0.055,-0.230,0.244,-0.485,0.102,-0.128,-0.185,0.523,-0.621,1.161,0.467,0.374,0.206,-0.009,-0.239,-0.220,-0.738,0.258,-0.025,-0.977,-0.343,0.380,0.286,-0.467,0.231,0.179,0.019,0.427,-0.862,0.134,0.294,0.426,-0.832,0.573,0.370,0.106,3.608,-0.328,-0.507,0.185,-0.374,0.022,0.192,-2.182,0.374,-0.234,-1.650,-0.107,-0.862,-0.308,0.245,-0.454,-0.220,0.012,0.059,0.167,-0.156,-0.239,-0.095,-0.736,-0.206,0.649,-0.345,-0.766,-0.635,-0.341,0.470,-0.978,-0.273,-0.131,-1.452,1.168,0.710,-0.081,-0.506,-0.097,0.166,1.652,-0.590,0.251,-0.260,-0.997,0.174,1.844,0.361,-0.524,-0.187,0.202,-0.060,-0.157,-0.161,-0.338,-0.263,-0.880,0.528,-0.115,0.506,0.660,-0.826,-0.215,0.967,0.154,0.410,-0.426,0.446,-0.074,1.230,-1.283,-0.262,-0.219,0.615,-1.309,-0.170,0.423,0.091,-1.041,-0.806,-0.775,-0.283,1.826,-0.423,0.316,0.123,-1.173,0.722,-0.034,-0.820,-0.263,0.266,-0.729,0.331,0.412,0.404,1.143,-1.703,-0.218,-0.801,0.412,-0.077,0.129,0.308,0.825,1.854,-0.204,0.693,-0.693,0.676,-0.077,0.619,0.716,-0.038,-0.377,-2.079,-0.153,2.051,-0.068,-0.211,-0.218,-0.750,0.548,-0.909,1.315,-0.351,0.338,-0.423,0.759,0.005,0.121,-0.637,-1.267,-0.721,-0.263,0.029,-0.590,-0.523,2.194,0.035,-0.762,-0.618,-0.538,-0.077,-0.854,-1.474,-0.699,-0.149,0.075,-0.012,-0.963,0.245,-0.253,-0.114,-0.177,0.588,-0.363,-1.131,-0.186,0.401,1.010,-0.430,0.092,-1.280,0.221,0.157,-1.126,-0.259,-0.625,1.009,-0.017,0.880,0.406,-0.707,-0.117,-0.920,-0.066,0.385,-0.318,0.409,1.295,-1.887,-0.076,-0.277,0.070,0.608,-0.731,-0.384,0.011,-0.211,4.037,-0.011,-1.195,-0.774,-0.828,0.156,-0.944,-0.184,-1.408,0.874,-0.512,0.518,0.134,0.466,0.013,0.062,0.820,0.238,0.034,0.510,-0.290,-0.533,0.128,-0.182,0.390,-0.291,-0.743,0.863,-0.658,0.400,-0.712,0.451,-0.063,1.922,0.861,-2.311,-0.267,-0.822".split(",").map(Number);
+var DE_PADJ = "0.983,0.93,0.948,0.983,0.987,0.749,0.983,0.948,0.984,0.834,0.664,0.97,0.861,0.969,0.969,0.749,0.816,0.921,0.984,0.809,0.978,0.969,0.921,0.931,0.961,0.969,0.978,0.663,0.71,0.931,0.99,0.969,0.861,0.821,0.504,0.71,0.983,0.996,0.983,0.861,0.849,0.983,0.889,0.919,0.99,0.948,0.983,0.653,0.989,0.874,0.742,0.826,0.745,0.749,0.929,0.93,0.95,0.983,0.845,0.959,0.931,0.983,0.869,0.828,2.88e-09,0.969,0.936,0.786,0.907,0.983,0.966,0.981,0.946,0.984,0.845,0.68,0.992,0.952,0.861,0.989,0.861,0.71,0.939,0.861,0.816,0.369,0.983,0.704,0.938,0.861,0.931,0.931,0.921,0.931,0.869,0.819,0.663,0.23,0.595,0.711,0.931,0.722,0.845,0.982,0.663,0.992,0.71,0.826,0.971,0.722,0.843,0.861,0.774,0.969,0.834,0.984,0.946,0.944,0.861,0.966,0.959,0.921,0.816,0.00357,0.984,0.653,0.93,0.663,0.921,0.496,0.816,0.983,0.948,0.827,0.969,0.898,0.861,0.903,0.869,0.598,0.921,0.795,0.88,0.938,0.989,0.983,0.816,0.969,0.992,0.903,0.885,0.922,0.969,0.978,0.992,0.989,0.663,0.863,0.582,0.631,0.861,0.922,0.00695,0.686,0.995,0.984,0.861,0.95,0.0224,0.993,0.885,0.809,0.983,0.969,0.821,0.966,0.948,0.984,0.889,0.987,0.997,0.95,0.981,0.99,0.989,0.969,0.921,0.959,0.938,0.964,0.983,0.981,0.871,0.827,0.663,0.981,0.993,0.496,0.863,0.981,0.93,0.931,0.981,0.312,0.663,0.826,0.411,0.938,0.938,0.983,0.966,0.816,0.983,0.969,0.969,0.17,0.861,0.845,0.984,0.00325,0.863,0.981,0.983,0.996,0.816,0.936,0.983,0.922,0.816,0.517,0.92,0.749,0.983,0.663,0.992,0.978,0.983,0.936,0.971,0.966,0.983,0.931,0.922,0.983,0.992,0.876,0.966,0.951,0.00145,0.938,0.983,0.983,0.996,0.663,0.663,0.992,0.663,0.764,0.653,0.876,0.845,0.938,0.938,0.987,0.922,0.969,0.983,0.931,0.938,0.939,0.818,0.845,0.946,0.663,0.948,0.821,0.984,0.969,0.969,0.826,0.871,0.876,0.861,0.861,0.0125,0.826,0.983,0.969,0.895,0.983,0.675,0.746,0.959,0.746,0.969,0.989,0.995,0.816,0.876,0.312,0.903,0.983,0.983,0.227,0.996,0.827,0.68,0.938,0.931,0.948,0.983,0.827,0.983,0.496,0.17,0.983,0.664,0.948,0.983,0.997,0.834,0.938,0.946,0.746,0.938,2.63e-08,0.401,0.969,0.819,0.983,0.773,0.746,0.984,0.231,0.992,0.983,0.948,0.0702,0.928,0.861,0.663,0.983,0.93,0.966,0.948,0.966,0.921,0.766,0.946,0.938,0.931,0.981,0.95,0.715,0.966,0.984,0.95,0.952,0.948,0.95,0.969,0.664,0.969,0.969,0.697,0.874,0.786,0.961,0.983,0.298,0.969,0.969,0.663,0.826,0.845,0.984,0.99,0.948,0.987,0.948,0.795,0.346,0.946,0.947,0.938,0.983,0.999,0.983,0.996,0.819,0.749,0.0141,0.717,0.93,0.992,0.895,0.809,0.223,0.969,0.819,0.969,0.981,0.95,0.684,0.995,0.746,0.785,0.983,0.69,0.845,0.943,0.984,0.983,0.971,0.827,0.948,0.992,0.931,0.938,0.999,0.723,0.816,0.983,0.983,0.978,0.948,0.984,0.675,0.774,0.861,0.966,0.861,0.936,0.992,0.775,0.664,0.938,0.749,0.885,0.978,0.969,0.664,0.723,0.983,0.931,0.71,0.931,0.921,0.981,0.891,0.749,0.992,0.924,0.821,0.983,0.969,1.02e-05,0.981,0.71,0.983,0.983,0.717,0.983,0.556,0.983,0.786,0.981,0.717,0.948,0.845,0.71,0.966,0.507,0.996,0.946,0.983,0.983,0.989,0.819,0.845,0.885,0.95,0.983,0.827,0.741,0.959,0.978,0.981,0.938,0.946,0.969,0.849,0.827,0.89,0.73,0.924,0.845,0.983,0.996,0.948,0.931,0.871,0.983,0.921,0.946,0.99,0.931,0.996,0.948,0.983,0.889,0.948,0.82,0.931,0.595,0.663,0.663,0.664,0.921,0.946,0.861,0.984,0.619,0.95,0.987,0.987,0.983,0.496,0.931,0.983,0.845,1.63e-05,0.969,0.664,0.984,0.978,0.749,0.861,0.68,0.359,0.992,0.907,0.987,0.95,0.821,0.969,0.861,0.924,0.885,0.948,0.664,0.997,0.997,0.984,0.951,0.948,0.888,0.946,0.922,0.95,0.981,0.809,0.964,0.717,0.664,0.663,0.984,0.984,0.938,0.969,0.948,0.749,0.938,0.921,0.983,0.898,0.996,0.921,0.966,0.88,0.816,0.95,0.749,0.595,0.809,0.978,0.984,0.00442,0.0291,0.969,0.985,0.992,0.71,0.992,0.989,0.978,0.876,0.661,0.984,0.971,0.966,0.861,0.971,0.969,0.997,0.969,0.861,0.992,0.826,0.983,0.664,0.78,0.401,0.876,0.809,0.938,0.95,0.861,0.664,0.938,0.827,0.978,0.992,0.664,0.705,0.664,0.885,0.742,0.984,0.861,0.523,0.983,0.921,0.946,0.321,0.983,0.664,0.983,0.969,0.931,0.983,0.834,0.92,0.983,0.821,0.845,0.761,0.818,0.333,0.064,0.595,0.984,0.93,0.978,0.938,0.826,0.749,0.948,0.948,0.95,0.914,0.871,0.983,0.969,0.969,0.746,0.885,0.863,0.663,0.959,0.0427,0.861,0.921,0.819,0.885,0.969,0.919,0.633,0.978,0.876,0.989,0.82,0.983,0.664,0.87,0.931,0.561,0.921,0.582,0.775,0.946,0.921,0.369,0.637,0.971,0.931,0.921,0.742,0.978,0.861,0.978,0.919,0.961,0.931,0.766,0.812,0.95,0.903,0.969,0.809,0.926,0.921,0.827,0.975,0.948,0.983,0.401,0.838,0.948,0.983,0.816,0.996,0.948,0.803,0.959,0.938,0.782,0.663,0.496,0.845,0.618,0.664,0.969,0.981,0.746,0.684,0.978,0.983,0.938,0.978,0.931,0.733,0.95,0.885,0.981,0.595,0.983,0.931,0.966,0.746,0.322,0.312,0.996,0.742,0.686,0.969,0.938,0.0122,0.946,0.983,0.923,0.663,0.981,0.966,0.827,0.806,0.983,0.983,0.938,0.637,0.71,0.948,0.971,0.984,0.969,0.484,0.742,0.71,0.869,0.819,0.215,0.992,0.861,0.863,0.885,0.996,0.969,0.989,0.983,0.983,0.931,0.924,0.869,0.969,0.812,0.0748,0.81,0.136,0.978,0.722,0.742,0.95,0.992,0.749,0.826,0.948,0.675,0.938,0.95,0.664,0.969,0.746,0.845,0.742,0.911,0.827,0.746,0.95,0.984,0.919,0.969,0.984,0.57,0.983,0.938,0.924,0.308,0.948,0.978,0.931,0.861,0.971,0.827,0.731,0.983,0.989,0.816,0.938,0.809,0.983,0.924,0.983,0.981,0.981,0.931,0.95,0.663,0.931,0.71,0.663,0.684,0.989,0.983,0.924,0.931,0.746,0.653,0.989,0.861,0.762,0.983,0.931,0.948,0.595,0.983,0.664,0.948,0.971,0.876,0.978,0.992,0.921,0.865,8.5e-05,0.00142,0.861,0.921,0.816,0.959,0.966,0.897,0.983,0.898,0.924,0.931,0.996,0.99,0.845,0.845,0.996,0.983,0.983,0.997,0.827,0.924,0.746,0.897,0.00478,3.88e-08,0.816,0.983,0.951,0.921,0.893,0.787,0.921,0.992,0.845,0.742,0.961,0.983,0.0265,0.922,0.935,0.966,0.983,0.114,0.921,0.834,0.983,0.898,0.812,0.983,0.983,0.969,0.948,0.93,0.827,0.999,0.948,0.924,0.989,0.921,3.23e-09,0.922,0.906,0.71,0.741,0.87,0.992,0.93,0.816,0.948,0.996,0.981,0.952,0.931,0.998,0.922,0.981,0.704,0.876,0.983,0.496,0.538,0.742,0.923,0.0265,0.989,0.966,0.932,0.861,0.983,0.984,0.948,0.816,0.926,0.845,0.992,0.978,0.983,0.966,0.885,0.861,0.595,0.595,0.989,0.722,0.983,0.881,0.95,0.948,0.809,0.892,0.987,0.931,0.932,0.664,0.00161,0.983,0.948,0.885,0.987,0.948,0.895,0.787,0.675,0.992,0.903,0.849,0.717,0.983,0.717,0.989,0.89,0.948,0.861,0.931,0.978,0.845,0.931,0.983,0.856,0.891,0.834,0.821,0.983,0.983,0.951,0.931,0.653,0.931,0.598,0.876,0.997,0.71,0.819,0.861,0.983,0.996,0.816,0.984,0.969,0.71,0.983,0.981,0.845,0.949,0.876,0.938,0.983,0.966,0.931,0.618,0.806,0.948,0.938,0.0561,0.864,0.809,0.821,0.966,0.452,0.95,0.983,0.742,0.95,0.969,0.992,0.749,0.981,0.97,0.895,0.821,0.966,0.746,0.697,0.861,0.95,0.983,0.978,0.969,0.787,0.664,0.959,0.00862,0.936,0.983,0.786,0.983,0.931,0.496,0.921,0.971,0.827,0.959,0.863,0.938,0.619,0.996,0.761,0.992,0.948,0.717,0.717,0.978,0.834,0.983,0.816,0.966,0.95,0.746,0.876,0.951,0.948,0.653,0.983,0.948,0.989,0.973,0.927,0.148,0.00914,0.931,0.749,0.359,0.821,0.826,0.826,0.969,0.966,4.38e-08,0.938,0.0291,0.595,0.921,0.989,0.903,0.992,0.852,0.983,0.983,0.518,0.466,0.742,0.93,0.983,0.663,0.401,0.496,0.935,0.996,0.983,0.697,0.951,0.717,0.959,0.834,0.845,0.95,0.861,0.969,0.517,0.664,0.876,0.95,0.996,0.931,0.709,0.983,0.742,0.989,0.996,0.684,0.653,0.826,0.966,0.746,0.969,1.63e-05,0.507,0.951,0.983,0.978,0.95,0.83,0.663,0.959,0.978,0.983,0.948,0.983,0.841,0.663,0.849,0.861,0.931,0.984,0.881,0.981,0.861,0.948,0.969,3.17e-13,0.959,0.861,0.924,0.983,0.861,0.938,0.996,0.938,0.845,0.913,0.984,0.948,0.924,0.631,0.747,0.931,0.762,0.948,0.959,0.984,0.931,0.922,0.969,0.816,0.924,0.969,0.897,0.263,0.819,0.00695,0.704,0.787,0.983,0.971,0.49,0.845,0.983,0.922,0.966,0.978,0.999,0.978,0.97,0.861,0.948,0.969,0.876,0.227,0.921,0.983,0.981,0.664,0.983,0.95,0.93,0.969,0.948,0.983,0.983,0.987,0.031,0.827,0.619,0.0941,0.618,0.809,0.951,0.787,0.938,0.938,0.834,0.987,0.969,0.959,0.861,0.931,0.809,0.966,0.99,0.664,0.826,0.523,0.983,0.969,0.816,0.983,0.931,0.931,0.663,0.717,0.556,0.931,0.83,0.95,0.749,0.983,0.898,0.947,0.948,0.845,0.978,0.893,0.921,0.647,0.969,0.827,0.885,0.496,0.845,0.931,0.26,0.948,0.664,0.746,0.99,0.948,0.845,0.992,0.992,0.821,0.924,0.992,0.948,0.989,0.971,0.874,0.816,0.969,0.921,0.95,0.95,0.71,0.863,0.863,0.983,5.2e-08,0.969,0.969,0.664,0.845,0.983,0.861,0.663,0.723,0.966,0.861,0.99,0.869,0.984,0.819,0.983,0.411,0.861,0.717,0.643,0.809,0.582,0.951,0.913,0.496,0.663,0.95,0.938,0.717,0.983,0.68,0.919,0.989,0.704,0.997,0.978,0.983,0.931,0.885,1.51e-06,0.93,0.919,0.892,0.921,0.95,0.992,0.845,0.898,0.931,0.969,0.749,0.969,0.819,0.231,0.931,0.697,0.931,0.876,0.00427,0.629,0.71,0.298,0.966,0.816,0.949,0.978,0.723,0.931,0.969,0.999,0.983,0.998,0.919,0.983,0.938,0.845,0.951,0.938,0.94,0.983,0.786,0.87,0.918,0.983,0.897,0.625,0.996,0.717,0.981,0.95,0.67,0.821,0.978,0.227,0.766,0.919,0.983,2.45e-14,0.922,0.993,0.165,0.809,0.816,0.672,0.766,0.969,0.869,0.931,0.816,0.948,0.983,0.987,0.774,0.664,0.787,0.969,0.981,3.88e-08,0.95,0.517,0.95,0.663,0.989,0.969,0.821,0.983,0.876,0.992,0.969,0.969,0.835,0.983,0.876,0.938,0.95,0.861,0.969,0.507,0.921,0.981,0.948,3.8e-09,0.966,0.816,0.891,0.663,0.922,0.359,0.00493,0.948,0.931,0.876,0.907,0.966,0.984,0.921,0.989,0.938,0.893,0.948,0.809,0.975,0.834,0.919,0.931,0.717,0.983,0.71,0.405,0.966,0.861,0.948,0.861,0.984,0.535,0.981,0.969,0.983,0.978,0.959,0.983,0.959,0.843,0.664,0.966,0.969,0.992,0.969,0.411,0.983,0.749,0.749,0.834,0.981,0.931,0.984,0.697,0.95,0.359,0.983,0.938,0.741,0.835,0.95,0.996,0.978,0.948,0.981,0.981,0.998,0.861,0.723,0.965,0.458,0.938,0.983,0.507,0.931,0.57,0.527,0.981,0.749,0.969,0.26,0.981,0.834,0.816,0.966,0.966,0.845,0.978,0.845,0.0303,0.565,0.951,0.992,0.966,0.995,0.885,0.819,0.984,0.938,0.95,0.871,0.981,0.889,0.717,0.981,0.981,0.922,7.81e-05,0.969,0.547,0.966,0.959,0.821,0.983,0.663,0.984,0.989,0.969,0.948,0.95,0.886,0.723,0.969,0.921,0.00306,0.87,0.966,3.21e-08,0.845,0.869,0.885,0.931,0.93,0.969,0.787,0.742,0.948,0.919,0.969,0.921,0.806,0.809,0.984,0.931,0.231,0.969,0.938,0.983,0.809,0.966,0.923,0.978,0.861,0.984,0.946,0.71,0.996,0.978,0.861,0.697,0.983,0.827,0.504,0.969,0.966,0.992,0.983,0.983,0.71,0.983,0.931,0.697,0.99,0.921,0.924,0.73,0.95,0.978,0.931,0.931,0.966,0.517,0.861,0.99,0.983,0.478,0.948,0.966,0.948,0.983,0.983,0.989,0.663,0.948,0.861,0.717,0.987,0.898,0.538,0.99,0.989,0.664,0.984,0.885,0.861,0.938,0.966,0.983,0.952,0.948,0.861,0.845,0.983,0.664,0.24,0.861,0.856,0.809,0.664,0.93,0.992,0.983,0.921,0.271,0.618,0.946,0.971,0.841,0.686,0.983,0.992,0.978,0.861,0.863,0.983,0.227,0.921,0.931,0.969,0.664,0.401,0.969,0.938,0.939,0.983,0.983,0.969,0.861,0.978,0.978,0.969,0.876,0.717,0.717,0.861,0.924,0.948,0.996,0.948,0.981,0.869,0.971,0.996,0.618,0.948,0.931,0.969,0.845,0.948,0.981,0.992,0.938,0.828,0.975,0.969,0.922,0.828,0.809,0.924,0.983,5.59e-12,0.919,0.766,0.957,0.889,0.992,0.983,0.00357,0.948,0.969,0.595,0.983,0.737,0.931,0.946,0.921,0.969,0.996,0.99,0.969,0.978,0.964,0.983,0.664,0.966,0.869,0.948,0.836,0.93,0.931,0.861,0.845,0.938,0.983,0.416,0.876,0.919,0.983,0.845,0.983,0.966,0.35,0.936,0.948,0.969,0.618,0.969,0.000271,0.948,0.838,0.982,0.981,0.987,0.983,0.978,0.931,0.966,0.828,0.746,0.97,0.816,0.742,0.809,0.969,0.428,0.969,0.938,0.845,0.948,0.983,0.849,0.28,0.938,0.948,0.749,0.73,0.969,0.885,0.989,0.827,0.809,0.941,0.931,0.746,0.938,0.931,0.981,0.723,0.845,0.995,0.827,0.95,0.948,0.787,0.931,0.886,0.876,0.68,0.165,0.971,0.845,0.861,0.983,0.983,0.939,0.71,0.806,0.969,0.826,0.816,0.717,0.984,0.834,0.845,0.99,0.861,0.664,0.978,0.67,0.983,0.959,0.983,0.704,0.876,0.484,0.697,0.948,0.938,0.966,0.717,0.998,0.983,0.826,0.812,0.663,0.938,0.989,0.936,0.886,0.664,0.989,0.746,0.876,0.898,0.989,0.663,0.0123,0.891,0.982,0.983,0.996,0.717,0.981,0.948,0.983,0.969,0.948,0.921,0.504,0.966,0.93,0.845,0.931,0.983,0.484,0.966,0.981,0.359,0.966,0.865,0.637,0.996,0.71,0.948,0.663,0.981,0.496,0.984,0.885,0.946,0.891,0.114,0.132,0.983,0.931,0.983,0.663,0.663,0.878,0.996,0.948,5.59e-12,0.996,0.617,0.816,0.845,0.983,0.595,0.969,0.359,0.547,0.861,0.843,0.978,0.93,0.996,0.989,0.861,0.969,0.992,0.816,0.95,0.938,0.983,0.969,0.876,0.922,0.845,0.663,0.903,0.919,0.921,0.876,0.984,0.466,0.834,8.72e-06,0.95,0.861".split(",").map(Number);
+var DE_MEAN = "39,14,193,18,379,1,110,257,164,1619,2,43,739,262,10,84,34,78,28,92,64,17,22,6,7,31237,10,16,5,2,13,61,265,12,28377,110,11,6,7,26,1,36,34,6,549,15,266,387,4,2,606,1834,36,12,3,3,145,283,8,3,58,16,25,2931,2787,304,209,6,117,38,230,176,140,6,14,2,448,26,23,196,24,20,1843,10,34,4,35,25,44,165,11,15,39,478,2484,20,133,11,823,24,36,335,84,9,51,726,23,223,30,39,1608,20,13,623,139,65,272,95,17,33,115,374,76,14,3528,51,367,8,20,617,172,3,33,199,9,2056,10,3,151,29,342,50,827,20,19,2,33,14,20,77,45,14,11,94,16,10,47,427,75,1805,40,84,1138,22,5,1,201,5,19,64,173,463,24,1119,43,130,7,6,11,139,104,10,79,188,15,11,57,164,137,16,203,549,2,48,27,49,42,2,70,211,45,10,18,809,145,54,37,136,54,6,23,87,28,70,29,9,21,2017,56,270,2,774,1132,3,269,13,11,24,2,1,6,98,15,729,2,149,1020,876,204,21,16,62,20,42,510,318,56,59,86,443,154,12,185,8365,378,44,12,1,42,26,57,3,173,13,23,227,25,156,1,85,66,44,31,17,7,45,1035,6,11,1,55,561,72,1,22,2,2538,2555,5158,23,107,55,115,112,20,188,9,991,49,89,16,24,12,17,29,461,3,5,15,67,217,507,54,9,63,26,722,9,46,1949,147,459,3706,13,190,71,8,28,232,40,124,35,37,54,93,19,11,44,353,4492,3745,47,66,18,18,5,50,153,513,118,35,54,5,131,75,146,37,7,4,98,352,684,140,115,6,7,5901,686,20,11,1004,27,215,220,189,26,5,11,15,27,1,2,51,232,7,295,28,1473,23,11,35,95,24,148,9,54,17,96,136,81,3154,48,66,70,44,4,10,169,31,6,2230,2078,1016,16,76,36,41,204,444,10,10,6,285,7,2120,81,77,102,34,1490,92,565,87,495,67,528,123,81,29,115,18,39,107,35,227,21,29,12,106,51,4,78,6,13,7,12,47,202,4917,172,43,341,316,7,47,68,128,163,2175,142,126,10,1084,70,114,91,69,147,46,109,9,19,217,23,48,154,79,90,177,22,11,25,42,16,7,145,80,71,3,29,4,574,46,73,40,165,38,95,13,64,2,116,63,108,50,29,2470,113,58,90,27,165,74,56,185,538,2884,1039,103,5,100,22,1072,177,112,15,128,1,22,1104,10,146,2822,311,30,427,1,16,347,567,99,27,605,183,1255,165,13,109,2,60,284,78,255,70,366,964,109,67,68,245,96,81,77,1,32,16,34,40,2,8,157,63,190,12,47,1055,3,53,78,9,4,69,86,58,4,60,281,40,1426,95,2,31,41,192,72,362,16,14,44,26,8,1527,2,184,238,115,202,93,25,6,3800,358,1,670,409,20,33,5,84,4,22,459,267,279,306,4887,14,319,50,39,25,2135,33,64,103,23,63,1,42,11,126,229,1440,94,79,44,74,811,128,42,21,45,14,26,129,79,6,98,5,4,173,472,66,202,5,339,22,5,117,947,132,9,35,36,55,5,507,28,45,103,1258,637,67,140,12,12,5,160,127,1354,97,15,105,25,465,40,24,23,192,1,2,131,6,31,100,93,106,83,124,5,56,127,54,34,15,396,128,299,66,2,88,1724,18,34,857,7,239,24,1,383,15,1127,32,15,118,45,4,69,46,38,430,153,186,19,20,399,43,504,425,5,5,11,47,14,39,9,147,10,6,561,6,24,520,6,61,105,1843,33,683,12,52,6,346,13,81,84,24,229,7,43,53,429,8,48,17,21,2,67,30,11,64,1,35,297,384,3136,16,399,19,71,1749,17,148,9,772,2308,65,119,10,33,4,2915,264,19,6,470,3381,83,8,453,122,551,44,4,155,34,27,53,5,206,257,2,58,1993,56,2,7,40,135,22,2,7,23,11,175,58,176,3,196,874,13,151,2765,172,19,4,113,93,1,467,9,3,307,237,124,57,123,97,122,14,11,1,11,11,389,21,228,33,34090,162,193,176,315,21,12,32,768,559,1978,316,11,252,6,78,13,54,104,30,766,3945,10,331,222,83,10,12,37,205,94,14,159,104,13,27,10,688,190,37,230,25,856,180,37,69,1195,188,54,27,8,721,251,204,1,262,14,1,83,4,69,12,14,32,296,131,254,16,190,1189,82,30,29,62,423,86,235,62,450,530,1103,56,148,6,573,1,6,2704,218,9,243,818,73,4,106,1185,7,19,74,39,387,921,91,4,26,6,134,33,515,6,24,82,7,36,260,6,38,10,268,10,43,7,8,21,142,96,210,22,10,34,2,15,2426,25,2,121,18,19,5,754,257,122,81,108,63,687,4,2,290,2944,471,44,13,122,90,271,21,18,53,73,1,429,2,29,25,41,648,2,41,535,594,9,52,197,15,159,288,14280,4,25,13,132,553,15,10,10,37,100,2,3,109,23,11,331,106,3846,302,546,52,291,4,159,86,68,21,74,210,2,82,47,170,750,24,82,177,176,179,80,6,19,30,1033,5,56,10,35,73,7,311,34,8,7,69,282,19,197,57,74,9,5,220,86,3,125,8,16,107,286,6,45,133,16,80,8,151,182,134,206,25,323,99,47,10,252,14,60,1383,24,8,4,1023,220,1,63,542,597,18,3846,361,29,7,47,8,7,2073,11,13,7,1088,6,14,10,13,54,438,434,156,3,12,100,30,1,118,74,12,1031,46,756,88,561,1,22,827,58,788,96,660,4,87,266,6,326,99,3,9,1021,19,4,41,224,302,59,53,40,7,62,794,40,155,34,20,54,121,7,49,205,1,799,16,15,2,2773,2,90,84,22,173,603,118,198,1,11,6,48,367,2,25,21,20,3784,227,292,390,43,29,4,73,580,184,2,24,5,242,30,8,44,86,77,17,101,25,62,18,232,32,173,119,224,62,27,9,179,4051,6,553,14,9,273,99,446,17,99,667,89,24,56,10,294,492,89,6,169,246,239,4,6,65,33,75,30,204,39,37,51,183,189,33,833,1566,632,16,19062,158,115,201,29,1728,22,20,18,20,18,27,74,4,62,1402,213,61,105,85,38,8,90,2,26,101,229,1,1,70,29,467,185,36,13,16,92,33,743,105,7,29,17,7,3,12,96,188,22,16,1,25,176,30,42,3071,1793,1475,169,5,6,514,42,23,36,153,160,5,28,2,208,39,4,111,995,8,49,223,1922,841,14,200,328,166,12,446,108,152,110,13,179,95,30,39,12,551,26,3177,45,181,68,52,12,145,13,32,189,166,51,258,1,40,147,10,2,149,31,221,39,803,2547,1,26,27,3,64,13,4,113,10,84,65,266,1287,85,28,266,4,3599,120,306,3565,35,586,22,16,8,16,1340,82,36,107,7,70,13,5,1512,429,9,14,3,7838,104,127,21,169,116,18,2,309,3,1552,418,100,89,738,38,38,457,1815,245,5,18,42,17,36,306,5755,5,56,124,1857,723,33,11,23,293,306,1209,44,14,14,21,435,173,2,368,12,21,92,28,12,36,62,10,172,50,4,150,16,7,151,28,235,20,33,174,13656,119,39,796,10,21,12,50,1,2,510,8,2430,211,34,113,25,23,40,161,7,198,228,89,35,2,13,26,19,66,344,16,4,224,18,61,1380,1,3,32,139,481,13,162,9,1337,67,228,31,169,154,35,7,159,152,421,1,3,8,111,153,11,273,117,118,25,10,11,24,15,764,23,83,1679,8,18,9,92,186,20,114,17,9,25,406,22,153,5,197,482,112,260,351,114,6,176,29,264,28,123,13,480,4,928,15,57,301,6,3,867,348,142,1,6,191,242,21,8,2,96,48,33,27,2237,88,242,81,119,86,396,968,1062,5,155,52,145,74,16,419,21,128,65,40,6559,30,167,3,3,87,507,19,5,28,42,2328,1933,144,9,54,1,441,4,27,91,1141,181,69,68,771,8,643,137,502,179,170,9,8,14,14,38,40,47,11,197,201,19,380,16,18,224,19,34,18,97,75,68,241,323,1252,424,136,147,1,45,22,20,7,584,44,176,266,47,41,246,6,447,91,214,81,456,97,24,32,20,10,263,200,11,209,91,20,1,7,149,194,156,928,17,5,135,43,59,1002,8329,26,464,12,14,53,333,226,65,21,7,1612,1796,517,189,18,30,56492,1269,23,3337,12,1815,2,28,469,279,216,10,138,110,2,6,26,1,163,2,19,572,1994,10,13,3,20,53,61,65,64,4209,273,19,45,26,68,360,263,73,120,43,1,52,148,41,181,26,215,24,87,4862,2,69,2,567,481,2,63,84,1286,8,34,113,8,60,42,71,34,3,3331,220,728,7,35,1,2130,60,25,34,6,281,221,7,46,678,82,25,4,70,9,93,4,120,75,204,59,4,31,435,1088,435,44,89,38,30,59,24,43,23,383,110,34152,65,381,94,187,378,190,250,232,1000,1731,453,1083,160,302,512,493,37,48,12,8,101,121,30,229,78,78,663,20,51,86,9,45,20,173,65,10,71,232,178,303,13,234,13,86,6,62,57,8,14,207,249,15".split(",").map(Number);
+var DE_TRUE = "0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,1,0,0,0,1,1,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0".split(",").map(Number);
+var DE_NAMES = {"9": "ACTB", "25": "GAPDH", "34": "TUBB", "51": "RPL13A", "63": "B2M", "64": "IL1B", "82": "PPIA", "94": "HPRT1", "98": "TBP", "105": "UBC", "110": "YWHAZ", "123": "CXCL8", "162": "APOE", "168": "CTSK", "219": "TRAF1", "248": "IL12B", "284": "CXCL1", "325": "MARCO", "391": "CCL2", "456": "PDGFC", "531": "IRF1", "587": "C1QA", "588": "CCL20", "873": "TNFAIP3", "874": "SOD2", "898": "MRC1", "911": "PTGS2", "933": "F13A1", "988": "SELE", "1075": "ICAM1", "1112": "GAS6", "1121": "MAF", "1123": "CD163", "1169": "FOLR2", "1193": "CXCL10", "1329": "IL1A", "1368": "SELENOP", "1387": "STAT1", "1426": "IL10", "1446": "IGF1", "1470": "CXCL2", "1477": "BIRC3", "1561": "LYVE1", "1579": "NFKBIA", "1596": "NFKB1", "1599": "IFNB1", "1752": "IL6", "1759": "STAB1", "1799": "SOCS3", "1943": "TNF", "1978": "CD36"};
+var DE_MATRIX = [{"i": 531, "n": "IRF1", "c": [4, 1, 3, 0, 3, 0, 13, 6, 71, 113, 36, 5], "lfc": 4.69, "padj": 1.63e-05, "truth": 2.06}, {"i": 1426, "n": "IL10", "c": [632, 344, 403, 86, 224, 115, 7142, 17798, 5183, 5045, 2155, 2318], "lfc": 4.39, "padj": 2.45e-14, "truth": 2.89}, {"i": 1943, "n": "TNF", "c": [28, 43, 38, 143, 54, 60, 744, 1181, 650, 2523, 254, 751], "lfc": 4.04, "padj": 5.59e-12, "truth": 3.18}, {"i": 123, "n": "CXCL8", "c": [0, 1, 3, 0, 4, 1, 2, 65, 52, 2, 30, 3], "lfc": 4.01, "padj": 0.00357, "truth": 3.09}, {"i": 174, "n": "GENE0174", "c": [6, 3, 38, 44, 116, 12, 18, 66, 17, 20, 92, 109], "lfc": 0.81, "padj": 0.821, "truth": 1.64}, {"i": 369, "n": "GENE0369", "c": [29, 4, 100, 1, 3, 2, 4, 0, 4, 5, 1, 0], "lfc": -2.17, "padj": 0.298, "truth": -2.63}, {"i": 5, "n": "GENE0005", "c": [2, 0, 2, 0, 0, 0, 2, 0, 0, 5, 5, 2], "lfc": 1.69, "padj": 0.749, "truth": 0.0}, {"i": 10, "n": "GENE0010", "c": [1, 11, 1, 1, 8, 1, 0, 1, 1, 1, 1, 2], "lfc": -1.98, "padj": 0.664, "truth": 0.0}, {"i": 9, "n": "ACTB", "c": [599, 1558, 1110, 3447, 1579, 2257, 1004, 934, 870, 1283, 1845, 2223], "lfc": -0.39, "padj": 0.834, "truth": 0.0}, {"i": 25, "n": "GAPDH", "c": [32890, 14577, 24190, 30195, 32744, 37829, 27363, 31495, 23406, 7969, 72038, 29402], "lfc": 0.19, "padj": 0.969, "truth": 0.0}];
+var DE_SETS = [{"name": "Cytokine signalling", "hit": 12, "size": 212, "expected": 5.14, "p": 0.00696, "raw": 0.00348}, {"name": "Response to lipopolysaccharide", "hit": 12, "size": 148, "expected": 3.59, "p": 0.000386, "raw": 0.000129}, {"name": "Inflammatory response", "hit": 14, "size": 340, "expected": 8.24, "p": 0.039, "raw": 0.026}, {"name": "Regulation of cell death", "hit": 17, "size": 684, "expected": 16.57, "p": 0.503, "raw": 0.503}, {"name": "Protein binding", "hit": 23, "size": 911, "expected": 22.07, "p": 0.503, "raw": 0.449}, {"name": "Signal transduction", "hit": 37, "size": 760, "expected": 18.41, "p": 2.23e-07, "raw": 3.72e-08}];
+var GENES = [];
+var FC_CUT = 1.0, P_CUT = 0.05;
+
+/* The count matrix the student can actually look at, and the design choice. */
+function buildCountTable(){
+  var head = document.getElementById('cnt-head'), rows = document.getElementById('cnt-rows');
+  if (!head || !rows) return;
+  var h = '<th scope="col">Gene</th>';
+  for (var i = 0; i < DE_COND.length; i++){
+    h += '<th scope="col">' + (DE_COND[i] ? 'stim' : 'unst') + '<br><span class="fine">batch '
+       + (DE_BATCH[i] ? 'B' : 'A') + '</span></th>';
+  }
+  head.innerHTML = h;
+  rows.innerHTML = DE_MATRIX.map(function(m){
+    return '<tr><td class="word">' + m.n + '</td>'
+      + m.c.map(function(c){ return '<td class="mono">' + c + '</td>'; }).join('') + '</tr>';
+  }).join('');
+}
+
+var DESIGN_VERDICT = {
+  cond: '<b>It would run, and it would be worse than it needs to be.</b> With both conditions in both '
+      + 'batches the model CAN estimate the treatment effect either way, so this is not the failure '
+      + 'Section 6 had. What it does is leave the batch differences in the residual noise, which '
+      + 'inflates the variance and costs you power: real changes that would have been detected are '
+      + 'missed. Leaving a known nuisance out of the model does not make it go away.',
+  batchcond: '<b>This is the defensible choice here, and it is what was fitted.</b> Batch is a '
+      + 'nuisance you know about and did not care about, so you let the model account for it and then '
+      + 'ask about condition with batch held constant. Note what makes this possible: the repeat is '
+      + 'balanced. In Section 6 this exact formula would have failed, because the two columns were '
+      + 'identical and the model matrix was not full rank.',
+  inter: '<b>Defensible only if you have a reason.</b> An interaction term asks a different question: '
+      + 'does the treatment effect DIFFER between the batches? That is worth asking if you suspect it '
+      + 'does. If you do not, you are spending degrees of freedom on a term you have no hypothesis '
+      + 'about, on three replicates per cell, and making the main effect harder to interpret.'
+};
+var designPicked = null;
+function wireDesignPick(){
+  var opts = document.querySelectorAll('#design-opts .fdec');
+  [].forEach.call(opts, function(btn){
+    btn.onclick = function(){
+      [].forEach.call(opts, function(b){ b.setAttribute('aria-pressed', String(b === btn)); });
+      var fb = document.getElementById('design-fb');
+      fb.innerHTML = DESIGN_VERDICT[btn.dataset.f];
+      fb.style.color = 'var(--text)';
+      if (!designPicked){
+        designPicked = btn.dataset.f;
+        nb('Chose a design formula: ' + btn.textContent.trim() + '.');
+      }
+      updateProgress();
+    };
+  });
+}
+
+function buildGenes(){
+  GENES = [];
+  for (var i = 0; i < DE_LFC.length; i++){
+    GENES.push({
+      name: DE_NAMES[i] || ('GENE' + String(i).padStart(4, '0')),
+      lfc: DE_LFC[i], p: DE_PADJ[i], mean: DE_MEAN[i], truth: DE_TRUE[i],
+      sig: (DE_PADJ[i] < P_CUT && Math.abs(DE_LFC[i]) >= FC_CUT)
+    });
+  }
+  var n = document.getElementById('n-genes');
+  if (n) n.textContent = DE_SUMMARY.nTested.toLocaleString();
+}
+
+var V = { W:900, H:400, L:60, R:20, T:18, B:52 };
+function drawVolcano(){
+  var svg = document.getElementById('volcano');
+  var plotW = V.W - V.L - V.R, plotH = V.H - V.T - V.B;
+  var xs = GENES.map(function(g){ return g.lfc; });
+  var xmax = Math.ceil(Math.max.apply(null, xs.map(Math.abs)) + 0.4);
+  var ymax = Math.ceil(Math.max.apply(null, GENES.map(function(g){ return -Math.log10(g.p); })) + 1);
+  var X = function(v){ return V.L + (v + xmax) / (2 * xmax) * plotW; };
+  var Y = function(v){ return V.T + plotH - (v / ymax) * plotH; };
+
+  var g = '';
+  // Threshold lines. Dashed here on purpose: these ARE thresholds, which is the
+  // one case where a dashed rule is the right reading rather than noise.
+  g += '<line class="vthresh" x1="' + V.L + '" y1="' + Y(-Math.log10(P_CUT)).toFixed(1)
+    +  '" x2="' + (V.W - V.R) + '" y2="' + Y(-Math.log10(P_CUT)).toFixed(1) + '"></line>';
+  [-FC_CUT, FC_CUT].forEach(function(c){
+    g += '<line class="vthresh" x1="' + X(c).toFixed(1) + '" y1="' + V.T
+      +  '" x2="' + X(c).toFixed(1) + '" y2="' + (V.T + plotH) + '"></line>';
+  });
+
+  // One hue for every point. Significance is read off position relative to the
+  // threshold lines, which the axes already encode; colouring by it as well
+  // would double-encode and burn the only free channel.
+  GENES.forEach(function(gene){
+    g += '<circle class="vdot' + (gene.sig ? ' big' : '') + '" cx="' + X(gene.lfc).toFixed(1)
+      +  '" cy="' + Y(-Math.log10(gene.p)).toFixed(1) + '" r="' + (gene.sig ? 4 : 2.6) + '"></circle>';
+  });
+
+  // Direct-label only the extremes, never every point, and take the top four
+  // from each side so the labelling itself does not imply that one direction
+  // matters more. Placement went wrong twice here and both failures are worth
+  // recording: first six labels overprinted each other in one corner, then the
+  // fix pushed them down the page still anchored to their old x, so a label
+  // could sit three rows below the dot it named and appear to name a different
+  // one. Two things fix that properly. Collision is tested as a real box
+  // overlap in x AND y, so two dots far apart horizontally are left alone; and
+  // any label that did have to move draws a leader back to its own point.
+  var bySig = GENES.filter(function(x){ return x.sig; })
+                   .sort(function(a,b){ return a.p - b.p; });
+  var toLabel = bySig.filter(function(x){ return x.lfc < 0; }).slice(0, 4)
+        .concat(bySig.filter(function(x){ return x.lfc > 0; }).slice(0, 4));
+
+  // Every drawn point is an obstacle, so a name is never printed over a dot.
+  var boxes = GENES.map(function(gene){
+    var cx = X(gene.lfc), cy = Y(-Math.log10(gene.p)), r = (gene.sig ? 4 : 2.6) + 1.5;
+    return { x1: cx - r, x2: cx + r, y1: cy - r, y2: cy + r };
+  });
+  var hits = function(b){
+    return boxes.some(function(o){
+      return b.x1 < o.x2 && b.x2 > o.x1 && b.y1 < o.y2 && b.y2 > o.y1;
+    });
+  };
+  // Candidate positions, nearest first: level with the point, then a line above
+  // or below, then further out. Flipping to the other side of the point is the
+  // last resort, so a label crosses its own dot only when nothing else fits.
+  var OFFS = [];
+  [0, -12, 12, -24, 24, -36, 36].forEach(function(dyo){
+    [9, 28, 48].forEach(function(dxo){ OFFS.push([dxo, dyo]); });
+  });
+
+  toLabel.forEach(function(gene){
+    var right = gene.lfc > 0;
+    var dx = X(gene.lfc), dy = Y(-Math.log10(gene.p));
+    var w = gene.name.length * 6.4 + 4;                 // monospace, 10.5px
+    for (var k = 0; k < OFFS.length; k++){
+      var out = OFFS[k][0], down = OFFS[k][1];
+      var tx = dx + (right ? out : -out);
+      var ty = dy + 3.5 + down;
+      var box = { x1: right ? tx : tx - w, x2: right ? tx + w : tx,
+                  y1: ty - 10, y2: ty + 3 };
+      if (box.x1 < V.L + 2 || box.x2 > V.W - V.R - 2) continue;
+      if (box.y1 < V.T + 1 || box.y2 > V.T + plotH - 1) continue;
+      if (hits(box)) continue;
+      boxes.push(box);                                  // later labels avoid it too
+      if (out > 12 || down !== 0){
+        g += '<path class="vleader" d="M' + (dx + (right ? 4.6 : -4.6)).toFixed(1) + ' '
+          +  dy.toFixed(1) + 'L' + (tx + (right ? -2.5 : 2.5)).toFixed(1) + ' '
+          +  (ty - 3.5).toFixed(1) + '"></path>';
+      }
+      g += '<text class="vlabel" x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1)
+        +  '" text-anchor="' + (right ? 'start' : 'end') + '">' + gene.name + '</text>';
+      break;                                            // placed; if none fit, drop it
+    }
+  });
+
+  g += '<line class="vaxis" x1="' + V.L + '" y1="' + (V.T + plotH) + '" x2="' + (V.W - V.R)
+    +  '" y2="' + (V.T + plotH) + '"></line>';
+  g += '<line class="vaxis" x1="' + V.L + '" y1="' + V.T + '" x2="' + V.L
+    +  '" y2="' + (V.T + plotH) + '"></line>';
+  for (var t = -xmax; t <= xmax; t += 2){
+    g += '<text class="vtext" x="' + X(t).toFixed(1) + '" y="' + (V.T + plotH + 16)
+      +  '" text-anchor="middle">' + t + '</text>';
+  }
+  for (var y = 0; y <= ymax; y += Math.ceil(ymax / 5)){
+    g += '<text class="vtext" x="' + (V.L - 7) + '" y="' + (Y(y) + 3.5).toFixed(1)
+      +  '" text-anchor="end">' + y + '</text>';
+  }
+  g += '<text class="vaxname" x="' + (V.L + plotW / 2) + '" y="' + (V.H - 12)
+    +  '" text-anchor="middle">log2 fold change, stimulated versus not</text>';
+  g += '<text class="vaxname" transform="translate(16,' + (V.T + plotH / 2)
+    +  ') rotate(-90)" text-anchor="middle">minus log10 adjusted p</text>';
+
+  var sig = GENES.filter(function(x){ return x.sig; });
+  var up = sig.filter(function(x){ return x.lfc > 0; }).length;
+  var desc = 'Volcano plot of ' + GENES.length + ' genes. Horizontal axis is log2 fold change '
+    + 'between stimulated and unstimulated samples; vertical axis is minus log10 of the adjusted '
+    + 'p-value, so higher means more confident. Dashed lines mark the thresholds, an adjusted p of '
+    + P_CUT + ' and a fold change of ' + FC_CUT + '. ' + sig.length + ' genes pass both: ' + up
+    + ' up and ' + (sig.length - up) + ' down. The ten strongest are listed in the table view below '
+    + 'the plot; the plot shows all ' + GENES.length.toLocaleString() + ' tested genes.';
+  svg.innerHTML = '<title>' + desc + '</title>' + g;
+  svg.setAttribute('aria-label', desc);
+
+  document.getElementById('t-sig').textContent = String(sig.length);
+  document.getElementById('t-up').textContent = String(up);
+  document.getElementById('t-dn').textContent = String(sig.length - up);
+  document.getElementById('t-tested').textContent = String(GENES.length);
+
+  var lowConf = GENES.filter(function(x){ return !x.sig && Math.abs(x.lfc) >= FC_CUT; }).length;
+  document.getElementById('v-readout').innerHTML =
+    '<b>' + sig.length + ' genes pass both thresholds.</b> Notice the ' + lowConf + ' points that sit '
+    + 'outside the vertical lines but below the horizontal one: their fold changes are as large as '
+    + 'anything you called significant, and they are almost all lowly expressed genes where a handful '
+    + 'of reads produced an enormous ratio. <b>If you had ranked by fold change alone, those would be '
+    + 'at the top of your list.</b>';
+
+  document.getElementById('tv-rows').innerHTML = sig
+    .sort(function(a,b){ return a.p - b.p; })
+    .slice(0, 10)
+    .map(function(x){
+      return '<tr tabindex="0"><td>' + x.name + '</td><td class="mono">' + x.lfc.toFixed(2)
+        + '</td><td class="mono">' + x.p.toExponential(1) + '</td><td class="mono">' + x.mean
+        + '</td><td>' + (x.lfc > 0 ? 'up' : 'down') + '</td></tr>';
+    }).join('');
+}
+
+/* ------------------------------------------------------------------ *
+ * 3. Enrichment. Deliberately shows one plausible result and one that
+ *    is enriched mostly because its genes are well studied.
+ * ------------------------------------------------------------------ */
+// THE BACKGROUND IS THE GENES THAT COULD HAVE ENTERED THE LIST.
+//
+// This used to test a list drawn from 240 genes against a background of 20,000,
+// which is the commonest error in enrichment analysis and the page's own deeper
+// panel already said not to do it. The universe is now the genes that were
+// actually tested, and the sets were built over those genes, so the arithmetic
+// and the experiment describe the same thing.
+//
+// Computed in _s7_sets.py: hypergeometric upper tail per set, then
+// Benjamini-Hochberg across the six. Values arrive in DE_SETS.
+var BG_GENES = DE_SUMMARY.nTested;
+var SET_NOTES = {
+  'Cytokine signalling': 'Agrees with the stimulus, which is reassuring rather than a discovery.',
+  'Regulation of cell death': 'Large and general. Look at what it actually scores.',
+  'Protein binding': 'The largest set here, 46% of every gene tested.',
+  'Signal transduction': 'Also very large, and this one IS significant. Ask what it tells you.'
+};
+var SETS = DE_SETS.map(function(x){
+  return { name:x.name, hit:x.hit, size:x.size, p:x.p, expected:x.expected,
+           note: SET_NOTES[x.name] || '' };
+});
+
+function runEnrichment(){
+  document.getElementById('enrich-out').style.display = 'block';
+  document.getElementById('en-rows').innerHTML = SETS.map(function(s){
+    return '<tr><td>' + s.name + (s.note ? '<br><small>' + s.note + '</small>' : '')
+      + '</td><td class="mono">' + s.hit + '</td><td class="mono">' + s.expected
+      + '</td><td class="mono">' + s.size
+      + '</td><td class="mono' + (s.p < 0.05 ? '' : ' dim') + '">' + s.p.toExponential(1)
+      + '</td></tr>';
+  }).join('');
+
+  var nSig = GENES.filter(function(x){ return x.sig; }).length;
+  var pb = SETS.filter(function(x){ return /Protein binding/.test(x.name); })[0];
+  var st = SETS.filter(function(x){ return /Signal transduction/.test(x.name); })[0];
+  var cy = SETS[0];
+  document.getElementById('en-basis').textContent =
+    'Your list is the ' + nSig + ' genes that met the reporting rule. Each p-value is the chance of '
+    + 'seeing that many of them in that set by drawing ' + nSig + ' genes at random from the '
+    + BG_GENES.toLocaleString() + ' genes that were ACTUALLY TESTED, adjusted for testing '
+    + SETS.length + ' sets. The background is the genes that could have entered the list, not every '
+    + 'gene in the genome: use 20,000 here and every p-value on this table would be wrong.';
+
+  document.getElementById('en-readout').innerHTML =
+    '<b>Start with the two largest sets, because they refute something people say a lot.</b> '
+    + '"Protein binding" holds ' + pb.size + ' of the ' + BG_GENES.toLocaleString() + ' tested genes, '
+    + 'which is ' + (100 * pb.size / BG_GENES).toFixed(0) + '% of them. It expects ' + pb.expected
+    + ' of your genes by chance and got ' + pb.hit + ', so its adjusted p is ' + pb.p.toPrecision(2)
+    + ': <b>not significant</b>. "Regulation of cell death" behaves the same way. A large set does '
+    + '<i>not</i> come out enriched for almost any list, because the hypergeometric null already '
+    + 'expects more overlap from a bigger set. Size alone cannot manufacture significance.'
+    + '<br><br>'
+    + '<b>Now look at "Signal transduction", which is nearly as large and is highly significant</b> '
+    + '(' + st.hit + ' observed against ' + st.expected + ' expected, adjusted p '
+    + st.p.toPrecision(2) + '). It earned that honestly: most of the genes that responded really are '
+    + 'signalling genes. And it is still nearly useless to you, because knowing that stimulated cells '
+    + 'changed their signalling genes resolves almost nothing about mechanism. <b>Statistical '
+    + 'significance and biological usefulness are different questions</b>, and a broad category can '
+    + 'pass the first while failing the second.'
+    + '<br><br>'
+    + 'The top specific result, ' + cy.name.toLowerCase() + ', is a useful <b>positive control</b>: '
+    + 'it agrees with the stimulus you applied, which is reassuring about the experiment. Agreement '
+    + 'with your own design is not an independent discovery, and should be reported as the check it '
+    + 'is.';
+  if (!enrichRun){
+    enrichRun = true;
+    nb('Ran pathway enrichment against the ' + BG_GENES.toLocaleString()
+       + ' tested genes: cytokine sets significant, the two broadest sets not.');
+    updateProgress();
+  }
+}
+
+// Completion used to be two aligner runs plus one enrichment click, and it then
+// scrolled the student past the whole peak-analysis and assay-comparison half of
+// the page to arrive at "you have finished". The scroll is gone, and the last
+// milestone is the sentence, which is what the section is for.
+var CLAIM_VERDICT = {
+  cause: '<b>Too strong.</b> "Switched on" is a claim about transcription being started, and about '
+       + 'the stimulus causing it. You measured abundance at one time point in a mixture of cells. '
+       + 'That is consistent with switching on, and also with slower degradation, with a processing '
+       + 'change, and with the stimulated wells containing a different mix of cell states.',
+  transcription: '<b>Still one step too far, and it is the step almost everybody takes.</b> Abundance '
+       + 'is a balance between how fast RNA is made and how fast it is destroyed. Steady-state '
+       + 'RNA-seq cannot separate those. Measuring transcription itself needs a different experiment: '
+       + 'metabolic labelling, nascent RNA, or a rate measurement of some kind.',
+  abundance: '<b>This is the one you can defend.</b> Spelled out in full: in a balanced repeat with '
+       + 'twelve libraries, ' + '{{N}}' + ' genes met a reporting rule of adjusted p below 0.05 and '
+       + '|log2 fold change| of at least 1, and cytokine-related sets were over-represented among '
+       + 'them relative to the genes eligible for testing. That supports a stimulation-associated '
+       + 'change in RNA abundance. It does not establish mechanism, and it says nothing about any '
+       + 'variant. Every qualifier in that sentence was earned by a decision you watched being made.',
+  variant: '<b>No, and nothing in this section could.</b> There is no genotype in these twelve '
+       + 'libraries, so there is nothing to relate expression to. That question needs expression '
+       + 'stratified by genotype, allele-specific expression, an eQTL design or a direct '
+       + 'perturbation. Reaching for it here is the commonest way a real result gets oversold.'
+};
+var claimAnswered = false;
+function wireClaim(){
+  var opts = document.querySelectorAll('#claim-opts .sdec7');
+  [].forEach.call(opts, function(btn){
+    btn.onclick = function(){
+      [].forEach.call(opts, function(b){ b.setAttribute('aria-pressed', String(b === btn)); });
+      var fb = document.getElementById('claim-fb');
+      fb.innerHTML = CLAIM_VERDICT[btn.dataset.c]
+        .replace('{{N}}', String(GENES.filter(function(g){ return g.sig; }).length));
+      fb.style.color = 'var(--text)';
+      if (!claimAnswered){
+        claimAnswered = true;
+        nb('Chose the sentence the analysis supports: "' + btn.textContent.trim() + '".');
+      }
+      updateProgress();
+    };
+  });
+}
+
+var MILESTONES7 = [
+  { key:'aligners', text:'Compared a splice-aware aligner with one that is not' },
+  { key:'design',   text:'Chose the design formula' },
+  { key:'enrich',   text:'Ran enrichment against the tested genes' },
+  { key:'claim',    text:'Chose the sentence the analysis supports' }
+];
+function updateProgress(){
+  var got = { aligners: !!(alignersRun.bwa && alignersRun.star), design: !!designPicked,
+              enrich: !!enrichRun, claim: claimAnswered };
+  var done = MILESTONES7.filter(function(m){ return got[m.key]; });
+  document.getElementById('progress-cue').textContent =
+    done.length + ' of ' + MILESTONES7.length + ' steps done';
+  var list = document.getElementById('milestone-list7');
+  if (list) list.innerHTML = MILESTONES7.map(function(m){
+    return '<li class="' + (got[m.key] ? 'got' : '') + '"><span aria-hidden="true">'
+      + (got[m.key] ? '\u2713' : '\u25cb') + '</span> ' + m.text + '</li>';
+  }).join('');
+  if (done.length === MILESTONES7.length){
+    var panel = document.getElementById('section-done');
+    if (panel && !panel.classList.contains('show')){
+      panel.classList.add('show');
+      nb('Section 7 complete.');
+    }
+  }
+}
+
+/* --- notebook --- */
+function nb(msg){
+  var list = document.getElementById('nbList');
+  var empty = list.querySelector('.empty'); if(empty) empty.remove();
+  var li = document.createElement('li'); li.textContent = msg; list.appendChild(li);
+  noteExport(msg);
+}
+function noteExport(msg){
+  var d = new Date();
+  nbLog.push({ ts:d.toLocaleTimeString(), at:d.getTime(), text:msg });
+  var b = document.getElementById('download-notebook');
+  if (b) b.disabled = nbLog.length === 0;
+}
+function buildNotebookText(){
+  var now = new Date(), L = [];
+  L.push('Molecular Techniques: Interactive Bioinformatics Module');
+  L.push('Section 7: Functional genomics and analysis');
+  L.push('');
+  L.push('Student: ______________________________');
+  L.push('Downloaded: ' + now.toLocaleDateString() + ', ' + now.toLocaleTimeString());
+  L.push('Entries: ' + nbLog.length);
+  L.push('');
+  L.push('----------------------------------------------------------------');
+  if (nbLog.length === 0) L.push('(no entries yet)');
+  else nbLog.forEach(function(e){ L.push(e.ts + '  ' + e.text); });
+  L.push('----------------------------------------------------------------');
+  L.push('');
+  L.push('Written by the module in your browser. Nothing was sent anywhere.');
+  return L.join('\n');
+}
+function downloadNotebook(){
+  var blob = new Blob([buildNotebookText()], {type:'text/plain'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'), d = new Date();
+  var stamp = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  a.href=url; a.download='section7_lab_notebook_'+stamp+'.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); },0);
+}
+
+document.getElementById('btn-bwa').onclick = function(){
+  this.setAttribute('aria-pressed','true');
+  document.getElementById('btn-star').setAttribute('aria-pressed','false');
+  alignBwa();
+};
+document.getElementById('btn-star').onclick = function(){
+  this.setAttribute('aria-pressed','true');
+  document.getElementById('btn-bwa').setAttribute('aria-pressed','false');
+  alignStar();
+};
+document.getElementById('btn-enrich').onclick = runEnrichment;
+document.getElementById('download-notebook').onclick = downloadNotebook;
+
+buildGenes();
+buildCountTable();
+wireDesignPick();
+wireClaim();
+drawVolcano();
+updateProgress();
+</script>
+</body>
+</html>

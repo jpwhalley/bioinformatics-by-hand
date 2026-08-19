@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Section 1: accessibility pass, 2026-07-31 (nightly review).
+  Derived from section1_alignment_prototype.html (approved, 2026-07-29 16:27).
+  Changes are WCAG 2.1 conformance only: SC 2.1.1 keyboard path for the step-2
+  gap tiles, SC 1.4.1 non-colour cues, SC 1.4.3/1.4.11 palette values from
+  _wcag_contrast_audit_2026-07-30.md, SC 2.4.7 focus ring, SC 4.1.3 aria-live.
+  No teaching content, phase data, scoring rule or layout was altered.
+-->
+<title>Section 1: The Smallest Bioinformatics Problem</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a2332;
+    --panel-2: #243042;
+    --text: #e6edf3;
+    --text-dim: #8f98a1;
+    --accent: #58a6ff;
+    --accent-glow: rgba(88,166,255,0.25);
+    --good: #56d364;
+    --bad: #f96760;
+    --warn: #d29922;
+    --gap: #9097a0;
+    --tile-A: #2ea043;
+    --tile-T: #db6d28;
+    --tile-G: #7e55c7;
+    --tile-C: #1f6feb;
+    --border: #30363d;
+    --border-ctrl: #6c7989;   /* 3:1 UI component contrast: tile outlines, focus rings */
+    --mono: 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 24px 80px;
+  }
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+  }
+  h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; }
+  .subtitle { color: var(--text-dim); font-size: 14px; }
+  .breadcrumb { color: var(--text-dim); font-size: 12px; margin-bottom: 8px; }
+  .breadcrumb b { color: var(--accent); }
+  .breadcrumb a{color:var(--text-dim);text-decoration:underline;text-underline-offset:2px}
+  .breadcrumb a:hover{color:var(--accent)}
+
+  /* Phase header */
+  .phase-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+  .phase-title { font-size: 18px; font-weight: 600; }
+  .phase-counter {
+    color: var(--text-dim);
+    font-size: 13px;
+    font-family: var(--mono);
+  }
+
+  .prompt {
+    background: var(--panel);
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    font-size: 15px;
+  }
+  .prompt b { color: var(--accent); }
+
+  /* Alignment workspace */
+  .workspace {
+    background: var(--panel);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+  }
+  .track-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  .track {
+    position: relative;
+    overflow-x: auto;
+    padding: 4px 0 12px;
+  }
+  .ruler {
+    display: flex;
+    height: 18px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .ruler-tick {
+    width: 24px;
+    display: flex;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .seq-row {
+    display: flex;
+    height: 36px;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .tile {
+    width: 24px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-right: 1px solid rgba(0,0,0,0.3);
+    user-select: none;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .tile.A { background: var(--tile-A); color: #000; }
+  .tile.T { background: var(--tile-T); color: #000; }
+  .tile.G { background: var(--tile-G); color: #fff; }
+  .tile.C { background: var(--tile-C); color: #fff; }
+  .tile.gap { background: var(--gap); color: #fff; opacity: 0.6; }
+  .tile.spacer { background: transparent; border: none; }
+  .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+             overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+
+  .read-row {
+    margin-top: 6px;
+    cursor: grab;
+    position: relative;
+  }
+  .read-row.dragging { cursor: grabbing; }
+  .read-row .tile {
+    border: 2px solid transparent;
+    border-radius: 2px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  .read-row .tile { position: relative; }
+  .read-row .tile.match {
+    border-color: var(--good);
+    border-style: solid;
+    box-shadow: 0 0 8px rgba(86,211,100,0.6);
+  }
+  .read-row .tile.mismatch {
+    border-color: var(--bad);
+    border-style: dashed;
+    box-shadow: 0 0 8px rgba(249,103,96,0.6);
+  }
+  /* SC 1.4.1 Use of Color: --good and --bad differ by only 1.74 in relative
+     luminance, so colour alone cannot carry match/mismatch. Three redundant
+     cues: border style (solid vs dashed), a glyph, and the score readout. */
+  .read-row .tile.match::after,
+  .read-row .tile.mismatch::after {
+    position: absolute; top: -8px; right: -6px;
+    font-size: 12px; line-height: 1; font-weight: 700;
+    font-family: -apple-system, sans-serif;
+    text-shadow: 0 0 3px var(--bg), 0 0 3px var(--bg), 0 0 3px var(--bg);
+    pointer-events: none;
+  }
+  .read-row .tile.match::after    { content: "\2713"; color: var(--good); }
+  .read-row .tile.mismatch::after { content: "\2717"; color: var(--bad); }
+
+  /* SC 2.4.7 Focus Visible: explicit ring on the dark theme. */
+  :focus-visible { outline: 3px solid var(--border-ctrl); outline-offset: 2px; }
+  .read-row .tile:focus-visible {
+    outline: 3px solid var(--accent); outline-offset: 2px; z-index: 3;
+  }
+  .read-row:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+  .tile.gap-target { outline: 2px solid var(--warn); outline-offset: 1px; }
+  .read-row .tile.read-gap {
+    background: repeating-linear-gradient(45deg, #444, #444 4px, #555 4px, #555 8px);
+    border: 2px dashed var(--text-dim);
+    border-radius: 2px;
+    color: var(--text-dim);
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+  }
+  button, .btn {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-family: -apple-system, sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover, .btn:hover { background: #2d3748; border-color: var(--accent); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary {
+    background: var(--accent);
+    color: #0d1117;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  button.primary:hover { background: #79b8ff; }
+  button.primary:disabled { background: var(--text-dim); color: #1a2332; }
+
+  .position-display {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+  .position-display b { color: var(--text); }
+
+  /* Score panel */
+  .score-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+  }
+  .score-cell {
+    background: var(--panel-2);
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .score-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .score-value {
+    font-size: 24px;
+    font-weight: 700;
+    font-family: var(--mono);
+    margin-top: 2px;
+  }
+  .score-cell.total .score-value { color: var(--accent); }
+  .score-cell.match .score-value { color: var(--good); }
+  .score-cell.mismatch .score-value { color: var(--bad); }
+  .score-cell.gap .score-value { color: var(--warn); }
+  .score-cell.best .score-value { color: var(--accent); }
+
+  /* Help panel */
+  .help-panel {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    padding: 16px 18px;
+    border-radius: 6px;
+    margin-top: 16px;
+    font-size: 14px;
+  }
+  .help-panel h4 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .help-panel ul { margin: 8px 0 0; padding-left: 20px; }
+  .help-panel li { margin: 4px 0; }
+  kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 11px;
+    margin: 0 2px;
+  }
+
+  /* Debrief */
+  .debrief {
+    background: linear-gradient(135deg, rgba(88,166,255,0.08), rgba(88,166,255,0.02));
+    border: 1px solid var(--accent);
+    padding: 20px 22px;
+    border-radius: 8px;
+    margin-top: 20px;
+    display: none;
+  }
+  .debrief.active { display: block; animation: fadeIn 0.4s; }
+  .debrief h3 { margin: 0 0 10px; font-size: 17px; color: var(--accent); }
+  .debrief p { margin: 8px 0; font-size: 14px; }
+  .debrief .takeaway {
+    background: rgba(0,0,0,0.3);
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin-top: 12px;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .debrief .takeaway b { color: var(--text); font-style: normal; }
+  .deeper {
+    margin-top: 12px;
+    padding: 0;
+    background: rgba(0,0,0,0.15);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .deeper summary {
+    cursor: pointer;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+    user-select: none;
+  }
+  .deeper summary:hover { color: var(--accent); }
+  .deeper[open] summary { border-bottom: 1px solid var(--border); }
+  .deeper .deeper-content {
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  /* Step-2 callout (Phase 3 two-part flow) */
+  .step-callout {
+    background: linear-gradient(135deg, rgba(210,153,34,0.12), rgba(210,153,34,0.03));
+    border: 1px solid var(--warn);
+    padding: 16px 18px;
+    border-radius: 8px;
+    margin-top: 16px;
+    animation: fadeIn 0.4s;
+  }
+  .step-callout .step-callout-text { font-size: 14px; }
+  .step-callout button { margin-top: 12px; }
+
+  /* Notebook */
+  .notebook {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-top: 24px;
+  }
+  .notebook h3 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .notebook-entries {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .notebook-entry {
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .notebook-entry:last-child { border-bottom: none; }
+  .notebook-entry b { color: var(--text); }
+
+  /* Notebook export, added 2026-08-13.
+     Replaces the "take a screenshot" instruction in the completion modal.
+     The file is built in the browser with a Blob and never leaves the machine. */
+  .notebook-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .notebook-head h3 { margin-bottom: 4px; }
+  button.notebook-dl {
+    padding: 5px 11px;
+    font-size: 12px;
+  }
+  .notebook-dl-hint {
+    margin: 0 0 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal-backdrop.active { display: flex; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px;
+    max-width: 520px;
+    width: calc(100% - 32px);
+  }
+  .modal h2 { margin: 0 0 12px; font-size: 20px; color: var(--accent); }
+  .modal p { font-size: 14px; }
+  .modal ol { margin: 10px 0 14px; padding-left: 22px; font-size: 14px; }
+  .modal li { margin: 5px 0; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .footer-note {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  /* SC 2.4.7 Focus Visible. The dark theme suppresses the browser default ring,
+     so keyboard focus must be styled explicitly or it is invisible. Added 2026-08-14. */
+  :focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+  a:focus-visible, button:focus-visible, input:focus-visible,
+  select:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* SC 1.4.10 Reflow. Content must be usable at 320px without two-dimensional
+     scrolling. Sequence strips keep their own horizontal scroll, which the
+     criterion allows for content that genuinely requires a fixed layout; the
+     page around them must not. Added 2026-08-14. */
+  @media (max-width: 700px) {
+    body { padding: 14px 10px 90px; }
+    .container, .wrap { padding-left: 12px; padding-right: 12px; max-width: 100%; }
+    h1 { font-size: 18px; }
+    .controls { gap: 8px; }
+    .controls button { flex: 1 1 auto; }
+    .score-grid { grid-template-columns: repeat(2, 1fr); }
+    .notebook { position: static; width: auto; max-height: none; margin-top: 16px; }
+  }
+
+
+  /* Foot navigation, added 2026-08-17. Real links, so keyboard and
+     right-click-open-in-new-tab both work without any scripting. */
+  .sectnav{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;
+    margin:26px 0 0;padding-top:18px;border-top:1px solid var(--border)}
+  .sectnav a{flex:1 1 220px;display:block;text-decoration:none;color:inherit;
+    background:var(--panel,#1a2332);border:1px solid var(--border);border-radius:8px;
+    padding:11px 14px;font-size:13px}
+  .sectnav a:hover{border-color:var(--accent);background:var(--panel-2,#243042)}
+  .sectnav a .k{display:block;font-size:11px;color:var(--text-dim);
+    text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+  .sectnav a .t{font-weight:600}
+  .sectnav a:hover .t{text-decoration:underline}
+  .sectnav a.home{flex:0 1 auto;text-align:center;display:flex;align-items:center;
+    justify-content:center;color:var(--text-dim)}
+  .sectnav a.home:hover{color:var(--accent)}
+  @media (max-width:700px){ .sectnav a{flex:1 1 100%} }
+  /* The course spine, added 2026-08-17. Justin: "we are building up from the
+     simplest thing a bioinformatician can do - match a set of letters to
+     another... bioinformatics is matching a sets of letters to another,
+     usually at scale and interpreting those results!"
+     Every section states its own match in the same place, in the same words,
+     so the argument is visible from inside any one of them. */
+  .spinebar{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;
+    margin:14px 0 6px;padding:10px 14px;border-radius:6px;
+    background:var(--panel-2);border-left:3px solid var(--good);font-size:13.5px}
+  .spinebar .k{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;
+    letter-spacing:.07em;white-space:nowrap}
+  .spinebar .v{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 1 of 8</b> · Sequence alignment by hand</div>
+    <h1>The smallest bioinformatics problem</h1>
+  <div class="spinebar"><span class="k">Your starting point</span><span class="v">One 12-base read and one 40-base reference. Where does the read fit, and how sure are you?</span></div>
+
+    <div class="subtitle">No code: move the read, score the evidence, and decide where it belongs.</div>
+  </header>
+
+  <div class="prompt">
+    <b>What is the least you could do and reasonably call it bioinformatics?</b>
+    Start with two strings of letters. The longer one is a reference; the shorter one is an
+    observed read. Your task is to compare the read with possible positions on the reference,
+    then decide which placement is best supported. You will solve three versions of that problem:
+    first an exact match, then mismatches, then a gap. Do not memorise syntax. Watch what has to
+    change when the evidence becomes less tidy.
+  </div>
+
+  <div class="workspace">
+    <div class="phase-header">
+      <div class="phase-title" id="phase-title">Phase 1: Find the perfect match</div>
+      <div class="phase-counter" id="phase-counter">Phase 1 / 3</div>
+    </div>
+    <div id="phase-instructions" style="margin-bottom:16px;font-size:14px;color:var(--text-dim);"></div>
+
+    <div class="track-label" id="ref-track-label">Reference sequence (the 40-base comparison sequence)</div>
+    <div class="track" tabindex="0" role="group" aria-labelledby="ref-track-label">
+      <div class="ruler" id="ruler"></div>
+      <div class="seq-row" id="reference"></div>
+    </div>
+
+    <div class="track-label" id="read-label" style="margin-top:14px;">Your read (drag with a mouse, use the buttons, or focus it and use the arrow keys)</div>
+    <div class="track">
+      <div class="seq-row read-row" id="read" tabindex="0" role="group" aria-labelledby="read-label" aria-describedby="read-kbd-help"></div>
+      <p id="read-kbd-help" class="sr-only">Left and right arrow keys move the read one base at a time, either while the read has focus or while no other control does. In step two, Tab or arrow to a base tile and press Enter or Space to choose a gap position, or press Enter on an existing gap to remove it.</p>
+    </div>
+
+    <div class="controls">
+      <button id="left-btn" title="Move read 1 base left (← arrow key)">◀ Left</button>
+      <button id="right-btn" title="Move read 1 base right (→ arrow key)">Right ▶</button>
+      <button id="gap-btn" style="display:none;" title="Insert a gap into the read at the current cursor">＋ Insert gap</button>
+      <button id="reveal-btn" disabled>Show best position</button>
+      <div class="position-display">Read start (0-based): <b id="pos-display">0</b></div>
+    </div>
+
+    <div class="score-grid" role="status" aria-live="polite" aria-atomic="true">
+      <div class="score-cell match">
+        <div class="score-label">✓ Matches</div>
+        <div class="score-value" id="score-match">0</div>
+      </div>
+      <div class="score-cell mismatch">
+        <div class="score-label">✗ Mismatches</div>
+        <div class="score-value" id="score-mismatch">0</div>
+      </div>
+      <div class="score-cell gap">
+        <div class="score-label">Gaps</div>
+        <div class="score-value" id="score-gap">0</div>
+      </div>
+      <div class="score-cell total">
+        <div class="score-label">Score</div>
+        <div class="score-value" id="score-total">0</div>
+      </div>
+    </div>
+    <div style="text-align:right;margin-top:8px;font-size:12px;color:var(--text-dim);">
+      Best score so far: <b style="color:var(--accent);font-family:var(--mono);" id="best-score">–</b>
+      <span style="margin-left:14px;">Target: <b style="color:var(--good);font-family:var(--mono);" id="target-score">–</b></span>
+    </div>
+  </div>
+
+  <div class="step-callout" id="step-callout" style="display:none;">
+    <div class="step-callout-text" id="step-callout-text"></div>
+    <button class="primary" id="step2-btn">Continue to Step 2: try inserting a gap →</button>
+  </div>
+
+  <div class="help-panel">
+    <h4>How to play</h4>
+    <ul>
+      <li>Drag the read horizontally with a mouse, tap <b>Left</b> / <b>Right</b>, or focus the read and press <kbd>←</kbd> <kbd>→</kbd>.</li>
+      <li>In Phase 3, step 2, <kbd>Tab</kbd> to a base tile and press <kbd>Enter</kbd> to choose where the gap goes. <kbd>Enter</kbd> on an existing gap removes it. Nothing here requires a mouse.</li>
+      <li>Each base you line up correctly is a <span style="color:var(--good)">match</span> ✓ (+1). Each base that lines up with the wrong letter is a <span style="color:var(--bad)">mismatch</span> ✗ (−1).</li>
+      <li>Matching tiles pick up a solid border and a ✓; mismatches get a dashed border and a ✗. Try to maximise the total score.</li>
+      <li>After you have tested several positions, the reveal button becomes available. Using it is a way forward, not a penalty.</li>
+      <li>The positions on this page are <b>zero-based</b>: the first base is position 0. Real bioinformatics formats do not all use the same convention, so always check.</li>
+    </ul>
+  </div>
+
+  <div class="debrief" id="debrief">
+    <h3 id="debrief-title">Nicely done.</h3>
+    <div id="debrief-body"></div>
+    <details class="deeper">
+      <summary>↓ Go deeper</summary>
+      <div class="deeper-content" id="debrief-deeper"></div>
+    </details>
+    <div style="margin-top:16px;display:flex;justify-content:flex-end;">
+      <button class="primary" id="next-phase-btn">Continue to next phase →</button>
+    </div>
+  </div>
+
+
+
+
+  <div class="notebook">
+    <div class="notebook-head">
+      <h3>📓 Your lab notebook</h3>
+      <button type="button" id="download-notebook" class="notebook-dl" disabled
+              aria-describedby="notebook-dl-hint">⤓ Download notebook</button>
+    </div>
+    <p class="notebook-dl-hint" id="notebook-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <div class="notebook-entries" id="notebook-entries" role="log" aria-live="polite">
+      <div class="notebook-entry" style="color:var(--text-dim);">(your discoveries will appear here as you work)</div>
+    </div>
+  </div>
+
+  
+<nav class="sectnav" aria-label="Section navigation">
+  
+  <a class="home" href="index.html">All sections</a>
+  <a class="nav-next" href="Section%202%20-%20Searching%20a%20database%20with%20BLAST.html"><span class="k">Next</span><span class="t">2. Searching a database with BLAST</span></a>
+</nav>
+
+  <div class="footer-note">
+    Prototype · Section 1 of the Molecular Techniques Interactive Bioinformatics Module · 2026/27 cycle
+  </div>
+</div>
+
+<div class="modal-backdrop" id="completion-modal">
+  <div class="modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="completion-title">
+    <h2 id="completion-title">✓ You have finished Section 1.</h2>
+    <p>You have done the smallest version of sequence alignment: compare an observation with a reference, score the possible placements, and choose the best-supported answer.</p>
+    <p>When a later workflow starts to feel like a black box, come back to four questions:</p>
+    <ol>
+      <li>What observation is being compared?</li>
+      <li>What is the reference?</li>
+      <li>How is agreement scored?</li>
+      <li>What happens when no answer, or several answers, fit?</li>
+    </ol>
+    <p>A real aligner performs this kind of reasoning at scale, using indexes and heuristics rather than checking every position the way you did.</p>
+    <p style="margin-top:12px;"><b>Next: Section 2, BLAST search across TNF orthologs.</b> It takes the scoring idea you just used and applies it to searching a database, comparing your human TNF sequence against the same gene in mouse, zebrafish and fly.</p>
+    <p style="margin-top:12px;color:var(--text-dim);font-size:13px;">Your lab notebook is a record of what you did in this section, kept for your own reference. Download it if you want to keep it.</p>
+    <div style="margin-top:14px;">
+      <button type="button" class="primary" id="download-notebook-modal">⤓ Download my lab notebook</button>
+    </div>
+    <div style="margin-top:20px;text-align:right;">
+      <button class="primary" id="close-modal">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =========================================================
+//  Phase data
+//  --------------------------------------------------------
+//  Reference is a synthetic 40-bp sequence, deliberately
+//  short so the whole thing fits on one screen with no
+//  horizontal scrolling. A human can hand-align against 40
+//  bases in a minute or two; the pedagogical point is that
+//  this is the problem a sequence aligner must solve, although
+//  real tools use indexes and heuristics rather than checking
+//  every genomic position directly.
+//  Each phase has a target score for completion. The reveal is
+//  unlocked separately after several genuine attempts so that
+//  it works as a route out of being stuck.
+// =========================================================
+
+const REFERENCE = "CTGGAATTCGGATCATGAGCATCGTACGGTAGCCATCGAT";
+
+const PHASES = [
+  {
+    id: 1,
+    title: "Phase 1: Find the perfect match",
+    instructions: "Your read is a 12-base fragment of the reference. There is exactly one position where every single base matches. Slide the read along until you find it.",
+    read: "AGCATCGTACGG",         // exact substring at position 17
+    optimalPosition: 17,
+    allowGaps: false,
+    scoring: { match: 1, mismatch: -1, gap: -3 },
+    targetScore: 12,
+    revealAfterAttempts: 6,
+    notebookTakeaway: "First principle: compared an observed read with candidate reference positions, scored them, and chose the best-supported placement.",
+    debrief: {
+      title: "That counted: you just did bioinformatics.",
+      body: `<p>You compared an observed sequence with a reference, scored candidate placements, and chose the
+             best-supported one. That is the smallest version of sequence alignment.</p>
+             <p>You solved the same <i>problem</i> as a modern aligner, but not with the same algorithm. You checked
+             each possible start directly. Real tools use indexes and heuristics to avoid most of those comparisons,
+             and they must be willing to report one placement, several plausible placements, or no placement at all.
+             A highest score is a candidate answer; it is not automatically a unique or trustworthy one.</p>`,
+      takeaway: "<b>First principle:</b> compare the letters with a reference, score the possible placements, then ask whether the winner deserves to be believed.",
+      deeper: `<p>This page uses <b>brute-force exact matching</b>. For a reference of length <i>n</i> and a read of length
+              <i>m</i>, checking every possible start requires roughly O(<i>n</i>×<i>m</i>) base comparisons per read. At human-genome
+              and sequencing-run scale, doing that literally is infeasible.</p>
+              <p>Tools therefore index the reference and use exact or near-exact <b>seeds</b> to find promising regions before
+              doing careful alignment. BWA-MEM uses maximal exact matches as seeds and extends candidates with gapped alignment;
+              STAR uses suffix-array searches, then clusters and stitches seeds so RNA reads can cross splice junctions.</p>
+              <p>Two simplifications are hidden here. First, the read is already in the correct orientation; a DNA aligner also
+              tests its reverse complement. Second, short reads are cheaper to compare but are often <i>harder</i> to place uniquely.
+              Longer reads cost more to process, but they can span a repeat and provide a unique anchor.</p>`
+    }
+  },
+  {
+    id: 2,
+    title: "Phase 2: Work with imperfect evidence",
+    instructions: "This read has two bases that disagree with the reference. A disagreement could come from a sequencing error, a real difference in the sample, or a wrong placement. Find the position where the read is best supported despite the two mismatches.",
+    // Reference position 4: AATTCGGATCAT (12 bp window)
+    // We take AATTCGGATCAT and mutate two bases: window-index 3 (T→A) and 8 (T→C)
+    read: "AATACGGACCAT",          // 12 bp; mismatches at positions 3 and 8 (0-indexed)
+    optimalPosition: 4,
+    allowGaps: false,
+    scoring: { match: 1, mismatch: -1, gap: -3 },
+    targetScore: 8,                // 10 matches − 2 mismatches = 8
+    revealAfterAttempts: 6,
+    notebookTakeaway: "The best placement is optimal under a scoring scheme; changing the scoring can change the answer.",
+    debrief: {
+      title: "The best placement depends on the rules.",
+      body: `<p>At the winning position, ten bases support the placement and two disagree. Under this page's +1/−1 rule,
+             the matches outweigh the mismatches. That makes this the best candidate here; it does not tell you what caused
+             the two differences.</p>
+             <p>The scoring rule controls the trade-off. A heavier mismatch penalty can leave a genuinely divergent read
+             unmapped. A lighter penalty can make a similar but incorrect region look acceptable. Neither setting is simply
+             "more accurate" in every experiment.</p>`,
+      takeaway: "<b>An alignment is an optimum under stated rules.</b> Change the rules and the winning placement can change.",
+      deeper: `<p>Real aligners use richer scoring models. BWA-MEM's defaults give +1 for a match, charge 4 for a mismatch,
+              6 to open a gap and 1 for each base by which the gap is extended. These values encode assumptions about plausible
+              errors and differences while balancing sensitivity against incorrect placement; they are parameters, not laws of biology.</p>
+              <p>Section 2 will add <b>BLAST E-values</b>. An E-value is not the probability that a hit is wrong. It is the number
+              of alignments with that score or better expected by chance in a search space of that size. The score, query length,
+              scoring system and database size all matter.</p>`
+    }
+  },
+  {
+    id: 3,
+    title: "Phase 3: Test a gap",
+    instructions: "<b>Step 1 of 2: align without a gap.</b> No position gives this read strong agreement from end to end. Slide it to the best position you can find, then look at the pattern: where does agreement stop, and what happens to every base after it?",
+    instructionsStep2: "<b>Step 2 of 2: test the deletion hypothesis.</b> The read is locked at its best gapless position. Select the read tile where the matches stop, then press <b>＋ Insert gap</b>. If the hypothesis is useful, the bases after the gap should return to register. Select a gap to remove it and try again.",
+    step1Hint: "That is the best gapless placement: a score of 3. The first stretch agrees, then the rest falls out of register. One possible explanation is that the read is missing one base relative to the reference. In Step 2, test that explanation by putting a gap at the break. If it is the right model, the whole tail should line up again.",
+    // Reference position 22 (14 bp window): CGTACGGTAGCCAT
+    // The read is the same window with the T at window-index 7 deleted: CGTACGGAGCCAT (13 bp)
+    read: "CGTACGGAGCCAT",         // 13 bp; missing the T that's at ref position 29
+    optimalPosition: 22,
+    allowGaps: true,
+    gapAt: 7,                      // gap should be inserted at index 7 of the read
+    scoring: { match: 1, mismatch: -1, gap: -3 },
+    targetScore: 10,               // 13 matches − 1 gap (−3) = 10
+    revealAfterAttempts: 6,
+    revealGapAfterAttempts: 2,
+    notebookTakeaway: "A gap can model an insertion or deletion, but the alignment alone does not establish what caused the difference.",
+    debrief: {
+      title: "The gap rescued the alignment. It did not explain the biology.",
+      body: `<p>Without a gap, the best score was 3. With a gap in the right place, it became 10 because the
+             downstream bases returned to register. The scoring rule says that paying one gap penalty explains the
+             observation better than accepting a run of mismatches.</p>
+             <p>The alignment alone cannot tell whether the missing base is a biological deletion, a sequencing error,
+             or part of a more complicated misalignment. That requires evidence from other reads and a variant caller.
+             A badly placed gap can also turn one indel into several apparent mismatches and create false SNV evidence.</p>`,
+      takeaway: "<b>Gaps model insertions and deletions.</b> A better alignment supports that representation; it does not, by itself, establish the cause.",
+      deeper: `<p><b>Smith–Waterman</b> finds a best local alignment; <b>Needleman–Wunsch</b> finds a best global alignment.
+              In the introductory linear-gap version, each dynamic-programming cell considers a match or mismatch,
+              a gap in the read, or a gap in the reference. Affine-gap implementations add separate states so that
+              opening a gap costs more than extending one.</p>
+              <p>Running full dynamic programming between every read and an entire genome would cost O(<i>m</i>×<i>n</i>)
+              per comparison. Many read aligners therefore use a <b>seed-and-extend</b> strategy: an index finds promising
+              regions, then a careful gapped alignment scores those candidates. The useful mental model is
+              <i>fast search, then careful comparison</i>, not that every tool implements the same algorithm.</p>`
+    }
+  }
+];
+
+// =========================================================
+//  State
+// =========================================================
+
+let phaseIndex = 0;
+let readPosition = 0;
+let readChars = [];           // current characters (may include '-' for gaps)
+let bestScoreSeen = -Infinity;
+let phaseCompleted = [false, false, false];
+let notebookEntries = [];
+let selectedReadTile = null;  // for gap insertion in Phase 3
+let gapStep = 1;              // Phase 3 two-part flow: 1 = align (no gap), 2 = place gap
+let focusReadIdx = null;      // keyboard focus survives the renderRead() rebuild
+let step1Reached = false;     // has the student found the best gapless position yet?
+let attemptsTried = 0;        // unlocks the reveal as a genuine stuck path
+let modalReturnFocus = null;
+
+// =========================================================
+//  Initialise UI
+// =========================================================
+
+function init() {
+  buildReference();
+  loadPhase(0);
+  bindControls();
+}
+
+function buildReference() {
+  const refEl = document.getElementById('reference');
+  const rulerEl = document.getElementById('ruler');
+  refEl.innerHTML = '';
+  rulerEl.innerHTML = '';
+  for (let i = 0; i < REFERENCE.length; i++) {
+    const tick = document.createElement('div');
+    tick.className = 'ruler-tick';
+    if (i % 10 === 0) tick.textContent = i;
+    rulerEl.appendChild(tick);
+
+    const t = document.createElement('div');
+    t.className = `tile ${REFERENCE[i]}`;
+    t.textContent = REFERENCE[i];
+    refEl.appendChild(t);
+  }
+}
+
+function loadPhase(idx) {
+  phaseIndex = idx;
+  const phase = PHASES[idx];
+  readChars = phase.read.split('');
+  readPosition = 0;
+  bestScoreSeen = -Infinity;
+  gapStep = 1;
+  step1Reached = false;
+  selectedReadTile = null;
+  attemptsTried = 0;
+
+  document.getElementById('phase-title').textContent = phase.title;
+  document.getElementById('phase-counter').textContent = `Phase ${idx + 1} / ${PHASES.length}`;
+  document.getElementById('phase-instructions').innerHTML = phase.instructions;
+  // Gap button + the Step-2 callout stay hidden until the student reaches the
+  // best gapless alignment. Phase 3 is an explicit two-parter (align, then gap).
+  document.getElementById('gap-btn').style.display = 'none';
+  document.getElementById('step-callout').style.display = 'none';
+  document.getElementById('left-btn').disabled = false;
+  document.getElementById('right-btn').disabled = false;
+  document.getElementById('target-score').textContent = phase.targetScore;
+  document.getElementById('best-score').textContent = '–';
+  document.getElementById('reveal-btn').textContent = phase.allowGaps
+    ? 'Show best gapless position'
+    : 'Show best position';
+  document.getElementById('reveal-btn').disabled = true;
+  document.getElementById('debrief').classList.remove('active');
+
+  renderRead();
+  updateScore();
+}
+
+function renderRead() {
+  const readEl = document.getElementById('read');
+  readEl.innerHTML = '';
+
+  // Leading spacer (empty tiles to push the read to the right position)
+  for (let i = 0; i < readPosition; i++) {
+    const s = document.createElement('div');
+    s.className = 'tile spacer';
+    readEl.appendChild(s);
+  }
+
+  // The read itself
+  for (let i = 0; i < readChars.length; i++) {
+    const t = document.createElement('div');
+    const ch = readChars[i];
+    if (ch === '-') {
+      t.className = 'tile read-gap';
+      t.textContent = '–';
+    } else {
+      t.className = `tile ${ch}`;
+      t.textContent = ch;
+    }
+    t.dataset.readIdx = i;
+    if (selectedReadTile === i) t.classList.add('gap-target');
+
+    // Phase 3, Step 2 only: click a base tile to choose a gap insertion point,
+    // or click an existing gap tile to remove it and try a different spot.
+    if (PHASES[phaseIndex].allowGaps && gapStep === 2) {
+      // SC 2.1.1 Keyboard (Level A): every pointer action below has an
+      // equivalent Enter/Space activation, and the tiles are in the tab order.
+      const idx = i;
+      t.style.cursor = 'pointer';
+      t.tabIndex = 0;
+      t.setAttribute('role', 'button');
+      const activate = (e) => {
+        if (e) e.stopPropagation();
+        if (ch === '-') {
+          readChars.splice(idx, 1);
+          selectedReadTile = null;
+          focusReadIdx = Math.max(0, idx - 1);
+          renderRead();
+          updateScore();
+        } else {
+          selectedReadTile = idx;
+          focusReadIdx = idx;
+          renderRead();
+        }
+      };
+      if (ch === '-') {
+        t.title = 'Remove this gap';
+        t.setAttribute('aria-label',
+          `Gap at position ${idx + 1}. Activate to remove it.`);
+      } else {
+        t.title = 'Choose this position for gap insertion';
+        t.setAttribute('aria-label',
+          `Base ${ch} at position ${idx + 1}. Activate to choose this position for a gap.`);
+        if (selectedReadTile === idx) t.setAttribute('aria-pressed', 'true');
+      }
+      t.addEventListener('click', activate);
+      t.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+          e.preventDefault();
+          activate(e);
+        } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          e.stopPropagation();
+          const step = e.key === 'ArrowRight' ? 1 : -1;
+          const target = Math.max(0, Math.min(readChars.length - 1, idx + step));
+          focusReadIdx = target;
+          focusReadTile();
+        }
+      });
+    }
+    readEl.appendChild(t);
+  }
+
+  // renderRead() destroys and rebuilds every tile, which drops focus to <body>
+  // and silently strands a keyboard user. Re-assert it.
+  if (PHASES[phaseIndex].allowGaps && gapStep === 2) focusReadTile();
+}
+
+function focusReadTile() {
+  if (focusReadIdx === null) return;
+  const el = document.querySelector(`#read .tile[data-read-idx="${focusReadIdx}"]`);
+  if (el && typeof el.focus === 'function') el.focus();
+}
+
+function computeAlignment() {
+  // Walks through the read; for each non-gap base, checks the reference base at
+  // (readPosition + offset-from-read-start, *after* skipping prior gap tiles for ref-axis purposes).
+  // For a simple gap-in-read model: each '-' in the read consumes a reference base but is a gap, not a comparison.
+  let matches = 0, mismatches = 0, gaps = 0;
+  let refOffset = 0;
+  const annotations = [];
+  for (let i = 0; i < readChars.length; i++) {
+    const refIdx = readPosition + refOffset;
+    if (refIdx < 0 || refIdx >= REFERENCE.length) {
+      annotations.push('off-grid');
+      refOffset++;
+      continue;
+    }
+    const rc = readChars[i];
+    const rRef = REFERENCE[refIdx];
+    if (rc === '-') {
+      gaps++;
+      annotations.push('gap');
+    } else if (rc === rRef) {
+      matches++;
+      annotations.push('match');
+    } else {
+      mismatches++;
+      annotations.push('mismatch');
+    }
+    refOffset++;
+  }
+  const phase = PHASES[phaseIndex];
+  const score = matches * phase.scoring.match
+              + mismatches * phase.scoring.mismatch
+              + gaps * phase.scoring.gap;
+  return { matches, mismatches, gaps, score, annotations };
+}
+
+function updateScore() {
+  const phase = PHASES[phaseIndex];
+  const { matches, mismatches, gaps, score, annotations } = computeAlignment();
+
+  document.getElementById('score-match').textContent = matches;
+  document.getElementById('score-mismatch').textContent = mismatches;
+  document.getElementById('score-gap').textContent = gaps;
+  document.getElementById('score-total').textContent = score;
+  document.getElementById('pos-display').textContent = readPosition;
+
+  // Paint match/mismatch borders onto read tiles
+  const readEl = document.getElementById('read');
+  const tiles = readEl.querySelectorAll('.tile:not(.spacer)');
+  tiles.forEach((tile, i) => {
+    tile.classList.remove('match', 'mismatch');
+    if (annotations[i] === 'match') tile.classList.add('match');
+    else if (annotations[i] === 'mismatch') tile.classList.add('mismatch');
+  });
+
+  // Track best score
+  if (score > bestScoreSeen) {
+    bestScoreSeen = score;
+    document.getElementById('best-score').textContent = bestScoreSeen;
+  }
+
+  // Phase 3, Step 1: once the student lands the best possible gapless alignment,
+  // reveal the Step-2 callout: align first, THEN reason about a gap.
+  if (phase.allowGaps && gapStep === 1 && !step1Reached
+      && readPosition === phase.optimalPosition) {
+    step1Reached = true;
+    document.getElementById('step-callout-text').innerHTML = phase.step1Hint;
+    document.getElementById('step-callout').style.display = 'block';
+    recordNotebook(`Phase ${phaseIndex + 1}, step 1: best gapless alignment found at position ${readPosition} (score ${score}).`);
+  }
+
+  // Phase auto-complete when student reaches the optimum at the right position
+  if (!phaseCompleted[phaseIndex]
+      && readPosition === phase.optimalPosition
+      && score >= phase.targetScore
+      && (!phase.allowGaps || gaps > 0)) {
+    onPhaseCleared();
+  }
+
+  updateRevealButton();
+}
+
+function updateRevealButton() {
+  const phase = PHASES[phaseIndex];
+  const threshold = phase.allowGaps && gapStep === 2
+    ? phase.revealGapAfterAttempts
+    : phase.revealAfterAttempts;
+  document.getElementById('reveal-btn').disabled =
+    phaseCompleted[phaseIndex] || attemptsTried < threshold;
+}
+
+function moveRead(delta) {
+  const phase = PHASES[phaseIndex];
+  if (phase.allowGaps && gapStep === 2) return;  // position locked during gap placement
+  const maxPos = REFERENCE.length - readChars.length;
+  const nextPosition = Math.max(0, Math.min(maxPos, readPosition + delta));
+  if (nextPosition === readPosition) return;
+  readPosition = nextPosition;
+  attemptsTried++;
+  renderRead();
+  updateScore();
+}
+
+function enterGapStep2() {
+  const phase = PHASES[phaseIndex];
+  gapStep = 2;
+  readPosition = phase.optimalPosition;   // lock the read at its best position
+  readChars = phase.read.split('');        // clean slate: no stray gaps from Step 1
+  selectedReadTile = null;
+  attemptsTried = 0;
+  document.getElementById('phase-instructions').innerHTML = phase.instructionsStep2;
+  document.getElementById('step-callout').style.display = 'none';
+  document.getElementById('gap-btn').style.display = 'inline-block';
+  document.getElementById('left-btn').disabled = true;
+  document.getElementById('right-btn').disabled = true;
+  document.getElementById('reveal-btn').textContent = 'Show optimal gap';
+  recordNotebook(`Phase ${phaseIndex + 1}, step 2: read locked at position ${readPosition}; placing a gap.`);
+  renderRead();
+  updateScore();
+}
+
+function insertGap() {
+  if (selectedReadTile === null) {
+    document.getElementById('phase-instructions').innerHTML =
+      PHASES[phaseIndex].instructionsStep2 +
+      '<div style="color:var(--warn);margin-top:8px;">↑ Click a read tile first to choose where the gap goes.</div>';
+    return;
+  }
+  // Insert a '-' before the selected tile
+  readChars.splice(selectedReadTile, 0, '-');
+  selectedReadTile = null;
+  attemptsTried++;
+  renderRead();
+  updateScore();
+}
+
+function onPhaseCleared() {
+  phaseCompleted[phaseIndex] = true;
+  const phase = PHASES[phaseIndex];
+  recordNotebook(`Phase ${phaseIndex + 1}: cleared at position ${readPosition} with score ${document.getElementById('score-total').textContent}.`);
+  if (phase.notebookTakeaway) recordNotebook(phase.notebookTakeaway);
+  showDebrief();
+}
+
+function showDebrief() {
+  const phase = PHASES[phaseIndex];
+  document.getElementById('debrief-title').textContent = phase.debrief.title;
+  document.getElementById('debrief-body').innerHTML =
+    phase.debrief.body + `<div class="takeaway">${phase.debrief.takeaway}</div>`;
+  document.getElementById('debrief-deeper').innerHTML = phase.debrief.deeper;
+  document.getElementById('debrief').classList.add('active');
+
+  const isLast = phaseIndex >= PHASES.length - 1;
+  document.getElementById('next-phase-btn').textContent = isLast
+    ? 'Finish Section 1 →'
+    : 'Continue to next phase →';
+}
+
+/* Completion is the three phases. A written-answer requirement lived here from
+   2026-08-14 to 2026-08-17 and was removed: gating on a character count cannot
+   tell reasoning from keystrokes, so what it produced was keystrokes. */
+var phasesDone = false;
+function maybeComplete(){
+  if (!phasesDone) return;
+  modalReturnFocus = document.activeElement;
+  document.getElementById('completion-modal').classList.add('active');
+  document.querySelector('#completion-modal .modal').focus();
+}
+
+function recordNotebook(text) {
+  const now = new Date();
+  const ts = now.toLocaleTimeString();
+  notebookEntries.push({ ts, text, at: now });
+  const el = document.getElementById('notebook-entries');
+  el.innerHTML = notebookEntries
+    .map(e => `<div class="notebook-entry"><b>${e.ts}</b> · ${e.text}</div>`)
+    .join('');
+  const dl = document.getElementById('download-notebook');
+  if (dl) dl.disabled = false;
+}
+
+// =========================================================
+//  Notebook export, added 2026-08-13
+//  --------------------------------------------------------
+//  The completion modal used to say "take a screenshot and bring it to office
+//  hours". Superseded 2026-08-13 (Justin): the notebook is NOT collected and is
+//  not brought anywhere. It is the student's own record of what they did, kept
+//  for their reference. Keep the framing neutral: do not tell the student to
+//  submit, hand in, or bring it, and do not tie it to assessment.
+//
+//  Deliberately client-side only: a Blob and an object URL, no network call of
+//  any kind. With a single identified student on this course, silently posting
+//  progress to a server would be surveillance rather than analytics, so the
+//  student chooses what to hand over and the hint text says so plainly.
+//
+//  The elapsed-time line is computed from the first and last notebook entry, so
+//  it measures time spent working rather than time with the tab open.
+// =========================================================
+
+
+function buildNotebookText() {
+  const now = new Date();
+  const lines = [];
+  lines.push('Molecular Techniques: Interactive Bioinformatics Module');
+  lines.push('Section 1: Sequence alignment by hand');
+  lines.push('');
+  lines.push('Student: ______________________________');
+  lines.push('Downloaded: ' + now.toLocaleDateString() + ', ' + now.toLocaleTimeString());
+
+  if (notebookEntries.length > 0) {
+    const first = notebookEntries[0].at;
+    const last = notebookEntries[notebookEntries.length - 1].at;
+    const mins = Math.max(1, Math.round((last - first) / 60000));
+    lines.push('Time working: about ' + mins + ' min (first entry '
+      + notebookEntries[0].ts + ', last entry '
+      + notebookEntries[notebookEntries.length - 1].ts + ')');
+  }
+  lines.push('Entries: ' + notebookEntries.length);
+  lines.push('');
+  lines.push('----------------------------------------------------------------');
+  if (notebookEntries.length === 0) {
+    lines.push('(no entries yet)');
+  } else {
+    notebookEntries.forEach(e => lines.push(e.ts + '  ' + e.text));
+  }
+  lines.push('----------------------------------------------------------------');
+  lines.push('');
+  lines.push('');
+  lines.push('Written by the module in your browser. Nothing was sent anywhere.');
+  return lines.join('\n');
+}
+
+function downloadNotebook() {
+  const now = new Date();
+  const stamp = now.getFullYear() + '-'
+    + String(now.getMonth() + 1).padStart(2, '0') + '-'
+    + String(now.getDate()).padStart(2, '0');
+  const blob = new Blob([buildNotebookText()], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'section1_lab_notebook_' + stamp + '.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Release the object URL on the next tick so the click has been handled.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function revealOptimal() {
+  const phase = PHASES[phaseIndex];
+  readPosition = phase.optimalPosition;
+  // Phase 3 is deliberately revealed one inference at a time: first the best
+  // gapless position, then (after the student enters step 2) the gap itself.
+  if (phase.allowGaps && gapStep === 2) {
+    readChars = phase.read.split('');
+    readChars.splice(phase.gapAt, 0, '-');
+  }
+  const what = phase.allowGaps && gapStep === 1
+    ? 'best gapless position'
+    : 'optimal alignment';
+  recordNotebook(`Phase ${phaseIndex + 1}: revealed ${what} at position ${phase.optimalPosition}.`);
+  renderRead();
+  updateScore();
+}
+
+// =========================================================
+//  Controls
+// =========================================================
+
+function bindControls() {
+  document.getElementById('left-btn').addEventListener('click', () => moveRead(-1));
+  document.getElementById('right-btn').addEventListener('click', () => moveRead(1));
+  document.getElementById('gap-btn').addEventListener('click', insertGap);
+  document.getElementById('step2-btn').addEventListener('click', enterGapStep2);
+  document.getElementById('reveal-btn').addEventListener('click', revealOptimal);
+  document.getElementById('next-phase-btn').addEventListener('click', () => {
+    const next = phaseIndex + 1;
+    if (next >= PHASES.length) {
+      phasesDone = true;
+      maybeComplete();
+    } else {
+      loadPhase(next);
+    }
+  });
+  document.getElementById('download-notebook').addEventListener('click', downloadNotebook);
+  document.getElementById('download-notebook-modal').addEventListener('click', downloadNotebook);
+
+  document.getElementById('close-modal').addEventListener('click', () => {
+    document.getElementById('completion-modal').classList.remove('active');
+    if (modalReturnFocus && typeof modalReturnFocus.focus === 'function') modalReturnFocus.focus();
+  });
+  document.getElementById('completion-modal').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') document.getElementById('close-modal').click();
+  });
+
+  // Keyboard navigation while the read itself has focus.
+  const readEl = document.getElementById('read');
+  readEl.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft')  { moveRead(-1); e.preventDefault(); }
+    if (e.key === 'ArrowRight') { moveRead(1);  e.preventDefault(); }
+  });
+
+  // ...and while nothing else has claimed focus, which is the state the page
+  // loads in. The 2026-07-31 accessibility pass scoped this handler to the read
+  // so that arrow keys stayed available for scrolling and for other controls.
+  // That was right for the controls and wrong for the page as a whole: a mouse
+  // user had to click or drag the read before the keyboard did anything, which
+  // is not how it behaved before. The guard below restores the old feel without
+  // taking the arrow keys back off anything that wants them. It fires only when
+  // focus is on <body>, so the gap tiles in step two, the horizontally
+  // scrolling reference track, the buttons and the completion dialog all keep
+  // their own arrow-key behaviour untouched.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const a = document.activeElement;
+    if (a && a !== document.body && a !== document.documentElement) return;
+    const modal = document.getElementById('completion-modal');
+    if (modal && modal.classList.contains('active')) return;
+    moveRead(e.key === 'ArrowRight' ? 1 : -1);
+    e.preventDefault();
+  });
+
+  // Drag the read
+  let dragState = null;
+  readEl.addEventListener('mousedown', (e) => {
+    // Step 2 locks the read and uses tile clicks to place/remove gaps, no dragging.
+    // (In Step 1 there are no tile click handlers, so dragging from a tile works fine.)
+    if (PHASES[phaseIndex].allowGaps && gapStep === 2) return;
+    dragState = { startX: e.clientX, startPos: readPosition };
+    readEl.classList.add('dragging');
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragState) return;
+    const dx = e.clientX - dragState.startX;
+    const newPos = dragState.startPos + Math.round(dx / 24);
+    if (newPos !== readPosition) {
+      const phase = PHASES[phaseIndex];
+      const maxPos = REFERENCE.length - readChars.length;
+      const nextPosition = Math.max(0, Math.min(maxPos, newPos));
+      if (nextPosition !== readPosition) {
+        readPosition = nextPosition;
+        attemptsTried++;
+        renderRead();
+        updateScore();
+      }
+    }
+  });
+  window.addEventListener('mouseup', () => {
+    if (dragState) {
+      readEl.classList.remove('dragging');
+      dragState = null;
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Section 8: A New Assay</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#1a2332; --panel-2:#243042;
+    --text:#e6edf3; --text-dim:#8f98a1; --accent:#58a6ff;
+    --accent-glow:rgba(88,166,255,0.25);
+    --good:#56d364; --bad:#f96760; --warn:#d29922; --gap:#9097a0;
+    --border:#30363d; --border-ctrl:#6c7989;
+    --mono:'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+    /* Sequential ramp for the one variable that has a magnitude rather than an
+       identity. One hue, five steps, dim to bright because the surface is dark.
+       Every step clears 3:1 against the panel and the ends separate by 32 in
+       OKLab, holding up under simulated protanopia. */
+    --seq1:#3d7ab5; --seq2:#4f93d2; --seq3:#66aae9; --seq4:#8cc4fa; --seq5:#bcdcff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    line-height:1.55;padding:26px 20px 120px}
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 5px;font-weight:600}
+  h2{font-size:16px;margin:28px 0 8px;color:var(--accent)}
+  h3{font-size:14px;margin:0 0 6px}
+  .breadcrumb{color:var(--text-dim);font-size:12px;margin-bottom:8px}
+  .breadcrumb b{color:var(--accent)}
+  .breadcrumb a{color:var(--text-dim);text-decoration:underline;text-underline-offset:2px}
+  .breadcrumb a:hover{color:var(--accent)}
+  .sub{color:var(--text-dim);font-size:14px;margin:0 0 6px}
+  .fine{font-size:11.5px;color:var(--text-dim);margin:8px 2px 0;line-height:1.5}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:16px 18px;margin:14px 0}
+  .prompt{background:var(--panel);border-left:3px solid var(--accent);
+    padding:14px 18px;border-radius:4px;margin:16px 0;font-size:15px}
+  .prompt b{color:var(--accent)}
+  small{color:var(--text-dim)}
+  code{background:var(--panel-2);padding:1px 5px;border-radius:4px;
+    font-family:var(--mono);font-size:.86em}
+
+  button{background:var(--panel-2);color:var(--text);border:1px solid var(--border-ctrl);
+    padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit}
+  button:hover{background:#2d3748;border-color:var(--accent)}
+  button[aria-pressed="true"]{background:var(--accent);color:#0d1117;
+    border-color:var(--accent);font-weight:600}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  button:disabled:hover{background:var(--panel-2);border-color:var(--border-ctrl)}
+  :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:3px}
+  button:focus-visible,summary:focus-visible,[tabindex]:focus-visible{
+    outline:3px solid var(--accent);outline-offset:2px}
+  .picker{display:flex;gap:9px;flex-wrap:wrap;margin:8px 0}
+
+  /* The three questions the whole module has been asking. */
+  .qgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));
+    gap:10px;margin-top:10px}
+  .qcard{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:12px 14px}
+  .qcard .qn{font-size:11px;color:var(--text-dim);text-transform:uppercase;
+    letter-spacing:.06em;margin-bottom:4px}
+  .qcard .qq{font-size:14px;font-weight:600;color:var(--accent);margin-bottom:6px}
+  .qcard .qa{font-size:12.5px;color:var(--text-dim)}
+
+  /* The read, taken apart. */
+  .readstrip{font-family:var(--mono);font-size:12.5px;word-break:break-all;line-height:2;
+    background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+  .readstrip .rlbl{display:block;font-size:10px;color:var(--text-dim);letter-spacing:.06em;
+    text-transform:uppercase;margin:8px 0 2px;font-family:inherit}
+  .readstrip .rlbl:first-child{margin-top:0}
+  /* Each part is marked by an underline as well as a colour, so the boundaries
+     survive greyscale and colour blindness. */
+  .pc{border-bottom:2px solid currentColor;padding-bottom:1px}
+  .pc-idx{color:var(--warn)}
+  .pc-bc{color:var(--accent)}
+  .pc-umi{color:var(--good)}
+  .pc-cdna{color:var(--text)}
+  .decoded{display:grid;gap:8px;margin-top:12px}
+  .decoded>div{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:12px;
+    background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:9px 12px;font-size:13px}
+  .decoded b{color:var(--accent)}
+  .decoded span{color:var(--text-dim)}
+  .decoded code{font-size:12px}
+
+  .tiles{display:flex;gap:12px;flex-wrap:wrap;margin:2px 0 6px}
+  .tile{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:10px 14px;min-width:140px}
+  .tile .k{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em}
+  .tile .v{font-size:22px;font-weight:600;margin-top:2px}
+  .tile.hero .v{color:var(--accent)}
+
+  .chartwrap{margin-top:12px}
+  .dot{fill:var(--accent);opacity:.62}
+  .dot.drop{fill:var(--gap);opacity:.28}
+  .axis{stroke:var(--border-ctrl);stroke-width:1}
+  .thresh{stroke:var(--warn);stroke-width:1.5;stroke-dasharray:4 3}
+  .axtext{fill:var(--text-dim);font-size:10px;font-family:var(--mono)}
+  .axname{fill:var(--text-dim);font-size:11px}
+  .ulab{fill:var(--text);font-size:11px;font-weight:600;paint-order:stroke;
+    stroke:var(--bg);stroke-width:3px;stroke-linejoin:round}
+
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 0;font-size:12px;
+    color:var(--text-dim);align-items:center}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .swatch{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .rampbar{display:inline-flex;height:11px;border-radius:3px;overflow:hidden}
+  .rampbar i{width:20px;height:11px;display:block}
+
+  .readout{margin-top:12px;padding:12px 15px;border-radius:6px;background:var(--panel-2);
+    border-left:3px solid var(--accent);font-size:13.5px;line-height:1.6}
+  .readout.alarm{border-left-color:var(--warn)}
+  .readout b{color:var(--text)}
+  .spine{margin-top:14px;padding:13px 16px;border-radius:6px;background:var(--panel-2);
+    border-left:3px solid var(--good);font-size:13.5px;line-height:1.6}
+  .spine b{color:var(--text)}
+
+  .tvscroll{overflow-x:auto;margin-top:8px}
+  table.tv{width:100%;min-width:480px;border-collapse:collapse;font-size:12px}
+  table.tv th,table.tv td{text-align:left;padding:5px 9px;border-bottom:1px solid var(--border)}
+  table.tv th{color:var(--text-dim);font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+  table.tv td.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  table.tv tr:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+
+  details{margin:8px 0;border:1px solid var(--border);border-radius:8px;background:var(--panel-2)}
+  details>summary{cursor:pointer;padding:9px 12px;color:var(--accent);font-size:13px;list-style:none}
+  details>summary::-webkit-details-marker{display:none}
+  details>summary::before{content:'▸ ';color:var(--text-dim)}
+  details[open]>summary::before{content:'▾ '}
+  details .body{padding:2px 14px 12px;font-size:13px;color:var(--text-dim)}
+  details .body p{margin:0 0 8px}
+  details .body p:last-child{margin-bottom:0}
+
+  .nb{max-width:1000px;margin:18px auto 0;background:var(--panel);
+    border:1px solid var(--border);border-radius:10px;padding:13px 16px}
+  .nb-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .nb h3{margin:0;font-size:14px;color:var(--accent)}
+  .nb-dl{font-size:12px;padding:6px 11px}
+  .nb-dl-hint{font-size:11px;color:var(--text-dim);margin:4px 0 0}
+  .progress-cue{font-size:12px;color:var(--text-dim);margin:8px 0 0}
+  .nb ul{list-style:none;margin:8px 0 0;padding:0;max-height:190px;overflow:auto}
+  .nb li{font-size:12px;color:var(--text-dim);padding:3px 0;border-bottom:1px solid var(--border);
+    font-family:var(--mono)}
+  .nb li.empty{color:var(--text-dim);font-style:italic;font-family:inherit}
+
+  .section-done{background:var(--panel);border:1px solid var(--accent);border-radius:8px;
+    padding:18px 22px;margin-top:22px;display:none}
+  .section-done.show{display:block}
+  .section-done h3{color:var(--accent);font-size:16px;margin:0 0 8px}
+  .section-done p{margin:0 0 10px;font-size:14px;line-height:1.6}
+  .section-done p:last-child{margin-bottom:0}
+  .section-done .nb-aside{color:var(--text-dim);font-size:12px}
+
+  .footer-note{margin-top:28px;padding-top:14px;border-top:1px solid var(--border);
+    font-size:11px;color:var(--text-dim);text-align:center}
+
+  @media (max-width:700px){
+    body{padding:14px 10px 90px}
+    h1{font-size:18px}
+    .tile{min-width:44%}
+    .decoded>div{grid-template-columns:1fr;gap:2px}
+    .picker button{flex:1 1 auto}
+  }
+
+  /* Foot navigation, added 2026-08-17. Real links, so keyboard and
+     right-click-open-in-new-tab both work without any scripting. */
+  .sectnav{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;
+    margin:26px 0 0;padding-top:18px;border-top:1px solid var(--border)}
+  .sectnav a{flex:1 1 220px;display:block;text-decoration:none;color:inherit;
+    background:var(--panel,#1a2332);border:1px solid var(--border);border-radius:8px;
+    padding:11px 14px;font-size:13px}
+  .sectnav a:hover{border-color:var(--accent);background:var(--panel-2,#243042)}
+  .sectnav a .k{display:block;font-size:11px;color:var(--text-dim);
+    text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+  .sectnav a .t{font-weight:600}
+  .sectnav a:hover .t{text-decoration:underline}
+  .sectnav a.home{flex:0 1 auto;text-align:center;display:flex;align-items:center;
+    justify-content:center;color:var(--text-dim)}
+  .sectnav a.home:hover{color:var(--accent)}
+  @media (max-width:700px){ .sectnav a{flex:1 1 100%} }
+  /* The course spine, added 2026-08-17. Justin: "we are building up from the
+     simplest thing a bioinformatician can do - match a set of letters to
+     another... bioinformatics is matching a sets of letters to another,
+     usually at scale and interpreting those results!"
+     Every section states its own match in the same place, in the same words,
+     so the argument is visible from inside any one of them. */
+  .spinebar{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;
+    margin:14px 0 6px;padding:10px 14px;border-radius:6px;
+    background:var(--panel-2);border-left:3px solid var(--good);font-size:13.5px}
+  .spinebar .k{font-size:10.5px;color:var(--text-dim);text-transform:uppercase;
+    letter-spacing:.07em;white-space:nowrap}
+  .spinebar .v{color:var(--text)}
+  /* The pipeline as a chain, stated once at the opening of the last section.
+     Justin: "at the beginning we can make this explicit that this is a summary
+     of what we have done before: Taking raw data (reads) -> mapping them ->
+     further processing (calling variants / counting) -> QC -> Analysis". With
+     the correction he made in the same message: quality control is a gate at
+     every junction, not one box near the end. */
+  .chain{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));
+    gap:10px;margin-top:12px}
+  .step{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:11px 13px;position:relative}
+  .step .n{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em}
+  .step .h{font-size:13.5px;font-weight:600;color:var(--accent);margin:3px 0 4px}
+  .step .d{font-size:12px;color:var(--text-dim)}
+  .step .s{display:block;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);
+    font-size:11.5px;color:var(--text);font-family:var(--mono)}
+  .gatebar{margin-top:10px;padding:10px 14px;border-radius:6px;background:var(--panel-2);
+    border-left:3px solid var(--warn);font-size:13px;color:var(--text-dim)}
+  .gatebar b{color:var(--text)}
+  /* File names and CIGAR strings are single unbreakable tokens, and one of them
+     pushed the page 39px wide at 320 CSS px. SC 1.4.10. (2026-08-17 audit.) */
+  code{overflow-wrap:anywhere;word-break:break-word}
+  .fourq{margin:8px 0 10px 22px;padding:0;font-size:14px;line-height:1.7}
+  .decide{margin:16px 0 0;border:1px solid var(--border-ctrl);border-radius:8px;
+          padding:10px 14px 14px;background:var(--panel-2)}
+  .decide legend{font-size:13px;font-weight:600;padding:0 6px}
+  .decide-opts{display:flex;flex-wrap:wrap;gap:8px}
+  .decide-fb{margin-top:10px;font-size:13px;line-height:1.6;color:var(--text-dim)}
+  .dq{font-size:14px;margin:4px 0 10px}
+  .d8[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}
+  button code{background:transparent;color:inherit;padding:0}
+  .milestones{list-style:none;margin:4px 0 10px;padding:0;font-size:11px;line-height:1.6;
+              color:var(--text-dim);font-family:var(--mono);
+              overflow-wrap:anywhere;word-break:break-word}
+  .milestones li{margin-bottom:2px}
+  /* The milestone list lives inside .nb, and `.nb ul` caps its height and turns
+     on overflow for the notebook log. That made the milestone list a scrollable
+     region with no keyboard access at 320px as soon as it grew past the cap:
+     axe caught it in Section 8 on 2026-08-19 at seven milestones. `.nb ul` has
+     higher specificity than `.milestones`, so undoing it needs both classes. */
+  .nb ul.milestones{max-height:none;overflow:visible}
+  .milestones li.got{color:var(--good)}
+  .chartwrap{overflow-x:auto}
+  .chartwrap svg{min-width:560px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 8 of 8</b> · A new assay</div>
+  <h1>The same questions, on an assay you have not met</h1>
+  <p class="sub"><b>This is not a lesson in single-cell RNA-seq.</b> It is a test of whether the
+  habits from the course transfer to an assay nobody has taught you.</p>
+  <p class="sub"><small>Simulated cells, built to behave like a droplet experiment on human monocytes
+  and lymphocytes. The read structure, the barcode and UMI lengths, and the sources quoted are
+  real.</small></p>
+
+  <div class="prompt">
+    In Section 1 you were told to come back to four questions whenever a workflow turned into a black
+    box. Here they are again, unchanged:
+    <ol class="fourq">
+      <li>What observation is being compared?</li>
+      <li>What is the reference?</li>
+      <li>How is agreement scored?</li>
+      <li>What happens when no answer, or several answers, fit?</li>
+    </ol>
+    Seven sections later you can add a second layer, because the questions above stop at the point
+    where a read gets a coordinate, and every claim you have made since then came from somewhere after
+    that: <b>how did those assignments become measurements, and how did those measurements become a
+    biological claim?</b>
+    <br><br>
+    Below is the chain those questions sit on, and then the same chain run forward on single-cell
+    RNA-seq, which is the examination material rather than the subject. Three questions carry it:
+    <b>what is being matched, does the data deserve to be believed, and what does the answer mean.</b>
+    Each is Section 1's four questions asked at a different boundary.
+  </div>
+
+  <div class="panel">
+    <div class="qgrid">
+      <div class="qcard">
+        <div class="qn">Where the four questions live</div>
+        <div class="qq">Observations become assignments</div>
+        <div class="qa">Sections 1 to 4. A read against a reference, a query against a database, an
+        index against a sample sheet. Section 1's four questions are exactly the questions to ask at
+        this boundary, and the fourth one, about no answer or several, is the one people skip.</div>
+      </div>
+      <div class="qcard">
+        <div class="qn">The layer added since</div>
+        <div class="qq">Assignments become measurements</div>
+        <div class="qa">Sections 4, 6 and 7. Counting variants, counting reads in peaks, counting reads
+        in genes. This is where a set of coordinates turns into a table of numbers, and where quality
+        control decides what is allowed into it.</div>
+      </div>
+      <div class="qcard">
+        <div class="qn">And the layer after that</div>
+        <div class="qq">Measurements become claims</div>
+        <div class="qa">Sections 5, 6 and 7. A shortlist you can defend, a design that can estimate the
+        effect you care about, and the discipline of asking what else would produce this figure.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="spinebar"><span class="k">The match in this section</span><span class="v">A cell barcode against a whitelist, a UMI against the other UMIs, and cDNA against the genome. Three lists and one reference, for every read.</span></div>
+  <h2>First, what you have actually been doing</h2>
+  <p class="sub">Seven sections is enough to have lost the shape of it. Here it is in one line, and
+  every section you have worked through is one box on it.</p>
+
+  <div class="panel">
+    <div class="chain">
+      <div class="step">
+        <div class="n">Step one</div>
+        <div class="h">Raw data</div>
+        <div class="d">Reads come off the machine, with adapters, barcodes and quality scores
+        attached. Nothing has been compared to anything yet.</div>
+        <span class="s">Sections 3, 4</span>
+      </div>
+      <div class="step">
+        <div class="n">Step two</div>
+        <div class="h">Map them</div>
+        <div class="d">Match every read against a reference and record where it went, and how well.
+        This is the operation the whole module is built on.</div>
+        <span class="s">Sections 1, 2, 4</span>
+      </div>
+      <div class="step">
+        <div class="n">Step three</div>
+        <div class="h">Turn positions into measurements</div>
+        <div class="d">Call variants, count reads per gene, or call peaks. The output stops being
+        sequence and becomes a table of numbers.</div>
+        <span class="s">Sections 4, 6, 7</span>
+      </div>
+      <div class="step">
+        <div class="n">Step four</div>
+        <div class="h">Interpret</div>
+        <div class="d">Filter a variant list, test which genes changed, ask what the changed ones have
+        in common, and decide what you are willing to claim.</div>
+        <span class="s">Sections 5, 7</span>
+      </div>
+    </div>
+
+    <div class="gatebar">
+      <b>And quality control is not a fifth box.</b> It sits between every pair of them: on the raw
+      reads, after mapping, and after the counting or calling, each gate catching something the one
+      before it could not see. Section 6 set that out. It is the part people draw as a single step and
+      then wonder why a problem surfaced three stages downstream.
+    </div>
+
+    <div class="spine">
+      <b>Every assay you meet from now on is a version of that chain.</b> What changes between them is
+      what the reads are made of, what a measurement is called at step three, and which analyses step
+      four supports. What does not change is that reads get matched to something, that the matching
+      has to be checked before it is used, and that the result means less than it appears to. The rest
+      of this section runs the chain forward on an assay nobody has taught you.
+    </div>
+  </div>
+
+  <h2>Question one: what is being matched?</h2>
+  <p class="sub">A droplet experiment <b>aims</b> to put one cell and one barcoded bead into each of
+  many thousands of partitions. It does not manage it every time: most partitions end up with no cell
+  in them at all, and a minority get two. Every transcript captured in a partition picks up that bead's
+  barcode, so after sequencing you can tell which reads came from <b>the same partition</b>. Whether
+  that partition held one intact cell is a different question, and it is question two. Here is what one
+  read pair actually looks like.</p>
+
+  <div class="panel">
+    <div class="readstrip" id="read-strip"></div>
+    <div style="margin-top:12px">
+      <button type="button" id="btn-decode">Take the read apart</button>
+    </div>
+    <div class="decoded" id="decoded" style="display:none"></div>
+    <div class="readout" id="decode-readout" role="status" aria-live="polite" style="display:none"></div>
+
+    <details>
+      <summary>The numbers, and which chemistry they belong to</summary>
+      <div class="body">
+        <p>10x Genomics Single Cell 3' chemistry puts the cell barcode and the UMI in Read 1 and the
+        cDNA in Read 2. The bead oligo runs: a Read 1 primer, then the barcode, then the UMI, then an
+        anchored poly-dT that captures polyadenylated transcripts. Because priming starts at the polyA
+        tail, <b>the sequence you get is the 3' end of the transcript</b>, not the whole thing.</p>
+        <p>The lengths depend on the version, and quoting the wrong one is a common error. <b>v2</b> used
+        a 16 base barcode and a <b>10</b> base UMI, read in 26 cycles. <b>v3, v3.1 and GEM-X v4</b> use a
+        16 base barcode and a <b>12</b> base UMI, read in 28 cycles. The original 2017 paper describes a
+        <b>14</b> base barcode with a 10 base UMI, which belongs to <b>a superseded chemistry</b>, and is
+        nonetheless what gets cited. Superseded is not the same as gone: those datasets are public and
+        still get reanalysed, so the number matters the moment you open somebody else's FASTQ.</p>
+        <p>This section uses 16 and 12. <b>The eight base sample index above is not part of that
+        structure.</b> It is Section 3's index, reused so the demultiplexing you have already done stays
+        visible on the same read. A real v3.1 dual index library is sequenced as 28 cycles of Read 1,
+        <b>ten</b> cycles of i7 and <b>ten</b> of i5, and 90 cycles of Read 2: two indexes, both ten
+        bases, and neither of them eight.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Those matches are error tolerant, not exact</summary>
+      <div class="body">
+        <p>Saying a barcode is <i>matched against a list</i> makes it sound like string equality. It is
+        not. Cell Ranger first counts how often every barcode on the inclusion list appears in the data.
+        For an observed barcode that is <i>not</i> on the list but sits one base away from one that is,
+        it computes the posterior probability that the difference is a sequencing error, using the base
+        quality score at the mismatching position. If that probability exceeds <b>0.975</b> the observed
+        barcode is replaced by the list barcode. The corrected sequence is written to the
+        <code>CB</code> tag of the BAM and the original is kept in <code>CR</code>.</p>
+        <p>UMIs get the same treatment inside each barcode and gene group: two UMIs one base apart are
+        taken to be one molecule that picked up a sequencing error, and the one with less read support
+        is corrected to the more common one.</p>
+        <p>This is Section 2's scoring and Section 4's mapping quality applied to a sixteen base string.
+        A near miss is evidence about the true answer rather than a failure to match. Every one of those
+        corrections is a decision made on your behalf, and each has a threshold in it.</p>
+      </div>
+    </details>
+
+    <div class="spine">
+      <b>Count the matching operations on that one read.</b> The sample index against a sample sheet.
+      The cell barcode against a list of valid barcodes. The UMI against the other UMIs on the same
+      gene in the same partition. And the cDNA against the genome. <b>Four matches, three of which are a
+      short string against a list</b>, exactly what you did by hand in Section 1 and by index in
+      Section 3, and like those, none of the three is a plain equality test: a near miss gets scored,
+      and may get corrected. The fourth is the alignment from Section 4, with the splicing from
+      Section 7.
+      Single-cell RNA-seq did not introduce a new operation. It introduced two more barcodes.
+    </div>
+  </div>
+
+  <h2>From reads to a measurement</h2>
+  <p class="sub">Step three of the chain, and the stage this section would be dishonest to skip. Below
+  are six reads that all carry the cell barcode you just decoded. Turning them into a measurement is
+  one operation, and at this scale you can do it by eye.</p>
+
+  <div class="panel">
+    <div class="tvscroll" id="umi-scroll" tabindex="0" role="group"
+         aria-label="Six reads sharing one cell barcode. Scrolls sideways on a narrow screen.">
+      <table class="tv" id="umi-table">
+        <caption class="fine">Six reads from one partition. The gene comes from aligning Read 2. The UMI
+        comes from Read 1, and read one below is the read you took apart.</caption>
+        <thead><tr><th>Read</th><th>Cell barcode</th><th>UMI</th><th>Read 2 aligns to</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <fieldset class="decide" id="matrix-pick">
+      <legend>How many LYZ molecules did this partition contain?</legend>
+      <p class="dq">Four of the six reads aligned to <code>LYZ</code>. Decide what that is worth as a
+      measurement before you look.</p>
+      <div class="decide-opts" id="matrix-opts" role="group" aria-label="Molecule count for LYZ">
+        <button type="button" class="d8" data-m="four" aria-pressed="false">4</button>
+        <button type="button" class="d8" data-m="two" aria-pressed="false">2</button>
+        <button type="button" class="d8" data-m="one" aria-pressed="false">1</button>
+        <button type="button" class="d8" data-m="none" aria-pressed="false">Not knowable from this</button>
+      </div>
+      <div class="decide-fb" id="matrix-fb" role="status" aria-live="polite">Pick one. Every answer here
+      is one somebody has defended out loud.</div>
+    </fieldset>
+
+    <div id="matrix-out" style="display:none">
+      <h3 style="margin-top:16px">One column of the count matrix</h3>
+      <div class="tvscroll" id="mx-scroll" tabindex="0" role="group"
+           aria-label="One column of the count matrix. Scrolls sideways on a narrow screen.">
+        <table class="tv" id="mx-table">
+          <caption class="fine">What those six reads become. In a real run this column has roughly
+          twenty thousand rows.</caption>
+          <thead><tr><th>Feature</th><th>Molecules in this barcode</th><th>Reads behind it</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="readout" id="matrix-readout"></div>
+      <div class="spine" id="matrix-spine"></div>
+    </div>
+  </div>
+
+  <h2>Question two: does the data deserve to be believed?</h2>
+  <p class="sub">In Section 6 you asked that of twenty four libraries, one at a time. You still have to.
+  A sample with a failed library is still a failed library, and it is excluded the same way. <b>But now
+  there is a second level below it</b>, because a droplet is not a guarantee that a cell was in it.</p>
+
+  <div class="panel">
+    <div class="tiles">
+      <div class="tile hero"><div class="k">Barcodes called</div><div class="v" id="t-total">0</div></div>
+      <div class="tile"><div class="k">Kept</div><div class="v" id="t-kept">0</div></div>
+      <div class="tile"><div class="k">Removed</div><div class="v" id="t-drop">0</div></div>
+    </div>
+    <p style="font-size:14px;margin:10px 0 4px">Three plausible-looking sets of thresholds. None of
+    them is defensible until you have looked at what it removes. <b>Try all three, then commit to one
+    below.</b></p>
+    <div class="picker" id="qc-picker" role="group" aria-label="Quality control thresholds"></div>
+
+    <div class="chartwrap" tabindex="0" role="group"
+         aria-label="Cell quality plot. Scrolls sideways on a narrow screen.">
+      <svg id="qc-plot" width="100%" viewBox="0 0 900 380" role="img"
+           preserveAspectRatio="xMidYMid meet" aria-label="Cell quality plot"><title>Cell quality plot</title></svg>
+    </div>
+    <p class="fine">Each point is one barcode. Horizontal axis: how many genes were detected in it.
+    Vertical axis: what percentage of its counts came from mitochondrial genes. Dashed lines are the
+    thresholds currently applied; dimmed points are the barcodes they would remove.</p>
+    <div class="readout" id="qc-readout" role="status" aria-live="polite"></div>
+
+    <fieldset class="decide" id="qc-pick">
+      <legend>Commit to one, and name the error you are accepting</legend>
+      <p class="dq">Look at all three first. There is no answer here that costs nothing, and the whole
+      skill is being able to say out loud which cost you took.</p>
+      <div class="decide-opts" id="qc-opts" role="group" aria-label="Threshold rule you would defend">
+        <button type="button" class="d8" data-q="permissive" aria-pressed="false">Permissive, and I accept keeping artefacts</button>
+        <button type="button" class="d8" data-q="conventional" aria-pressed="false">Conventional, and I accept losing some real cells</button>
+        <button type="button" class="d8" data-q="strict" aria-pressed="false">Strict, and I accept losing a population</button>
+      </div>
+      <div class="decide-fb" id="qc-fb" role="status" aria-live="polite">Pick the one you would write
+      into a methods section, then read what it did.</div>
+    </fieldset>
+
+    <details>
+      <summary>Table view: what each threshold costs, population by population</summary>
+      <div class="body">
+        <div class="tvscroll" tabindex="0" role="group"
+             aria-label="What each threshold costs, population by population. Scrolls sideways on a narrow screen.">
+          <table class="tv"><thead><tr>
+          <th scope="col">Population</th><th scope="col">Barcodes</th><th scope="col">Kept</th>
+          <th scope="col">Removed</th><th scope="col">Median genes</th><th scope="col">Median % mito</th>
+        </tr></thead><tbody id="qc-rows"></tbody></table>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Why a high mitochondrial fraction means something different here</summary>
+      <div class="body">
+        <p>In Section 6 the mitochondrial fraction was a property of a library, and it told you about
+        the protocol. In a single cell it is a property of a cell, and a high value <b>can be</b>
+        consistent with a damaged or dying one: the plasma membrane broke, cytoplasmic messenger RNA
+        leaked out, and what is left is disproportionately the transcripts held inside mitochondria.
+        Luecken and Theis describe these as "cells whose cytoplasmic mRNA has leaked out through a
+        broken membrane, and thus, only mRNA located in the mitochondria is still conserved".</p>
+        <p><b>Can be, not is.</b> A high mitochondrial fraction is also ordinary biology in cells doing
+        a lot of respiration, and what counts as ordinary varies by species, tissue, cell type, state
+        and protocol. Osorio and Cai measured it systematically across human and mouse tissues and
+        found proportions running from 0.17% to 14.64%; nearly a third of the 44 human tissues they
+        examined exceeded 5%, which is why they propose 10% for human data and 5% for mouse rather than
+        one number for everything. Look again at the strict rule on the plot above: its 5% ceiling is
+        the threshold they argue against for human tissue. Their conclusion is that "omitting the
+        mtDNA% QC filter or adopting a suboptimal mtDNA% threshold may lead to erroneous biological
+        interpretations of scRNA-seq data".</p>
+        <p>So treat the number as <b>evidence to investigate alongside the others</b>, not as an
+        instruction to delete a cell. What makes the middle group on the map safe to call damaged is not
+        its mitochondrial fraction on its own; it is that several independent indicators agree, and you
+        can check two of them in the table above. It has the fewest genes detected of any group and by
+        a wide margin the highest mitochondrial fraction. One of those is a hint. Both of them pointing
+        the same way, in cells that also carry the fewest molecules, is a finding.</p>
+        <p><b>Same number, different meaning, different action.</b> In Section 6 you responded by
+        changing protocol or accepting the loss of depth. Here the response is to look harder at those
+        cells, and often to remove them. Notice that you cannot tell which meaning applies without
+        knowing what the number is a property of.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Two failures with no equivalent in a bulk experiment</summary>
+      <div class="body">
+        <p><b>Ambient RNA.</b> Cells that lysed before they were encapsulated leave their messages
+        floating in the input suspension, and that soup is loaded into every droplet. So every barcode
+        receives a background of transcripts from cells it is not. The effect is not subtle and not
+        rare: the authors of SoupX note that it "is recognized that these contaminating non-endogenous
+        RNAs are present even within datasets of the highest quality", and that it "may significantly
+        confound the biological interpretation". You will see T cell markers in your monocytes. They are
+        not there.</p>
+        <p><b>Doublets.</b> Two cells in one droplet share a barcode and are reported as one cell with a
+        hybrid transcriptome. The DoubletFinder authors put the danger precisely: doublets "may be
+        interpreted as previously-undescribed cell types, developmental intermediates, or disease
+        states". A doublet of a monocyte and a T cell is a beautiful, publishable, non-existent
+        intermediate. The column you built earlier carried two LYZ molecules and two CD3D molecules in
+        one barcode, which are markers of exactly those two lineages. At four molecules that is noise.
+        The same pattern at four hundred molecules is this question, and you would have no way to tell
+        it from a real hybrid cell by looking at the column.</p>
+        <p>Both can be estimated or mitigated computationally, by tools such as SoupX or CellBender for
+        ambient RNA and Scrublet or DoubletFinder for doublets. <b>Both are already in the count
+        matrix</b>, which is the difficulty: ambient transcripts are counted as though they belonged to
+        the barcode that caught them, and a doublet's two cells are added together into a single
+        column. What the matrix does not contain is a <b>label</b> saying which counts are ambient or
+        which barcodes hold more than one cell. Those tools estimate that label. None of them recovers
+        ground truth, and every one of them has a threshold in it.</p>
+      </div>
+    </details>
+  </div>
+
+  <h2>Question three: what does the answer mean?</h2>
+  <h3 style="margin-top:14px">First, what is n?</h3>
+  <p class="sub">Section 7 gave you a design formula and made you choose one. Everything in that
+  discussion is waiting to be used here, and the first thing it asks is what your replicates are. Get
+  this wrong and every p value downstream is decoration.</p>
+
+  <div class="panel">
+    <fieldset class="decide" id="n-pick">
+      <legend>What is the replication?</legend>
+      <p class="dq">The barcodes you have been filtering are <b><span id="n-cells">0</span> cells</b>
+      from <b><span id="n-samples">0</span> samples</b>. Suppose those two samples were one treated
+      donor and one untreated donor, and you want to know which genes responded to the treatment.</p>
+      <div class="decide-opts" id="n-opts" role="group" aria-label="Experimental replication">
+        <button type="button" class="d8" data-n="cells" aria-pressed="false">n is the number of cells</button>
+        <button type="button" class="d8" data-n="samples" aria-pressed="false">n is the number of samples</button>
+        <button type="button" class="d8" data-n="none" aria-pressed="false">The condition is not replicated at all</button>
+      </div>
+      <div class="decide-fb" id="n-fb" role="status" aria-live="polite">Pick one. Two of these are
+      defended in print regularly.</div>
+    </fieldset>
+    <div class="spine" id="n-spine" style="display:none"></div>
+  </div>
+
+  <h3 style="margin-top:22px">And then, what the picture is for</h3>
+  <p class="sub">With the experimental unit settled, an assay that measures thousands of cells
+  separately supports questions bulk RNA-seq cannot ask, and those questions come with machinery of
+  their own.</p>
+
+  <div class="panel">
+    <p style="font-size:14px;margin:0 0 8px">The standard first move is to squeeze each cell's few
+    thousand measurements down to two numbers so they can be drawn, using <b>UMAP</b> or
+    <b>t-SNE</b>. Cells that look alike land near each other, and groups become visible.
+    <b>Colour the same plot four different ways</b> and see how much the colouring decides.</p>
+    <p class="fine" style="margin-bottom:8px"><b>What this particular picture is.</b> It is a
+    <b>schematic cell map</b>, not a UMAP. The coordinates below were drawn around six chosen centres;
+    no count matrix, no principal components, no neighbour graph and no clustering were computed to
+    make it. That is a deliberate choice, because this section is a test of interpretation rather than
+    a single-cell tutorial, and everything the exercise is about survives it. It does mean the shapes
+    here are not evidence of anything: the claims below about what such plots can and cannot support
+    are about real embeddings, and are cited.</p>
+    <div class="picker" id="umap-picker" role="group" aria-label="Colour the plot by"></div>
+
+    <div class="chartwrap" tabindex="0" role="group"
+         aria-label="Schematic cell map. Scrolls sideways on a narrow screen.">
+      <svg id="umap" width="100%" viewBox="0 0 900 470" role="img"
+           preserveAspectRatio="xMidYMid meet" aria-label="Schematic cell map"><title>Schematic cell map</title></svg>
+    </div>
+    <div class="legend" id="umap-legend"></div>
+    <div class="readout" id="umap-readout" role="status" aria-live="polite"></div>
+
+    <details>
+      <summary>What you are allowed to read off this picture, and what you are not</summary>
+      <div class="body">
+        <p>You may use a picture like this to inspect how a chosen representation has organised the
+        cells, and to overlay metadata or a quality metric on it, which is exactly what the four
+        buttons above do. That is its job.</p>
+        <p><b>You may not treat islands, distances, areas, densities or apparent trajectories as
+        measurements.</b> A two dimensional embedding can manufacture apparent islands and tear real
+        continua apart, so even "there are discrete groups here" is a claim to be checked in the
+        underlying data and for stability across analysis choices, not read off the picture.</p>
+        <p><b>You may not read distances between groups, and you may not read group sizes.</b> Both are
+        artefacts of the layout, not measurements. Wattenberg and colleagues put both in section
+        headings: "Cluster sizes in a t-SNE plot mean nothing" and "Distances between clusters might not
+        mean anything". A cluster drawn twice as far away is not twice as different, and a cluster drawn
+        twice as large does not contain twice as many cells, or twice as much variation.</p>
+        <p>Chari and Pachter go further, and are worth taking seriously before you put one of these in a
+        paper: reducing "hundreds or thousands of dimensions to 2 inevitably induces significant
+        distortion", and their measurements found the two-dimensional embedding disagreed with the real
+        neighbours of a cell most of the time. Their recommendation is that such plots "should be
+        treated more as cartoon diagrams to be displayed post-analysis".</p>
+        <p>Which is a reasonable description of what it is for. It is a way of showing somebody the
+        structure you found by other means. It is not the evidence.</p>
+      </div>
+    </details>
+  </div>
+
+  <h2>The last question: what do you ask next time?</h2>
+  <p class="sub">Tomorrow somebody hands you data from a sequencing assay you have never met, with a
+  headline plot already drawn. <b>Before believing it, what do you need to identify?</b> Choose
+  everything you would insist on. Four of these will not help you, and they are the four that feel
+  most like rigour.</p>
+
+  <div class="panel">
+    <div class="picker" id="check-opts" role="group" aria-label="Things you would insist on identifying"></div>
+    <div style="margin-top:10px">
+      <button type="button" id="btn-check">Build my checklist</button>
+    </div>
+    <div class="decide-fb" id="check-fb" role="status" aria-live="polite">Nothing selected yet.</div>
+    <div id="check-out" style="display:none">
+      <h3 style="margin-top:16px">Your checklist, and where each line came from</h3>
+      <ol class="fourq" id="check-list"></ol>
+      <div class="spine" id="check-spine"></div>
+    </div>
+  </div>
+
+  <div class="nb" id="nb">
+    <div class="nb-head">
+      <h3>🗒 Lab notebook</h3>
+      <button type="button" id="download-notebook" class="nb-dl" disabled
+              aria-describedby="nb-dl-hint">⤓ Download notebook</button>
+    </div>
+    <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 4 steps done</p>
+    <ul class="milestones" id="milestone-list8" aria-label="Steps in this section"></ul>
+    <div role="log" aria-live="polite" aria-label="Lab notebook entries">
+      <ul id="nbList" tabindex="0"><li class="empty">Your observations will appear here.</li></ul>
+    </div>
+  </div>
+
+  <!-- Deliberately NOT role="status". The earlier version announced five
+       paragraphs of prose the moment the last gate closed. The brief live
+       message is the progress cue in the notebook block; this is the
+       conclusion, and it is ordinary content. -->
+  <div class="section-done" id="section-done">
+    <h3>✓ You have finished Section 8, and the module.</h3>
+    <p>You began by placing twelve letters against a reference, where you could see every base you were
+    judging. Everything since has been the same operation at a scale that removed your ability to look:
+    six species at once, then a million reads, then a genome, then five million variants, then twenty
+    four libraries, then twenty thousand genes, and finally a few thousand cells you judged without
+    opening one of them. <b>What changed was how far you were from the letters, and what you therefore
+    had to take on trust.</b></p>
+    <p>The scale changed. The obligation did not. Find where observations became assignments, where
+    assignments became measurements, and where measurements became claims, and at every one of those
+    boundaries ask what was assumed, what was discarded, and whether that choice could change the
+    biological answer.</p>
+    <p>Nobody taught you this assay. You worked out what was being matched to what, you turned reads
+    into a measurement by hand, you decided what the data was worth and said what that cost, you named
+    the experimental unit, and you found the thing the plot was hiding. <b>The tools will change. That
+    transfers.</b></p>
+    <p class="nb-aside">Your lab notebook holds what you did across this section, including the
+    checklist you built. Download it if you want to keep it.</p>
+  </div>
+
+
+<nav class="sectnav" aria-label="Section navigation">
+  <a class="nav-prev" href="Section%207%20-%20Functional%20genomics%20and%20analysis.html"><span class="k">Previous</span><span class="t">7. Functional genomics and analysis</span></a>
+  <a class="home" href="index.html">All sections</a>
+  
+</nav>
+
+  <p class="footer-note">Prototype · Section 8 of the Molecular Techniques Interactive Bioinformatics
+  Module · 2026/27 cycle · simulated cells, real read structure</p>
+</div>
+
+<script>
+"use strict";
+
+var nbLog = [];
+var decoded = false;
+var qcTried = {};
+var sawMito = false;
+
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function gauss(r){ var u = 1 - r(), v = r(); return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v); }
+
+/* ------------------------------------------------------------------ *
+ * 1. One read pair, taken apart.
+ *
+ * Lengths are 10x Single Cell 3' v3 / v3.1 / GEM-X v4: a 16 base cell
+ * barcode and a 12 base UMI, which together are the 28 cycles of Read 1.
+ * v2 used a 10 base UMI and the 2017 paper describes a 14 base barcode
+ * from a superseded chemistry whose datasets are still public and still
+ * reanalysed; both are quoted constantly, which is why the numbers are
+ * named on the page rather than left implied. The eight base sample index
+ * is Section 3's, reused for continuity, and the page says so: a real
+ * v3.1 dual index run is 28 / 10 / 10 / 90 cycles.
+ * ------------------------------------------------------------------ */
+var BC_LEN = 16, UMI_LEN = 12, IDX_LEN = 8;
+var SAMPLE_INDEX = 'TCCGGAGA';                    // the same sheet as Section 3
+var CELL_BARCODE = 'GTCACGGAGTTACCTG';
+var UMI          = 'ACGGTTAGCTCA';
+var CDNA = 'GGCTGGAGCCACTGGCAAGGTCCTGAATGTGACAGCCCTGGACAAGTACCTGGAGCTGAAGGCAGGCTAA'
+         + 'GTCACCTGGGACAGT';
+var SAMPLE_NAME = 'monocyte, LPS 2 h';
+
+function drawRead(){
+  document.getElementById('read-strip').innerHTML =
+      '<span class="rlbl">Index read, ' + IDX_LEN + ' bases</span>'
+    + '<span class="pc pc-idx">' + SAMPLE_INDEX + '</span>'
+    + '<span class="rlbl">Read 1, ' + (BC_LEN + UMI_LEN) + ' bases</span>'
+    + '<span class="pc pc-bc">' + CELL_BARCODE + '</span>'
+    + '<span class="pc pc-umi">' + UMI + '</span>'
+    + '<span class="rlbl">Read 2, ' + CDNA.length + ' bases</span>'
+    + '<span class="pc pc-cdna">' + CDNA + '</span>';
+}
+
+function decodeRead(){
+  var host = document.getElementById('decoded');
+  host.style.display = 'grid';
+  host.innerHTML =
+      '<div><b>' + SAMPLE_INDEX + '</b><span>The sample index, matched against the sample sheet: '
+    + '<b>' + SAMPLE_NAME + '</b>. This is Section 3, unchanged.</span></div>'
+    + '<div><b>' + CELL_BARCODE + '</b><span>The cell barcode, ' + BC_LEN + ' bases, matched against '
+    + 'the inclusion list of barcodes the beads were made with. Every read carrying it came from '
+    + '<b>the same partition</b>. Whether that partition held one intact cell, no cell, or two is not '
+    + 'something a barcode can tell you.</span></div>'
+    + '<div><b>' + UMI + '</b><span>The unique molecular identifier, ' + UMI_LEN + ' bases, attached '
+    + 'before any amplification. Reads sharing a cell barcode, a UMI and a gene are copies of '
+    + '<b>one original molecule</b> and are counted once.</span></div>'
+    + '<div><b>Read 2</b><span>The actual transcript sequence, ' + CDNA.length + ' bases, aligned to '
+    + 'the genome to find <b>which gene</b>. Because capture starts at the polyA tail, this is the '
+    + '3′ end of the transcript rather than a random piece of it.</span></div>';
+
+  document.getElementById('decode-readout').style.display = 'block';
+  document.getElementById('decode-readout').innerHTML =
+      'That single read pair answers four questions: <b>which sample, which cell, which molecule, '
+    + 'which gene.</b> Three of the four are answered by comparing a short string against a list of '
+    + 'strings. Only the fourth needs a genome.'
+    + '<br><br>The UMI is the one with no equivalent in anything you have done so far, and it is worth '
+    + 'a sentence. PCR copies a molecule an unknown number of times, so counting reads counts '
+    + 'amplification as much as biology. Attaching a random label to each molecule <i>before</i> '
+    + 'amplification means you can collapse the copies afterwards and estimate molecules instead. '
+    + '<b>It reduces amplification bias. It does not fix capture</b>: a transcript that was never '
+    + 'caught in the partition is absent, and no label can recover it. And the labels themselves are '
+    + 'not exact. Two molecules of the same gene can draw the same random UMI and be collapsed into '
+    + 'one; a sequencing error inside a UMI can split one molecule into two. Pipelines correct the '
+    + 'second and cannot see the first.';
+
+  if (!decoded){
+    decoded = true;
+    nb('Took a single-cell read apart: sample index, ' + BC_LEN + ' base cell barcode, '
+       + UMI_LEN + ' base UMI, and ' + CDNA.length + ' bases of cDNA.');
+    updateProgress();
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * 1b. Reads become a measurement.
+ *
+ * Six reads on one barcode. Four align to LYZ, three of them carrying
+ * the UMI of the read decoded above; two align to CD3D. Collapsing by
+ * UMI gives LYZ 2 and CD3D 2, which is one column of the count matrix.
+ *
+ * The counts below are COMPUTED from UMI_READS rather than written out,
+ * so the page cannot end up disagreeing with its own example. The three
+ * distinct UMIs are deliberately many bases apart: Cell Ranger merges
+ * UMIs that differ by one base within a barcode and gene, so an example
+ * built from near neighbours would be an example of error correction
+ * rather than of deduplication. check_section8 asserts that distance.
+ * ------------------------------------------------------------------ */
+var UMI_READS = [
+  { r:1, umi:UMI,            gene:'LYZ'  },
+  { r:2, umi:UMI,            gene:'LYZ'  },
+  { r:3, umi:UMI,            gene:'LYZ'  },
+  { r:4, umi:'TTGCAACCGATG', gene:'LYZ'  },
+  { r:5, umi:'GACCTTGGAACT', gene:'CD3D' },
+  { r:6, umi:'CCATGAGTTCAG', gene:'CD3D' }
+];
+var MX_ZEROS = ['MS4A1', 'NKG7', 'HBB'];
+
+function collapseUmis(reads){
+  var byGene = {}, order = [];
+  reads.forEach(function(x){
+    if (!byGene[x.gene]){ byGene[x.gene] = { umis:{}, reads:0 }; order.push(x.gene); }
+    byGene[x.gene].umis[x.umi] = true;
+    byGene[x.gene].reads += 1;
+  });
+  return order.map(function(g){
+    return { gene:g, molecules:Object.keys(byGene[g].umis).length, reads:byGene[g].reads };
+  });
+}
+
+function drawUmiTable(){
+  var body = document.querySelector('#umi-table tbody');
+  body.innerHTML = UMI_READS.map(function(x){
+    return '<tr><td>read ' + x.r + '</td><td class="mono">' + CELL_BARCODE + '</td>'
+         + '<td class="mono">' + x.umi + '</td><td class="mono">' + x.gene + '</td></tr>';
+  }).join('');
+}
+
+var MATRIX_VERDICT = {
+  four: '<b>That is the read count, and it is the number PCR handed you.</b> Three of those four reads '
+      + 'carry an identical UMI, which was attached to a single molecule before any amplification, so '
+      + 'they are three photocopies of one observation. Counting reads counts how many times the '
+      + 'polymerase happened to copy something. The UMI exists precisely so that you do not have to '
+      + 'report this number.',
+  two:  '<b>This is the number the pipeline reports, and it is the one to work with.</b> Two distinct '
+      + 'UMIs on LYZ in this barcode means two captured molecules; the three identical ones collapse '
+      + 'to one. Keep the word estimate attached to it, for the reason in the last option.',
+  one:  '<b>Too far.</b> Collapsing every read on a gene to one throws away the thing the UMI was '
+      + 'invented to preserve: two different labels mean two different original molecules. Counting '
+      + 'one per gene per cell would turn a measurement back into a yes or no, which is roughly what '
+      + 'you are stuck with when there are no UMIs at all.',
+  none: '<b>Closer to the truth than it looks, and still not the working answer.</b> Two distinct UMIs '
+      + 'is the best estimate available and it is what goes in the matrix. What you cannot tell is '
+      + 'whether two molecules drew the same random label and were collapsed into one, or whether a '
+      + 'sequencing error inside a UMI split one molecule into two. Pipelines correct the second, '
+      + 'cannot see the first, and report a number either way. Use the 2, and remember what it is.'
+};
+var matrixPicked = null;
+
+function showMatrix(){
+  var rows = collapseUmis(UMI_READS);
+  var body = document.querySelector('#mx-table tbody');
+  body.innerHTML = rows.map(function(r){
+    return '<tr><td class="mono">' + r.gene + '</td><td class="mono"><b>' + r.molecules
+         + '</b></td><td class="mono">' + r.reads + '</td></tr>';
+  }).join('') + MX_ZEROS.map(function(g){
+    return '<tr><td class="mono">' + g + '</td><td class="mono">0</td><td class="mono">0</td></tr>';
+  }).join('') + '<tr><td colspan="3" class="fine">and roughly twenty thousand more rows, nearly all '
+    + 'of them zero</td></tr>';
+
+  document.getElementById('matrix-readout').innerHTML =
+      '<b>This matrix is the point where sequence becomes measurement.</b> Rows are features, columns '
+    + 'are cell-associated barcodes, and the entries estimate captured molecules. Everything downstream '
+    + 'starts from this table: the quality control below, the map, the labels on the map, and any '
+    + 'comparison between conditions. All of it is arithmetic on this.'
+    + '<br><br><b>Two things about the zeros.</b> Most of a real column is zeros, because most genes '
+    + 'are not detected in most cells, and a zero here means <i>no molecule was counted</i>, which is '
+    + 'not the same as the gene being off. And notice that this partition has '
+    + rows[0].molecules + ' LYZ molecules and ' + rows[1].molecules + ' CD3D molecules, which are '
+    + 'markers of two different lineages. From four molecules you can conclude nothing at all. Hold '
+    + 'the observation. It comes back when you ask what was actually in the droplet.';
+
+  document.getElementById('matrix-spine').innerHTML =
+      '<b>You have met this stage three times already under other names.</b> Section 4 turned '
+    + 'alignments into genotypes. Section 6 turned alignments into reads in peaks. Section 7 turned '
+    + 'alignments into counts per gene. Step three of the chain is always the same move: stop looking '
+    + 'at sequence, start looking at a number, and carry forward everything that got decided on the '
+    + 'way. What is specific to this assay is only that the columns are barcodes rather than samples.';
+
+  document.getElementById('matrix-out').style.display = 'block';
+}
+
+function wireMatrixPick(){
+  var opts = document.querySelectorAll('#matrix-opts .d8');
+  [].forEach.call(opts, function(btn){
+    btn.onclick = function(){
+      [].forEach.call(opts, function(b){ b.setAttribute('aria-pressed', String(b === btn)); });
+      document.getElementById('matrix-fb').innerHTML = MATRIX_VERDICT[btn.dataset.m];
+      showMatrix();
+      if (!matrixPicked){
+        matrixPicked = btn.dataset.m;
+        nb('Collapsed ' + UMI_READS.length + ' reads into a count matrix column: '
+           + collapseUmis(UMI_READS).map(function(r){
+               return r.gene + ' ' + r.molecules + ' molecules from ' + r.reads + ' reads';
+             }).join(', ') + '.');
+      }
+      updateProgress();
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * 2. The cells.
+ *
+ * Six populations. Five are real cell types; the sixth is the one that
+ * matters pedagogically, a population of damaged cells with few genes and
+ * a high mitochondrial fraction. It is placed BETWEEN the real clusters,
+ * because that is where low-complexity barcodes tend to land and because
+ * it is exactly where somebody hoping for a transitional state will read
+ * one. CD16 monocytes are given a genuinely lower gene count, because
+ * they are a real, small, low-complexity population, and a strict
+ * threshold therefore deletes real biology rather than only debris.
+ * ------------------------------------------------------------------ */
+var POPS = [
+  { name:'CD14 monocytes', n:300, cx:-2.6, cy: 1.4, sd:0.55, genes:2400, gsd:520, mito:5.0, msd:1.6, lyz:0.92 },
+  { name:'CD16 monocytes', n: 95, cx:-1.2, cy: 3.0, sd:0.40, genes: 950, gsd:230, mito:6.5, msd:1.9, lyz:0.71 },
+  { name:'T cells',        n:380, cx: 2.6, cy: 0.7, sd:0.60, genes:1700, gsd:420, mito:4.4, msd:1.5, lyz:0.05 },
+  { name:'NK cells',       n:120, cx: 2.9, cy:-2.3, sd:0.45, genes:1900, gsd:430, mito:4.8, msd:1.6, lyz:0.06 },
+  { name:'B cells',        n:150, cx:-1.0, cy:-2.6, sd:0.48, genes:1600, gsd:380, mito:4.2, msd:1.4, lyz:0.08 },
+  { name:'Damaged cells',  n:110, cx: 0.4, cy:-0.9, sd:0.40, genes: 430, gsd:150, mito:41,  msd:9.0, lyz:0.30 }
+];
+var CELLS = [];
+/* Derived rather than written as 5, so that reordering POPS cannot silently
+   turn "damaged" into "B cells" in three different cost calculations. */
+var DAMAGED_POP = POPS.map(function(p){ return p.name; }).indexOf('Damaged cells');
+
+function buildCells(){
+  var r = mulberry32(20260818);
+  CELLS = [];
+  POPS.forEach(function(p, pi){
+    for (var i = 0; i < p.n; i++){
+      var genes = Math.max(90, Math.round(p.genes + gauss(r) * p.gsd));
+      var mito = Math.max(0.4, Math.min(85, p.mito + gauss(r) * p.msd));
+      CELLS.push({
+        pop: pi,
+        popName: p.name,
+        x: p.cx + gauss(r) * p.sd,
+        y: p.cy + gauss(r) * p.sd,
+        genes: genes,
+        umis: Math.round(genes * (1.9 + r() * 1.5)),
+        mito: mito,
+        lyz: Math.max(0, Math.min(1, p.lyz + gauss(r) * 0.13)),
+        sample: r() < 0.5 ? 0 : 1
+      });
+    }
+  });
+  document.getElementById('t-total').textContent = String(CELLS.length);
+  var nc = document.getElementById('n-cells');
+  if (nc) nc.textContent = CELLS.length.toLocaleString();
+  var ns = document.getElementById('n-samples');
+  if (ns) ns.textContent = String(sampleSizes().length);
+}
+
+/* How many cells came from each simulated sample. Used by the replication
+   question, which must not state a number the simulation does not produce. */
+function sampleSizes(){
+  var counts = {};
+  CELLS.forEach(function(c){ counts[c.sample] = (counts[c.sample] || 0) + 1; });
+  return Object.keys(counts).sort().map(function(k){ return counts[k]; });
+}
+
+/* What a set of thresholds actually costs, computed from the cells rather
+   than from memory. Every number the QC prose quotes comes through here. */
+function costOf(set){
+  var keep = function(c){ return c.genes >= set.minGenes && c.mito <= set.maxMito; };
+  var damaged = CELLS.filter(function(c){ return c.pop === DAMAGED_POP; });
+  var real = CELLS.filter(function(c){ return c.pop !== DAMAGED_POP; });
+  var lostByPop = [];
+  POPS.forEach(function(p, pi){
+    if (pi === DAMAGED_POP) return;
+    var mine = CELLS.filter(function(c){ return c.pop === pi; });
+    var lost = mine.length - mine.filter(keep).length;
+    if (lost > 0) lostByPop.push({ name:p.name, lost:lost, of:mine.length });
+  });
+  lostByPop.sort(function(a, b){ return (b.lost / b.of) - (a.lost / a.of); });
+  return {
+    kept: CELLS.filter(keep).length,
+    damagedKept: damaged.filter(keep).length,
+    damagedTotal: damaged.length,
+    realLost: real.length - real.filter(keep).length,
+    realTotal: real.length,
+    lostByPop: lostByPop
+  };
+}
+function lostList(c){
+  return c.lostByPop.map(function(x){
+    return x.lost + ' of the ' + x.of + ' ' + x.name;
+  }).join(', ');
+}
+
+/* Three defensible sets of thresholds. The middle one is what tutorials use,
+   and the page says so rather than calling it a standard, because there is no
+   standard: the best-practices tutorial says thresholds "should be set as
+   permissive as possible to avoid filtering out viable cell populations
+   unintentionally". */
+var QC_SETS = [
+  { id:'permissive',   label:'Permissive',   minGenes:100,  maxMito:50 },
+  { id:'conventional', label:'Conventional', minGenes:500,  maxMito:10 },
+  { id:'strict',       label:'Strict',       minGenes:1000, maxMito:5 }
+];
+var QC = QC_SETS[1];
+
+function keeps(c){ return c.genes >= QC.minGenes && c.mito <= QC.maxMito; }
+
+var QP = { W:900, H:380, L:58, R:18, T:16, B:46 };
+function drawQc(){
+  var plotW = QP.W - QP.L - QP.R, plotH = QP.H - QP.T - QP.B;
+  var XMAX = 3600, YMAX = 70;
+  var X = function(v){ return QP.L + Math.min(v, XMAX) / XMAX * plotW; };
+  var Y = function(v){ return QP.T + plotH - Math.min(v, YMAX) / YMAX * plotH; };
+  var g = '', kept = 0;
+
+  CELLS.forEach(function(c){
+    var k = keeps(c);
+    if (k) kept++;
+    g += '<circle class="dot' + (k ? '' : ' drop') + '" cx="' + X(c.genes).toFixed(1)
+      +  '" cy="' + Y(c.mito).toFixed(1) + '" r="2.2"></circle>';
+  });
+
+  g += '<line class="thresh" x1="' + X(QC.minGenes).toFixed(1) + '" y1="' + QP.T + '" x2="'
+    +  X(QC.minGenes).toFixed(1) + '" y2="' + (QP.T + plotH) + '"></line>';
+  g += '<line class="thresh" x1="' + QP.L + '" y1="' + Y(QC.maxMito).toFixed(1) + '" x2="'
+    +  (QP.W - QP.R) + '" y2="' + Y(QC.maxMito).toFixed(1) + '"></line>';
+
+  g += '<line class="axis" x1="' + QP.L + '" y1="' + (QP.T + plotH) + '" x2="' + (QP.W - QP.R)
+    +  '" y2="' + (QP.T + plotH) + '"></line>';
+  g += '<line class="axis" x1="' + QP.L + '" y1="' + QP.T + '" x2="' + QP.L + '" y2="'
+    +  (QP.T + plotH) + '"></line>';
+  [0, 1200, 2400, 3600].forEach(function(v){
+    g += '<text class="axtext" x="' + X(v).toFixed(1) + '" y="' + (QP.T + plotH + 15)
+      +  '" text-anchor="middle">' + v + '</text>';
+  });
+  [0, 20, 40, 60].forEach(function(v){
+    g += '<text class="axtext" x="' + (QP.L - 7) + '" y="' + (Y(v) + 3.5).toFixed(1)
+      +  '" text-anchor="end">' + v + '</text>';
+  });
+  g += '<text class="axname" x="' + (QP.L + plotW / 2) + '" y="' + (QP.H - 8)
+    +  '" text-anchor="middle">genes detected in this barcode</text>';
+  g += '<text class="axname" transform="translate(15,' + (QP.T + plotH / 2)
+    +  ') rotate(-90)" text-anchor="middle">percent mitochondrial</text>';
+
+  var dropped = CELLS.length - kept;
+  var desc = 'Quality plot of ' + CELLS.length + ' barcodes. Horizontal axis is the number of genes '
+    + 'detected, vertical axis is the percentage of counts from mitochondrial genes. Thresholds are '
+    + 'drawn at ' + QC.minGenes + ' genes and ' + QC.maxMito + ' percent mitochondrial. '
+    + kept + ' barcodes pass and ' + dropped + ' would be removed. Every population is counted in the '
+    + 'table view below the plot.';
+  var svg = document.getElementById('qc-plot');
+  svg.innerHTML = '<title>' + desc + '</title>' + g;
+  svg.setAttribute('aria-label', desc);
+
+  document.getElementById('t-kept').textContent = String(kept);
+  document.getElementById('t-drop').textContent = String(dropped);
+
+  var rows = '';
+  POPS.forEach(function(p, pi){
+    var mine = CELLS.filter(function(c){ return c.pop === pi; });
+    var k = mine.filter(keeps).length;
+    var med = function(arr){
+      var s = arr.slice().sort(function(a, b){ return a - b; });
+      return s[Math.floor(s.length / 2)];
+    };
+    rows += '<tr><td>' + p.name + '</td><td class="mono">' + mine.length
+      + '</td><td class="mono">' + k + '</td><td class="mono">' + (mine.length - k)
+      + '</td><td class="mono">' + med(mine.map(function(c){ return c.genes; }))
+      + '</td><td class="mono">' + med(mine.map(function(c){ return c.mito; })).toFixed(1)
+      + '</td></tr>';
+  });
+  document.getElementById('qc-rows').innerHTML = rows;
+
+  var c8 = costOf(QC);
+
+  var out = '<b>' + kept + ' of ' + CELLS.length + ' barcodes pass.</b> ';
+  if (QC.id === 'permissive'){
+    out += 'This is the "filter almost nothing now, decide later" position, and it is a real one: the '
+      + 'current best-practice guidance argues for exactly this, because a threshold applied early '
+      + 'cannot be undone. The cost is on the plot. <b>' + c8.damagedKept + ' of the '
+      + c8.damagedTotal + ' damaged barcodes survive</b>, and they will go on to cluster together and '
+      + 'present themselves as a cell population. Note that it is not quite the free option it looks: '
+      + 'it removes ' + (c8.damagedTotal - c8.damagedKept) + ' damaged barcodes and <b>'
+      + c8.realLost + '</b> of the ' + c8.realTotal + ' real cells, so what you have bought is every '
+      + 'real cell at the price of nearly every artefact.';
+  } else if (QC.id === 'conventional'){
+    out += 'This is roughly what tutorials use, and it does the obvious job: all '
+      + (c8.damagedTotal - c8.damagedKept) + ' of the ' + c8.damagedTotal + ' damaged barcodes are '
+      + 'gone. It is not free: it also removes ' + c8.realLost + ' real cells, ' + lostList(c8)
+      + '. Notice that it is not a standard. '
+      + 'The current best-practice guidance is explicit that thresholds "should be set as permissive as '
+      + 'possible to avoid filtering out viable cell populations unintentionally", and that a high '
+      + 'mitochondrial fraction can be real biology in cells doing a lot of respiration.';
+  } else {
+    out += 'Strict thresholds remove every damaged barcode, and then keep going. <b>' + c8.realLost
+      + ' of the ' + c8.realTotal + ' real cells go with them</b>: ' + lostList(c8) + '. The CD16 '
+      + 'monocytes take it worst, because they are small cells with genuinely fewer transcripts, but '
+      + 'read the rest of that list before you settle on the rare-cell-type moral. <b>Every population '
+      + 'is depleted, and not by the same fraction.</b> This is no longer quality control. It has '
+      + 'rewritten the composition of the sample, so any later sentence about how many T cells there '
+      + 'were relative to monocytes is a sentence about your threshold. Section 6 again, one level '
+      + 'down: a cut you believed was about quality turned out to be about biology.';
+  }
+  document.getElementById('qc-readout').innerHTML = out;
+  document.getElementById('qc-readout').className =
+    'readout' + (QC.id === 'strict' ? ' alarm' : '');
+}
+
+function buildQcPicker(){
+  var host = document.getElementById('qc-picker');
+  host.innerHTML = '';
+  QC_SETS.forEach(function(s){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = s.label + ': ' + s.minGenes + ' genes, ' + s.maxMito + '% mito';
+    b.setAttribute('aria-pressed', s.id === QC.id ? 'true' : 'false');
+    b.onclick = function(){
+      QC = s;
+      buildQcPicker();
+      drawQc();
+      if (!qcTried[s.id]){
+        qcTried[s.id] = true;
+        nb('Applied ' + s.label.toLowerCase() + ' thresholds (' + s.minGenes + ' genes, '
+           + s.maxMito + '% mito): kept ' + CELLS.filter(keeps).length + ' of ' + CELLS.length + '.');
+        updateProgress();
+      }
+    };
+    host.appendChild(b);
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * 3. The map.
+ *
+ * Four colourings, and each uses the encoding its variable deserves rather
+ * than the same one four times. Cluster identity is a NAME, so it is drawn
+ * as a name at the centroid and every point keeps one hue. Sample is two
+ * categories, so two hues. Mitochondrial fraction and gene expression are
+ * magnitudes, so a sequential ramp in a single hue, which is the only case
+ * where a colour scale is the honest encoding.
+ * ------------------------------------------------------------------ */
+var MODES = [
+  { id:'cluster', label:'Population' },
+  { id:'sample',  label:'Sample' },
+  { id:'mito',    label:'% mitochondrial' },
+  { id:'lyz',     label:'LYZ expression' }
+];
+var MODE = MODES[0];
+var RAMP = ['var(--seq1)', 'var(--seq2)', 'var(--seq3)', 'var(--seq4)', 'var(--seq5)'];
+
+var UP = { W:900, H:470, L:20, R:20, T:16, B:20 };
+/* This is a SCHEMATIC map, not a UMAP, and the page says so above the plot.
+   Coordinates come straight from POPS: a chosen centre per population plus
+   Gaussian scatter. No count matrix, no PCA, no neighbour graph, no
+   clustering. The function keeps the name drawUmap because every id and
+   test assertion in the file is built on it; the honesty lives in the copy
+   and in this comment rather than in a rename. */
+function drawUmap(){
+  var plotW = UP.W - UP.L - UP.R, plotH = UP.H - UP.T - UP.B;
+  var xs = CELLS.map(function(c){ return c.x; }), ys = CELLS.map(function(c){ return c.y; });
+  var x0 = Math.min.apply(null, xs) - 0.4, x1 = Math.max.apply(null, xs) + 0.4;
+  var y0 = Math.min.apply(null, ys) - 0.4, y1 = Math.max.apply(null, ys) + 0.4;
+  var X = function(v){ return UP.L + (v - x0) / (x1 - x0) * plotW; };
+  var Y = function(v){ return UP.T + plotH - (v - y0) / (y1 - y0) * plotH; };
+
+  var rampFor = function(v, lo, hi){
+    var t = Math.max(0, Math.min(0.999, (v - lo) / (hi - lo)));
+    return RAMP[Math.floor(t * RAMP.length)];
+  };
+  var fill = function(c){
+    if (MODE.id === 'sample') return c.sample === 0 ? 'var(--accent)' : 'var(--warn)';
+    if (MODE.id === 'mito')   return rampFor(c.mito, 2, 45);
+    if (MODE.id === 'lyz')    return rampFor(c.lyz, 0, 1);
+    return 'var(--accent)';
+  };
+
+  var g = '';
+  CELLS.forEach(function(c){
+    g += '<circle cx="' + X(c.x).toFixed(1) + '" cy="' + Y(c.y).toFixed(1)
+      +  '" r="2.6" fill="' + fill(c) + '" opacity="0.85"></circle>';
+  });
+
+  // Population names sit on the plot in every mode, because the groups are the
+  // thing being discussed and a legend would make identity depend on colour.
+  POPS.forEach(function(p, pi){
+    var mine = CELLS.filter(function(c){ return c.pop === pi; });
+    var mx = mine.reduce(function(a, c){ return a + c.x; }, 0) / mine.length;
+    var my = mine.reduce(function(a, c){ return a + c.y; }, 0) / mine.length;
+    // The damaged population is named only in the colouring that reveals it.
+    // Labelling it in every mode would hand over the answer to anyone who
+    // clicked "Sample" first, which is most people.
+    var label = (pi === DAMAGED_POP && MODE.id !== 'mito') ? '?' : p.name;
+    g += '<text class="ulab" x="' + X(mx).toFixed(1) + '" y="' + (Y(my) - 9).toFixed(1)
+      +  '" text-anchor="middle">' + label + '</text>';
+  });
+
+  var desc = 'A schematic two dimensional map of ' + CELLS.length + ' cells, coloured by ' + MODE.label
+    + '. Six groups are visible and each is labelled on the plot. '
+    + (MODE.id === 'mito'
+        ? 'The group in the middle that was unlabelled in the other colourings is the one with a high '
+          + 'mitochondrial fraction.'
+        : 'Distances between groups and the sizes of groups are artefacts of the layout and carry no '
+          + 'meaning.');
+  var svg = document.getElementById('umap');
+  svg.innerHTML = '<title>' + desc + '</title>' + g;
+  svg.setAttribute('aria-label', desc);
+
+  var leg = document.getElementById('umap-legend');
+  if (MODE.id === 'sample'){
+    leg.innerHTML = '<span><i class="swatch" style="background:var(--accent)"></i>Sample 1</span>'
+      + '<span><i class="swatch" style="background:var(--warn)"></i>Sample 2</span>';
+  } else if (MODE.id === 'mito' || MODE.id === 'lyz'){
+    var lo = MODE.id === 'mito' ? 'low' : 'not expressed';
+    var hi = MODE.id === 'mito' ? '45% and above' : 'high';
+    leg.innerHTML = '<span>' + lo + '</span><span class="rampbar">'
+      + RAMP.map(function(c){ return '<i style="background:' + c + '"></i>'; }).join('')
+      + '</span><span>' + hi + '</span>';
+  } else {
+    leg.innerHTML = '<span>One hue for every cell. Groups are named on the plot rather than '
+      + 'coloured, so nothing here depends on telling two colours apart.</span>';
+  }
+
+  var out;
+  if (MODE.id === 'cluster'){
+    out = 'Six groups, and you can name five of them from markers you already know. <b>The sixth, in '
+      + 'the middle, is the interesting one.</b> It sits between the others, which is exactly where you '
+      + 'would expect an intermediate state, a transitional population, or something nobody has '
+      + 'described. Papers have been written about groups in this position. Before writing one, colour '
+      + 'the plot by something other than the answer you are hoping for.';
+  } else if (MODE.id === 'sample'){
+    var mix = POPS.map(function(p, pi){
+      var mine = CELLS.filter(function(c){ return c.pop === pi; });
+      return mine.filter(function(c){ return c.sample === 0; }).length / mine.length;
+    });
+    var worst = Math.round(100 * Math.max.apply(null, mix.map(function(v){ return Math.abs(v - 0.5); })));
+    out = 'Both samples appear in every group, none of them further than ' + worst + ' percentage '
+      + 'points from an even split. <b>That is the result you want, and it is weaker evidence than it '
+      + 'feels.</b> Good mixing is consistent with there being no batch effect. It is not proof of one: '
+      + 'an effect that shifts both samples the same way, or that is smaller than the spread within a '
+      + 'group, mixes perfectly well on a picture like this.'
+      + '<br><br>The reverse reads badly too. If a group had come out almost entirely from one sample, '
+      + '<b>batch effect</b> is one candidate and not a verdict. Sample-specific technical processing, '
+      + 'a real difference between the two donors, the condition itself, and a difference in which '
+      + 'cells each sample contained all produce the same picture. It is a diagnostic clue that tells '
+      + 'you to go and find out which, and going to find out is Section 6 all over again.';
+  } else if (MODE.id === 'mito'){
+    var dam = CELLS.filter(function(c){ return c.pop === DAMAGED_POP; });
+    var med = dam.map(function(c){ return c.mito; }).sort(function(a, b){ return a - b; })[Math.floor(dam.length / 2)];
+    out = '<b>There it is.</b> The group in the middle is not a cell type. Its median mitochondrial '
+      + 'fraction is ' + med.toFixed(0) + '%, against roughly 5% everywhere else, and it has the fewest '
+      + 'genes detected of any group on the plot. These are cells whose membranes broke before they '
+      + 'were captured. They cluster together because <b>they resemble each other</b>, and they '
+      + 'resemble each other because they have all lost the same thing.'
+      + '<br><br>Nothing about the shape of the plot told you that. The clustering was perfectly happy '
+      + 'to call them a population, and the algorithm has no opinion about whether a group is biology.';
+    if (!sawMito){ sawMito = true; nb('Coloured the map by mitochondrial fraction: the unnamed middle group is damaged cells, median ' + med.toFixed(0) + '% mitochondrial.'); updateProgress(); }
+  } else {
+    out = 'Colouring by one gene is where naming a group starts. LYZ is expressed by monocytes and '
+      + 'not by lymphocytes, so it lights up two groups and leaves the rest dark. <b>That is evidence '
+      + 'of myeloid identity for those two, and it is not a label.</b> It says nothing whatever about '
+      + 'the three dark groups: absence of one marker does not distinguish a T cell from an NK cell '
+      + 'from a B cell, and you would need positive markers for each, negative markers to exclude the '
+      + 'others, reference data, and the biological context of the sample.'
+      + '<br><br>The names already written on this plot did not come from the plot. They are the '
+      + 'simulation\'s ground truth, which is a luxury real data does not offer. Doing it properly is '
+      + 'the annotation problem from Section 5 and the gene set problem from Section 7 wearing a '
+      + 'different hat, and it inherits both of their weaknesses: it can only recognise what somebody '
+      + 'has already written down, and a cell type nobody has characterised cannot be found this way.';
+  }
+  document.getElementById('umap-readout').innerHTML = out;
+  document.getElementById('umap-readout').className =
+    'readout' + (MODE.id === 'mito' ? ' alarm' : '');
+}
+
+function buildUmapPicker(){
+  var host = document.getElementById('umap-picker');
+  host.innerHTML = '';
+  MODES.forEach(function(m){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = m.label;
+    b.setAttribute('aria-pressed', m.id === MODE.id ? 'true' : 'false');
+    b.onclick = function(){ MODE = m; buildUmapPicker(); drawUmap(); };
+    host.appendChild(b);
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Committing to a threshold rule. The verdicts are built from costOf()
+ * at click time rather than written out, because the whole point of the
+ * exercise is that the student names a cost the page can prove.
+ * ------------------------------------------------------------------ */
+var qcPicked = null;
+function qcVerdict(id){
+  var set = QC_SETS.filter(function(q){ return q.id === id; })[0];
+  var c = costOf(set);
+  var head = '<b>' + set.label + ': ' + c.kept + ' barcodes kept, ' + (CELLS.length - c.kept)
+           + ' removed.</b> ';
+  if (id === 'permissive'){
+    return head + 'The error you accepted is <b>' + c.damagedKept + ' damaged barcodes left in the '
+      + 'data</b>. They have low complexity and a high mitochondrial fraction, they sit between the '
+      + 'real clusters on any embedding, and somebody looking for a transitional state will find one. '
+      + 'This is a defensible position provided you carry it forward: you have deferred the decision, '
+      + 'not avoided it, and you now owe every downstream cluster a check that it is not this.';
+  }
+  if (id === 'conventional'){
+    return head + 'The error you accepted is <b>' + c.realLost + ' real cells deleted</b> ('
+      + lostList(c) + ') in exchange for removing every damaged barcode. That is a small, specific, '
+      + 'statable price, which is what makes it defensible. It is defensible because you can say it, '
+      + 'not because the numbers are conventional.';
+  }
+  return head + 'The error you accepted is <b>' + c.realLost + ' of ' + c.realTotal + ' real cells '
+    + 'deleted</b>, unevenly (' + lostList(c) + '). Compare that with the conventional rule, which '
+    + 'removed the same ' + c.damagedTotal + ' damaged barcodes for ' + costOf(QC_SETS[1]).realLost
+    + ' real ones. You are paying roughly a hundred times as much to remove nothing extra. If your '
+    + 'question is about one abundant, robust population and you can show the answer does not move, '
+    + 'this can still be argued. If it involves composition, or a small population, or anything you '
+    + 'have not identified yet, this rule has already answered it for you.';
+}
+function wireQcPick(){
+  var opts = document.querySelectorAll('#qc-opts .d8');
+  [].forEach.call(opts, function(btn){
+    btn.onclick = function(){
+      [].forEach.call(opts, function(b){ b.setAttribute('aria-pressed', String(b === btn)); });
+      document.getElementById('qc-fb').innerHTML = qcVerdict(btn.dataset.q);
+      if (!qcPicked){
+        qcPicked = btn.dataset.q;
+        nb('Committed to the ' + btn.dataset.q + ' thresholds and named the cost.');
+      }
+      updateProgress();
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * What is n. The one thing in this section that is a straight transfer
+ * of Section 6 and Section 7 rather than a new idea, and the one most
+ * often got wrong in print.
+ * ------------------------------------------------------------------ */
+var N_VERDICT = {
+  cells: function(){
+    return '<b>This is the answer that gets published, and it is the one that manufactures results.</b> '
+      + 'The ' + CELLS.length.toLocaleString() + ' cells are not ' + CELLS.length.toLocaleString()
+      + ' independent draws from a condition. They are subsamples of two people, so they share '
+      + 'everything those two people share: genotype, the morning the blood was taken, how long it sat '
+      + 'before processing, which lane it ran on. Treat them as replicates and you measure variation '
+      + 'within a sample and report it as variation between conditions. Squair and colleagues put a '
+      + 'number on that: methods which ignore variation between biological replicates "can discover '
+      + 'hundreds of differentially expressed genes in the absence of biological differences".';
+  },
+  samples: function(){
+    var ss = sampleSizes();
+    return '<b>Right unit. Now finish the count.</b> The experimental unit is the biological sample, so '
+      + 'n is ' + ss.length + ' in total, and with one sample per condition it is <b>one per group</b>. '
+      + 'The ' + ss.join(' and ') + ' cells improve how well each of those two samples is measured. '
+      + 'They do not create a second donor.';
+  },
+  none: function(){
+    return '<b>Yes, and this is the uncomfortable version of the same answer.</b> With one sample in '
+      + 'each condition, the treatment effect and the difference between two people are the same '
+      + 'column of the design matrix. That is Section 6\'s B12 problem exactly, one assay later: you '
+      + 'cannot separate two things that vary together, and no number of cells is a substitute for a '
+      + 'second donor.';
+  }
+};
+var nPicked = null;
+function wireNPick(){
+  var opts = document.querySelectorAll('#n-opts .d8');
+  [].forEach.call(opts, function(btn){
+    btn.onclick = function(){
+      [].forEach.call(opts, function(b){ b.setAttribute('aria-pressed', String(b === btn)); });
+      document.getElementById('n-fb').innerHTML = N_VERDICT[btn.dataset.n]();
+      var spine = document.getElementById('n-spine');
+      spine.style.display = 'block';
+      spine.innerHTML =
+          '<b>What to do instead, and it is not one thing.</b> The common fix is <b>pseudobulk</b>: sum '
+        + 'or average the counts of each cell type within each biological sample, which turns the '
+        + 'matrix back into something Section 7 can handle, and hand that to the same negative binomial '
+        + 'machinery. Squair and colleagues found pseudobulk methods outperformed cell-level methods '
+        + 'across their benchmarks. Zimmerman and colleagues, who named the problem pseudoreplication, '
+        + 'prefer a <b>mixed model</b> with a random effect for donor, and found pseudobulk '
+        + '"conservative and underpowered relative to mixed models" when cell numbers are unbalanced. '
+        + 'The two papers disagree about the remedy and agree completely about the disease.'
+        + '<br><br><b>And about this particular dataset.</b> The two samples here were drawn from the '
+        + 'same distribution: there is no condition, no treatment and no effect to find. That is on '
+        + 'purpose. When you colour the map by sample in a moment, what you are looking at is what no '
+        + 'difference looks like.';
+      if (!nPicked){
+        nPicked = btn.dataset.n;
+        nb('Answered what n is: ' + btn.textContent.trim() + '.');
+      }
+      updateProgress();
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * The checklist, built by the student before the module states it.
+ *
+ * Eight items that transfer, and four decoys chosen to be the things
+ * that feel like rigour and license nothing: authority, appearance,
+ * size of result, and recency. Order below is hand-mixed rather than
+ * grouped, so the shape of the list does not give the answer away, and
+ * fixed rather than shuffled so the keyboard order is stable.
+ * ------------------------------------------------------------------ */
+var CHECK_ITEMS = [
+  { id:'obs',   need:true,  text:'What the raw observation physically is',
+    why:'Sections 1 and 3. A read is not data about a gene until you know what molecule was '
+      + 'sequenced and what was done to it before it reached the machine.' },
+  { id:'peer',  need:false, text:'Whether it was peer reviewed',
+    why:'Peer review is a filter on effort and plausibility, not a proof of an analysis. The '
+      + 'replication problem three panels above you was named in a paper that went looking for it in '
+      + 'published work and found it.' },
+  { id:'refs',  need:true,  text:'Every reference or list it was matched against',
+    why:'Sections 1, 2, 3, 4 and this one. A genome, a database, a sample sheet, a barcode '
+      + 'inclusion list. Each one silently decides what an answer is allowed to be.' },
+  { id:'clean', need:false, text:'Whether the groups look clean and well separated',
+    why:'A property of the layout algorithm and the colour scheme. You have just spent a section '
+      + 'watching a group of dying cells look like a beautiful, well separated population.' },
+  { id:'amb',   need:true,  text:'How ambiguous and failed matches were handled',
+    why:'Section 1\'s fourth question, Section 3\'s ambiguous barcodes, Section 4\'s reads that fit '
+      + 'in two places. The answers you never see are the ones that bite.' },
+  { id:'meas',  need:true,  text:'How matches became numbers',
+    why:'Sections 4, 6, 7 and 8. Genotypes, reads in peaks, counts per gene, molecules per cell. '
+      + 'This is the boundary where sequence stops and arithmetic starts, and it is the one most '
+      + 'often skipped.' },
+  { id:'many',  need:false, text:'How many genes came out significant',
+    why:'A long list is not a strong result. In Section 7 the most significant gene set on the page '
+      + 'was also the broadest and least informative one.' },
+  { id:'gates', need:true,  text:'What was removed at each quality gate',
+    why:'Section 6, and every threshold in this one. A gate that removes nothing is not working, '
+      + 'and a gate that removes a cell type has answered your question on your behalf.' },
+  { id:'ver',   need:false, text:'Whether the newest version of the software was used',
+    why:'Worth recording for reproducibility, and it licenses nothing. A current version of the '
+      + 'wrong analysis is still the wrong analysis.' },
+  { id:'unit',  need:true,  text:'What the biological experimental unit is',
+    why:'Sections 6 and 8. Batches that cannot be separated from treatment, and cells that are not '
+      + 'replicates of a donor.' },
+  { id:'model', need:true,  text:'The comparison or model that produced the claim',
+    why:'Section 7. Which design formula was fitted, what was held constant, what was tested, and '
+      + 'how the multiple testing was corrected.' },
+  { id:'alt',   need:true,  text:'What else could produce the same figure',
+    why:'Sections 5, 7 and 8. A tie in the evidence, an enrichment that is really gene set size, a '
+      + 'cluster that is really a way of dying.' }
+];
+var checkPicked = {};
+var checkBuilt = false;
+
+function buildCheckOpts(){
+  var host = document.getElementById('check-opts');
+  host.innerHTML = '';
+  CHECK_ITEMS.forEach(function(it){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'd8';
+    b.dataset.c = it.id;
+    b.setAttribute('aria-pressed', checkPicked[it.id] ? 'true' : 'false');
+    b.textContent = it.text;
+    b.onclick = function(){
+      checkPicked[it.id] = !checkPicked[it.id];
+      b.setAttribute('aria-pressed', checkPicked[it.id] ? 'true' : 'false');
+      var chosen = CHECK_ITEMS.filter(function(x){ return checkPicked[x.id]; }).length;
+      if (!checkBuilt){
+        document.getElementById('check-fb').textContent = chosen === 0
+          ? 'Nothing selected yet.'
+          : chosen + ' selected. Build the checklist when you are ready to be marked.';
+      }
+    };
+    host.appendChild(b);
+  });
+}
+
+function buildChecklist(){
+  var need = CHECK_ITEMS.filter(function(x){ return x.need; });
+  var got = need.filter(function(x){ return checkPicked[x.id]; });
+  var missed = need.filter(function(x){ return !checkPicked[x.id]; });
+  var decoys = CHECK_ITEMS.filter(function(x){ return !x.need && checkPicked[x.id]; });
+
+  var fb = '<b>' + got.length + ' of the ' + need.length + ' that transfer';
+  fb += decoys.length
+      ? ', and ' + decoys.length + (decoys.length === 1 ? ' that does not.</b> ' : ' that do not.</b> ')
+      : ', and none of the four decoys.</b> ';
+  if (!missed.length && !decoys.length){
+    fb += 'That is the whole list, and you built it rather than being handed it.';
+  } else {
+    if (missed.length){
+      fb += '<br><br><b>Left out:</b> ' + missed.map(function(x){
+        return x.text.toLowerCase();
+      }).join('; ') + '. Each of those is a boundary where a number can change without anybody lying.';
+    }
+    if (decoys.length){
+      fb += '<br><br>' + decoys.map(function(x){
+        return '<b>' + x.text + '.</b> ' + x.why;
+      }).join('<br><br>');
+    }
+  }
+  document.getElementById('check-fb').innerHTML = fb;
+
+  document.getElementById('check-list').innerHTML = need.map(function(x){
+    return '<li><b>' + x.text + '.</b> <span style="color:var(--text-dim)">' + x.why + '</span></li>';
+  }).join('');
+
+  document.getElementById('check-spine').innerHTML =
+      '<b>That is the whole course in eight lines.</b> Nothing in it is about single-cell RNA-seq, or '
+    + 'about any of the seven assays before it. Every line is a boundary: a place where one kind of '
+    + 'thing turned into another kind of thing and something got decided. Print it, keep it, and use '
+    + 'it on the next assay nobody teaches you.';
+
+  document.getElementById('check-out').style.display = 'block';
+  if (!checkBuilt){
+    checkBuilt = true;
+    nb('Built a checklist for an unfamiliar assay: ' + got.length + ' of ' + need.length
+       + ' transferable items, ' + decoys.length + ' decoys taken.');
+    updateProgress();
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Progress. Each gate is a piece of the argument rather than a view
+ * state, which is why collapsing the reads into a matrix counts and
+ * looking at a picture does not.
+ *
+ * There is deliberately no scrollIntoView on completion. The earlier
+ * version jumped the page about 4,100px to the conclusion the moment the
+ * third gate closed, which took the student past everything between.
+ * ------------------------------------------------------------------ */
+var MILESTONES8 = [
+  { key:'decode', text:'Took one unfamiliar read apart' },
+  { key:'matrix', text:'Collapsed reads into a count matrix column' },
+  { key:'qc',     text:'Tried all three sets of thresholds' },
+  { key:'qcpick', text:'Committed to a rule and named its cost' },
+  { key:'nunit',  text:'Said what n is' },
+  { key:'mito',   text:'Coloured the map by quality' },
+  { key:'check',  text:'Built a checklist for the next unfamiliar assay' }
+];
+function progressState(){
+  return {
+    decode: decoded,
+    matrix: !!matrixPicked,
+    qc:     Object.keys(qcTried).length >= QC_SETS.length,
+    qcpick: !!qcPicked,
+    nunit:  !!nPicked,
+    mito:   sawMito,
+    check:  checkBuilt
+  };
+}
+function updateProgress(){
+  var got = progressState();
+  var done = MILESTONES8.filter(function(m){ return got[m.key]; });
+  document.getElementById('progress-cue').textContent =
+    done.length === MILESTONES8.length
+      ? done.length + ' of ' + MILESTONES8.length + ' steps done. Section 8 is complete, and the '
+        + 'module with it. The conclusion is at the end of the page.'
+      : done.length + ' of ' + MILESTONES8.length + ' steps done';
+  var list = document.getElementById('milestone-list8');
+  if (list) list.innerHTML = MILESTONES8.map(function(m){
+    return '<li class="' + (got[m.key] ? 'got' : '') + '"><span aria-hidden="true">'
+      + (got[m.key] ? '\u2713' : '\u25cb') + '</span> ' + m.text + '</li>';
+  }).join('');
+
+  if (done.length === MILESTONES8.length){
+    var panel = document.getElementById('section-done');
+    if (panel && !panel.classList.contains('show')){
+      panel.classList.add('show');
+      nb('Section 8 complete.');
+    }
+  }
+}
+
+/* --- notebook --- */
+function nb(msg){
+  var list = document.getElementById('nbList');
+  var empty = list.querySelector('.empty'); if(empty) empty.remove();
+  var li = document.createElement('li'); li.textContent = msg; list.appendChild(li);
+  noteExport(msg);
+}
+function noteExport(msg){
+  var d = new Date();
+  nbLog.push({ ts:d.toLocaleTimeString(), at:d.getTime(), text:msg });
+  var b = document.getElementById('download-notebook');
+  if (b) b.disabled = nbLog.length === 0;
+}
+function buildNotebookText(){
+  var now = new Date(), L = [];
+  L.push('Molecular Techniques: Interactive Bioinformatics Module');
+  L.push('Section 8: A new assay, the same questions');
+  L.push('');
+  L.push('Student: ______________________________');
+  L.push('Downloaded: ' + now.toLocaleDateString() + ', ' + now.toLocaleTimeString());
+  L.push('Entries: ' + nbLog.length);
+  L.push('');
+  L.push('----------------------------------------------------------------');
+  if (nbLog.length === 0) L.push('(no entries yet)');
+  else nbLog.forEach(function(e){ L.push(e.ts + '  ' + e.text); });
+  if (checkBuilt){
+    L.push('');
+    L.push('----------------------------------------------------------------');
+    L.push('Before believing a plot from an assay you have never met, identify:');
+    CHECK_ITEMS.filter(function(x){ return x.need; }).forEach(function(x, i){
+      L.push('  ' + (i + 1) + '. ' + x.text);
+    });
+  }
+  L.push('');
+  L.push('');
+  L.push('Written by the module in your browser. Nothing was sent anywhere.');
+  return L.join('\n');
+}
+function downloadNotebook(){
+  var blob = new Blob([buildNotebookText()], {type:'text/plain'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'), d = new Date();
+  var stamp = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  a.href=url; a.download='section8_lab_notebook_'+stamp+'.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); },0);
+}
+
+drawRead();
+drawUmiTable();
+wireMatrixPick();
+buildCells();
+wireQcPick();
+wireNPick();
+buildCheckOpts();
+document.getElementById('btn-check').onclick = buildChecklist;
+buildQcPicker();
+drawQc();
+buildUmapPicker();
+drawUmap();
+qcTried[QC.id] = true;
+updateProgress();
+document.getElementById('btn-decode').onclick = function(){ decodeRead(); this.disabled = true; };
+document.getElementById('download-notebook').onclick = downloadNotebook;
+</script>
+</body>
+</html>
