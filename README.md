@@ -5,8 +5,9 @@ repeated operation: **matching one set of letters against another, at scale, and
 interpreting the result.** Built for GMIC605 Molecular Biology Techniques at
 Rosalind Franklin University of Medicine and Science.
 
-**[Open the module](index.html)** — or download the repository, keep the files
-together, and open `index.html` in any browser.
+**[Open the module](https://jpwhalley.github.io/bioinformatics-by-hand/)**: it
+runs entirely in the browser. Or download the repository, keep the files
+together, and open `index.html` locally; nothing needs a server.
 
 ## What it is
 
@@ -26,8 +27,9 @@ judgement they have to defend rather than a fact they have to recall.
 | 7 | Functional genomics and analysis | An RNA read against a genome that still has the intron, then a gene list against gene sets |
 | 8 | A new assay | A cell barcode against a whitelist, a UMI against the other UMIs, cDNA against the genome |
 
-Section 8 is the examination: single-cell RNA-seq, deliberately never taught, used
-to find out whether the habits from the other seven transfer.
+Section 8 opens on a collaborator's claim about single-cell RNA-seq data, an
+assay the module never teaches, and ends with the student building the
+checklist they will use on the next unfamiliar assay.
 
 The sections do not run in the order the laboratory does. Alignment comes first
 because it is the idea everything else is built on; the raw data comes after.

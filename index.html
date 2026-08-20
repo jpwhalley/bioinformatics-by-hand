@@ -51,9 +51,6 @@
   :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:3px}
   a:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 
-  ol.outcomes{margin:8px 0 0;padding-left:20px}
-  ol.outcomes li{font-size:14px;margin-bottom:6px;color:var(--text-dim)}
-  ol.outcomes li::marker{color:var(--accent);font-weight:600}
   dl.orders{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:10px 0 12px;
     font-size:13.5px}
   dl.orders dt{color:var(--accent);font-weight:600;white-space:nowrap}
@@ -73,12 +70,6 @@
   a.card .d{color:var(--text-dim);font-size:13.5px;margin-top:2px}
   a.card .m{color:var(--text-dim);font-size:11.5px;margin-top:6px;
     text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono)}
-
-  .totals{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0 0}
-  .tile{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
-    padding:9px 14px;min-width:122px}
-  .tile .k{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em}
-  .tile .v{font-size:21px;font-weight:600;margin-top:1px}
 
   details{margin:9px 0;border:1px solid var(--border);border-radius:8px;background:var(--panel-2)}
   details>summary{cursor:pointer;padding:9px 13px;color:var(--accent);font-size:13.5px;
@@ -108,74 +99,19 @@
 <div class="wrap">
   <div class="breadcrumb">GMIC605 Molecular Biology Techniques · <b>Interactive Bioinformatics Module</b></div>
   <h1>Interactive bioinformatics module</h1>
-  <p class="sub">Worked in order. You will not be watching an analysis happen. You will be doing it,
-  and then deciding how much to believe the answer, which is the harder and more useful half of the
-  job.</p>
+  <p class="sub">Follow sequencing data from raw reads to biological claims. At each step, decide
+  what the result supports, and what it does not.</p>
 
   <div class="spinebar">
     <span class="k">The recurring problem</span>
-    <span class="v"><b>Compare an observation with a reference, decide whether the match is
-    convincing, and ask what your rules may have missed.</b> You begin by moving a 12 base read along
-    a 40 base reference with your own hands, and end on an assay nobody has taught you.</span>
+    <span class="v"><b>Compare observations with references, turn matches into measurements, and ask
+    what each rule may have discarded.</b> You begin by moving a 12 base read along a reference with
+    your own hands, and end by applying the same reasoning to an unfamiliar assay.</span>
   </div>
 
   <p class="begin"><a class="beginlink" href="Section%201%20-%20Sequence%20alignment%20by%20hand.html">Begin Section 1
     <span>Sequence alignment by hand</span></a></p>
 
-  <div class="totals">
-    <div class="tile"><div class="k">Sections</div><div class="v">8</div></div>
-    <div class="tile"><div class="k">Install needed</div><div class="v">None</div></div>
-  </div>
-
-  <h2>Choose your depth</h2>
-  <div class="panel">
-    <p>The main route assumes no programming experience and contains everything needed for the
-    course. Sections also carry collapsed panels, and they are not all the same thing.</p>
-    <dl class="orders">
-      <dt>Optional depth</dt>
-      <dd>algorithms, equations, historical traps and awkward edge cases. Open them when they are
-      useful; skipping them will not leave a gap in the main route.</dd>
-      <dt>Table views</dt>
-      <dd>the same data as a chart, in a form you can read, search and reach with a keyboard.
-      <b>These are not optional extras.</b> They are an equal route to the same content, and for
-      some readers they are the better one.</dd>
-    </dl>
-  </div>
-
-  <h2>What you will practise</h2>
-  <div class="panel">
-    <p>Seven things. Any of them still awkward at the end is worth going back for, and worth asking
-    about.</p>
-    <ol class="outcomes">
-      <li>Placing reads, and recognising ambiguous placements.</li>
-      <li>Moving between common sequencing file types.</li>
-      <li>Tracing how data change through a workflow.</li>
-      <li>Interrogating the evidence behind a variant call.</li>
-      <li>Adapting an analysis when the assay changes.</li>
-      <li>Separating biological signal from experimental design.</li>
-      <li>Approaching an unfamiliar assay without a recipe.</li>
-    </ol>
-  </div>
-
-  <h2>Two different orders, and they are not the same</h2>
-  <div class="panel">
-    <p>Worth knowing before you start, because the module does not run in the order the laboratory
-    does. What follows is <b>one common short-read workflow</b>, not the only one.</p>
-    <dl class="orders">
-      <dt>What actually happens</dt>
-      <dd>biological sample &rarr; library preparation &rarr; sequencing &rarr; base calling and
-      demultiplexing &rarr; <b>FASTQ</b> &rarr; alignment &rarr; counts, variants or peaks, with
-      <b>quality control at each handover</b> rather than at one point</dd>
-      <dt>The order here</dt>
-      <dd>we start with <b>alignment</b>, by hand, then go back to the raw data</dd>
-    </dl>
-    <p>Alignment comes first because it is the conceptual engine: once you have decided by hand where
-    a read belongs and what that decision cost, everything else in the pipeline is a variation on it.
-    But the sequencer produces FASTQ files, not alignments, and nothing has been aligned at the point
-    the machine finishes. Do not read the section numbering as the order of a laboratory workflow.</p>
-  </div>
-
-  <h2>Start here</h2>
   <ol class="cards">
     <li><a class="card" href="Section%201%20-%20Sequence%20alignment%20by%20hand.html">
       <span class="num">1</span>
@@ -222,70 +158,65 @@
     <li><a class="card" href="Section%208%20-%20A%20new%20assay.html">
       <span class="num">8</span>
       <span class="t">A new assay</span>
-      <span class="d">Meet single-cell RNA-seq with no instructions, and find what the picture was hiding.</span>
+      <span class="d">Apply all of it to single-cell RNA-seq, work out what a collaborator's plot really shows, and build the checklist you will use next time.</span>
       <span class="m">Guided investigation</span>
     </a></li>
   </ol>
 
-  <h2>How these work</h2>
-  <div class="panel">
-    <p class="lead">Each section is a single file. Download it, double-click it, and it opens in
-    your browser. There is no install, no login, and no internet needed once the file is on
-    your machine.</p>
-    <p>Every section keeps a lab notebook as you go, recording what you did and what you found.
-    It is yours. Nothing is collected and nothing is submitted. If you want to keep a copy,
-    press <b>Download notebook</b> before you close the page. Each section tells you when it is
-    finished and what to open next.</p>
-    <p><small>Nothing you do in these pages is transmitted anywhere. The notebook is written in
-    your browser and saved only when you press the button.</small></p>
-  </div>
+  <details>
+    <summary>Before you start</summary>
+    <div class="body">
+      <p><b>Nothing to install.</b> Each section is a single file. Keep the files in one folder and
+      open them in your browser: no login, and no internet needed once they are on your machine.</p>
+      <p><b>The main route stands on its own.</b> Collapsed panels come in two kinds. <b>Optional
+      depth</b> holds algorithms, equations and edge cases; skipping those leaves no gap. <b>Table
+      views</b> hold the same data as a chart, in a form you can read, search and reach with a
+      keyboard. <b>These are not optional extras.</b> They are an equal route to the same content,
+      and for some readers the better one.</p>
+      <p><b>Your notebook stays with you.</b> Each section builds a lab notebook of what you did and
+      decided. Nothing you do in these pages is transmitted anywhere: the notebook is written in
+      your browser and saved as a text file only when you press <b>Download notebook</b>. It is not
+      saved automatically, so download it before closing a page. Record unresolved questions in it;
+      they are what to bring to whoever is teaching you.</p>
+      <p><b>All individual-level reads, genotypes and family data are synthetic.</b> What that
+      preserves and what it costs is under About the simulated data, below.</p>
+      <p><b>Two orders.</b> The module does not run in the order a laboratory does.</p>
+      <dl class="orders">
+        <dt>What actually happens</dt>
+        <dd>biological sample &rarr; library preparation &rarr; sequencing &rarr; base calling and
+        demultiplexing &rarr; <b>FASTQ</b> &rarr; alignment &rarr; counts, variants or peaks, with
+        <b>quality control at each handover</b>. This is <b>one common short-read workflow</b>, not
+        the only one.</dd>
+        <dt>The order here</dt>
+        <dd><b>alignment first</b>, by hand, because it is the idea everything else is built on,
+        then back to the raw data. Read the section numbers as a teaching order, not a laboratory
+        one.</dd>
+      </dl>
+      <p><b>Accessibility.</b> Every section works by keyboard alone, with a screen reader, and on
+      a narrow screen, and colour is never the only signal. Anything here that does not work for
+      you is a bug to report, not something to work around.</p>
+    </div>
+  </details>
 
-  <h2>About the data</h2>
-  <div class="panel">
-    <p>The sequences, reads, quality scores, alignments, variant calls and family in these
-    sections are <b>simulated</b>. They are built to behave the way real data behaves: the
-    error profile, the depth, the quality drop along a read, the awkward indel in a
-    homopolymer. <b>The pages contain no donor-derived reads, genotypes or family data.</b></p>
-    <p>That is a deliberate choice rather than a shortcut. Sequencing data can be public:
-    plenty sits openly in the Sequence Read Archive. But <b>individual-level human data
-    usually requires controlled access</b>, through repositories such as dbGaP or the EGA,
-    depending on what the donors consented to and what the data could reveal about them. A
-    teaching module is not a reason to move data out of that arrangement.</p>
-    <p>Simulating <b>preserves much of the reasoning</b> while the data itself carries no
-    one's genome. Not all of it: see below for what simulation takes away.</p>
-    <details>
-      <summary>Where the numbers came from</summary>
-      <div class="body">
-        <p>The simulator is seeded, so everyone gets the same reads and therefore the same
-        answer, and so a result can be reproduced when you come back to it. Read lengths,
-        quality decay, depth, adapter rate, duplication and error profile were set to match
-        published characteristics of real runs, and every threshold quoted in the module is
-        taken from a real standard with the source named beside it.</p>
-        <p><b>What simulation takes away is worth naming.</b> These data contain exactly the
-        problems they were written to contain, and nothing else. Real runs bring unexpected
-        contamination, sample swaps, metadata that turns out to be wrong, and tools that
-        behave differently from their documentation. Some failure modes are built in here on
-        purpose, including a batch effect and a set of damaged cells, because they are the
-        point of the sections they sit in. The ones nobody thought of are exactly what is
-        missing, and that gap is the difference between this and a real dataset.</p>
-      </div>
-    </details>
-  </div>
-
-  <h2>Accessibility</h2>
-  <div class="panel">
-    <p>Every section is operable by keyboard alone, works with a screen reader, reflows to a
-    narrow screen without horizontal scrolling, and never uses colour as the only way to tell
-    you something. If any part of this is not working for you, say so and it gets fixed. That
-    is a bug in the module, not something to work around.</p>
-  </div>
-
-  <h2>Questions</h2>
-  <div class="panel">
-    <p>These sections are built to raise more questions than they answer. That is deliberate, and the
-    questions are the valuable part. Keep them as you go: your notebook is the obvious place, and the
-    ones you cannot resolve are exactly what to bring to whoever is teaching you.</p>
-  </div>
+  <details>
+    <summary>About the simulated data</summary>
+    <div class="body">
+      <p>The sequences, reads, quality scores, alignments, variant calls, libraries, cells and
+      family in these sections are <b>simulated</b>, built to behave the way real data behaves.
+      The pages contain <b>no donor-derived reads, genotypes or family data</b>.</p>
+      <p>Sequencing data can be public: plenty sits openly in the Sequence Read Archive. But
+      <b>individual-level human data usually requires controlled access</b>, through repositories
+      such as dbGaP or the EGA, depending on what the donors consented to and what the data could
+      reveal about them. Simulating <b>preserves much of the reasoning</b> while the data itself
+      carries no one's genome.</p>
+      <p>The simulator is seeded, so everyone gets the same reads and the same answers, and every
+      threshold quoted in the module is taken from a real standard with the source named beside
+      it. <b>What simulation takes away is worth naming.</b> These data contain exactly the
+      problems they were written to contain. Real runs bring unexpected contamination, sample
+      swaps, metadata that turns out to be wrong, and tools that behave differently from their
+      documentation. The problems nobody thought of are exactly what is missing.</p>
+    </div>
+  </details>
 
   <p class="footer-note">GMIC605 Molecular Biology Techniques · Rosalind Franklin University
   of Medicine and Science</p>

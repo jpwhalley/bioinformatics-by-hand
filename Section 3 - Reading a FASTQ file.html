@@ -278,23 +278,16 @@
 <div class="wrap">
   <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 3 of 8</b> · Reading a FASTQ file</div>
   <h1>Reading raw reads</h1>
-  <p class="sub">In Section 1 you began with a read that was ready to align. Real sequencing hands you
-  something earlier than that: a base call, and a confidence score, for every position.</p>
-  <p class="sub">In a typical Illumina workflow the instrument records base calls in <b>BCL</b> files.
-  Conversion software then reads the sample indexes, separates the pooled libraries and writes
-  sample-specific <b>FASTQ</b> files. Here you inspect one of those FASTQ files, and then rewind to the
-  two matching operations that produced it.</p>
-  <p class="sub">So this section runs against the order of the course so far, deliberately. Before asking
-  where a read belongs in a genome, there are three earlier questions:</p>
+  <p class="sub">A sequencer gives you base calls, quality scores and sample indexes. <b>Inspect four
+  FASTQ reads, decide what to keep or trim, then assign pooled reads back to their samples.</b> Three
+  questions run through it:</p>
   <ol class="three-q">
     <li>What bases did the instrument call?</li>
     <li>How much confidence should you place in each call?</li>
     <li>Which sample does this read belong to?</li>
   </ol>
-  <p class="sub" style="margin-top:-4px"><small>These are <b>simulated</b> 75 base Illumina-style reads.
-  Their quality patterns are realistic and the quality arithmetic below is exact, but the sequences do not
-  come from a biological sample. Each read was chosen because it shows one pattern you will meet in real
-  data.</small></p>
+  <p class="sub" style="margin-top:-4px"><small>Simulated 75 base Illumina-style reads: realistic
+  quality patterns, exact quality arithmetic, no biological sample behind the sequences.</small></p>
 
   <div class="spinebar"><span class="k">The match in this section</span><span class="v">Before a read can be matched to a genome, software matches adapter sequences against its ends and its index read against a sample sheet.</span></div>
   <div class="panel">
@@ -355,36 +348,13 @@
 
 
   <h2 id="h-adaptor">Where that adapter came from</h2>
-  <p class="sub">Read D above is a perfectly good read that stops being your genome partway through.
-  It is worth knowing why, because the answer explains the next thing too.</p>
+  <p class="sub">Read D above is a perfectly good read that stops being your genome partway through.</p>
 
   <div class="panel">
-    <p style="font-size:14px;margin:0 0 10px">Nothing you put on a sequencer is sequenced as you made
-    it. <b>Adapter sequences are added to both ends during library preparation</b>, and those adapters
-    are not packaging. (How they are added varies: ligation in a classic TruSeq protocol, transposition
-    in a tagmentation protocol like Nextera, or amplification with tailed primers.) They are what makes sequencing possible at all. Illumina's own description of what they
-    carry:</p>
-    <div class="adglist">
-      <div><b>P5 and P7</b><span>sequences that let the fragment bind the flow cell and form a cluster.
-        Without them your DNA never attaches to anything.</span></div>
-      <div><b>Sequencing primer sites</b><span>where the machine starts reading. The first base of your
-        read is the first base after this.</span></div>
-      <div><b>An index</b><span>a short barcode identifying which sample the fragment came from. This is
-        the one that matters for the rest of this section.</span></div>
-    </div>
-    <p style="font-size:14px;margin:12px 0 0">So the molecule on the flow cell is
-    <code>adapter + your fragment + adapter</code>, and the machine reads a fixed number of bases
-    inward from the primer site. If your fragment is longer than the read, you never reach the far
-    adapter. <b>If it is shorter, you read straight through your own insert and out into the adapter on
-    the other side</b>, which is exactly what happened to read D. Illumina put it plainly: "When read
-    length exceeds DNA insert size, a run can sequence beyond the DNA insert and read bases from the
-    sequencing adapter."</p>
-    <p style="font-size:14px;margin:10px 0 0">Notice what the quality scores did about this.
-    <b>Nothing.</b> Every one of those adapter bases is Q38 or better, because the machine read them
-    correctly. They are real bases, accurately called, and none of them is yours.</p>
-    <p style="font-size:14px;margin:10px 0 0" class="keyclaim"><b>A high Phred score means the instrument
-    is confident about the base it called. It does not mean the base came from the sample-derived
-    insert.</b></p>
+    <p style="font-size:14px;margin:0 0 10px">Nothing goes onto a sequencer as you made it.
+    <b>Adapter sequences are added to both ends during library preparation</b>, so the molecule on the
+    flow cell is <code>adapter + your fragment + adapter</code>, and the machine reads a fixed number
+    of bases inward. Read D is 75 accurately-called bases, and not all of them are yours.</p>
 
     <div class="trimbox">
       <div class="trimhead">
@@ -395,6 +365,31 @@
       <div class="note" id="trim-note" style="margin-top:10px">Read D is 75 bases. Some of them are
       the <b>sample-derived insert</b> and some of them are Illumina adapter. Find the boundary.</div>
     </div>
+
+    <div id="adapter-why" style="display:none">
+      <p style="font-size:14px;margin:12px 0 0">The insert was shorter than the read. <b>The machine
+      read through your insert and out into the adapter on the other side.</b> Illumina put it
+      plainly: "When read length exceeds DNA insert size, a run can sequence beyond the DNA insert
+      and read bases from the sequencing adapter."</p>
+      <p style="font-size:14px;margin:10px 0 0">Notice what the quality scores did about this.
+      <b>Nothing.</b> Every one of those adapter bases is Q38 or better, because the machine read them
+      correctly. They are real bases, accurately called, and none of them is yours.</p>
+      <p style="font-size:14px;margin:10px 0 0" class="keyclaim"><b>A high Phred score means the
+      instrument is confident about the base it called. It does not mean the base came from the
+      sample-derived insert.</b></p>
+    </div>
+
+    <details>
+      <summary>What an adapter carries, and how it gets there</summary>
+      <div class="body">
+        <p>Adapters are added by ligation (TruSeq), transposition (Nextera-style tagmentation) or
+        amplification with tailed primers, and they are what makes sequencing possible. They carry:
+        <b>P5 and P7</b>, the sequences that let a fragment bind the flow cell and form a cluster;
+        <b>Sequencing primer sites</b>, where the machine starts reading; and <b>An index</b>, the
+        short barcode saying which sample the fragment came from, which is the one that matters for
+        the rest of this section.</p>
+      </div>
+    </details>
 
     <details>
       <summary>What string do you actually search for, and how long is a real adapter?</summary>
@@ -473,12 +468,10 @@
          style="display:none"></div>
 
     <div class="spine">
-      <b>Look at what you just did.</b> You took a short string of letters, compared it against a list
-      of other short strings of letters, counted the differences, and picked the best one. That is
-      Section 1, with an eight-base read and a four-entry reference. It is Section 2, with a scoring
-      threshold you had to choose. <b>Demultiplexing is not a different kind of operation from
-      alignment. It is the same operation, on a smaller reference, done a billion times before your
-      analysis starts.</b>
+      <b>Demultiplexing is another matching problem.</b> Compare an observed index with the sample
+      sheet under a mismatch rule, then decide whether the best match is unique enough to use. That
+      is Section 1, with an eight-base read and a four-entry reference: <b>the same operation, on a
+      smaller reference, run a billion times before your analysis starts.</b>
     </div>
 
     <details>
@@ -500,7 +493,7 @@
     </details>
 
     <details>
-      <summary>The failure this exercise cannot show you: index hopping</summary>
+      <summary>The failure demultiplexing cannot see: index hopping</summary>
       <div class="body">
         <p>Everything above assumed the index on a read is the index that was ligated to it. Sometimes
         it is not. Free adapter left in the pool, and the chemistry used on patterned flow cells, can
@@ -556,7 +549,7 @@
       <button type="button" id="download-notebook" class="log nb-dl" disabled
               aria-describedby="nb-dl-hint">⤓ Download notebook</button>
     </div>
-    <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <p class="nb-dl-hint" id="nb-dl-hint">Saved locally as a text file.</p>
     <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 5 steps done</p>
     <ul class="milestones" id="milestone-list" aria-label="Steps in this section"></ul>
     <div role="log" aria-live="polite" aria-label="Lab notebook entries">
@@ -573,17 +566,12 @@
     about the base it called, not that the base came from your insert.</b> And preprocessing is a set of
     policy decisions, not a set of automatic truths: the minimum length, the N-content rule and the index
     tolerance were all yours to choose, and each one changes what survives into the analysis.</p>
-    <p><b>Next: Section 4, running a sequencing pipeline.</b> You have inspected individual reads by eye.
-    Section 4 scales the same judgement to a whole dataset: summarize its quality, align it to a reference,
-    and work out which variant calls are actually supported.</p>
     <p class="nb-aside">Your lab notebook is a record of what you did in this section, kept for your own
     reference. Download it if you want to keep it.</p>
   </div>
 </div>
 
 
-<p class="footer-note">Prototype · Section 3 of the Molecular Techniques Interactive Bioinformatics
-  Module · 2026/27 cycle · simulated reads, real FASTQ format</p>
 
 <nav class="sectnav" aria-label="Section navigation">
   <a class="nav-prev" href="Section%202%20-%20Searching%20a%20database%20with%20BLAST.html"><span class="k">Previous</span><span class="t">2. Searching a database with BLAST</span></a>
@@ -1251,6 +1239,10 @@ demux(false);
 document.getElementById('btn-trim').onclick = function(){
   showTrim(true);
   this.disabled = true;
+  // The explanation appears once the boundary exists to explain. Before the
+  // search there is nothing on screen for it to be an answer to.
+  var why = document.getElementById('adapter-why');
+  if (why) why.style.display = 'block';
   milestone('adapter');
   nb('Found the adapter in read D by searching for the Illumina stub.');
 };

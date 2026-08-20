@@ -179,6 +179,31 @@
   .time-chip.fast { background: rgba(86,211,100,0.14); color: var(--good); }
   .time-chip.slow { background: rgba(210,153,34,0.16); color: var(--ink-warn); }
   .flow-arrow { align-self: center; color: var(--text-dim); font-size: 15px; line-height: 1; padding: 4px 0; }
+  .simgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr));
+    gap:8px;margin-top:12px}
+  .simgrid>div{background:var(--panel-2);border:1px solid var(--border);border-radius:6px;
+    padding:8px 11px;font-size:12.5px;display:flex;flex-direction:column;gap:1px}
+  .simgrid b{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+  .simgrid span{color:var(--text-dim)}
+  details.simnote{margin:10px 0 0;border:1px solid var(--border);border-radius:8px;
+    background:var(--panel-2)}
+  details.simnote>summary{cursor:pointer;padding:8px 12px;color:var(--accent);font-size:13px}
+  details.simnote .body{padding:2px 14px 10px;font-size:13px;color:var(--text-dim)}
+  #qc-fold>summary{cursor:pointer;font-size:12.5px;color:var(--accent);padding:2px 0 8px;
+    list-style:none}
+  #qc-fold>summary::-webkit-details-marker{display:none}
+  #qc-fold>summary::before{content:'▸ ';color:var(--text-dim)}
+  #qc-fold[open]>summary::before{content:'▾ '}
+  .lmap{font-family:var(--mono);font-size:12.5px;background:var(--panel-2);
+    border:1px solid var(--border);border-radius:8px;padding:12px 14px;overflow-x:auto}
+  .lmap .lrow{display:flex;align-items:center;gap:8px;margin:3px 0;white-space:nowrap}
+  .lmap .ln{padding:2px 8px;border:1px solid var(--border-ctrl);border-radius:5px;color:var(--text)}
+  .lmap .ln.io{border-style:dashed;color:var(--text-dim)}
+  .lmap .ln.now{border-color:var(--accent);color:var(--accent);font-weight:600;
+    box-shadow:inset 0 0 0 1px var(--accent)}
+  .lmap .larr{color:var(--text-dim)}
+  .lmap .lnow{font-family:inherit;font-size:12.5px;color:var(--text-dim);margin:10px 0 0;
+    white-space:normal;border-top:1px solid var(--border);padding-top:8px}
   .plan-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-size: 12px; color: var(--text-dim); align-items: center; }
   .plan-legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
   .plan-bridge { margin-top: 16px; padding: 13px 16px; background: linear-gradient(135deg, rgba(88,166,255,0.1), rgba(88,166,255,0.02)); border: 1px solid var(--accent); border-radius: 8px; font-size: 14px; }
@@ -371,31 +396,56 @@
 <body>
 <div class="container">
   <header>
-    <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 4 of 8</b> · Running a sequencing pipeline · the main course</div>
-    <h1>The mock terminal: run the pipeline, call a variant, then question it</h1>
-    <div class="subtitle">Follow one small window of a simulated whole-genome experiment from raw reads to candidate variants, one command at a time.</div>
+    <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 4 of 8</b> · Running a sequencing pipeline</div>
+    <h1>Run a sequencing pipeline</h1>
   </header>
 
   <div class="prompt-box">
-    Section 3 ended with a sample-specific FASTQ file. Here you follow one small window of a
-    <b>simulated germline whole-genome experiment</b> from raw reads to candidate variants: a 20 kb window,
-    <span id="op-nreads">8,200</span> reads of 75 bases, about <span id="op-depth">30.7</span>&times; nominal depth.
-    <br><br>
-    <b>Be clear about what is and is not running.</b> The commands and file types are authentic, and the
-    browser really does generate the reads, build a live pileup from them and apply a caller. But the named
-    programs are not executing: there is no FastQC, no BWA, no SAMtools and no bcftools here, and their
-    terminal output is scripted to behave the way the real tools do. The caller that produces your variant
-    table is a <b>simplified teaching caller</b> with an invented quality formula, not bcftools. What is
-    genuinely computed is the read set, the pileup and the calls drawn from it.
-    <br><br>
-    As you work, keep asking four questions: <b>what went in, what operation was performed, what came out,
-    and what does that output actually justify?</b>
+    Follow <span id="op-nreads">8,200</span> simulated 75 base reads from a 20 kb genome window,
+    FASTQ to candidate variants, one command at a time. At every step, identify
+    <b>the input, the operation, the output, and what that output can justify</b>.
+    <div class="simgrid">
+      <div><b>Authentic</b><span>the commands and file formats</span></div>
+      <div><b>Simulated</b><span>the terminal output; the named tools are not running</span></div>
+      <div><b>Computed here</b><span>the reads, the pileup and the variant calls</span></div>
+      <div><b>Simplified</b><span>the variant caller</span></div>
+    </div>
+    <details class="simnote">
+      <summary>What exactly is simulated?</summary>
+      <div class="body">
+        <p>The browser generates <span class="fl-nreads">8,200</span> reads at about
+        <span id="op-depth">30.7</span>&times; nominal depth, builds a live pileup from them, and
+        applies a caller to that pileup, so every number downstream derives from one dataset. But
+        there is no FastQC, BWA, SAMtools or bcftools here: their terminal output is scripted to
+        behave the way the real tools do, and the caller that produces your variant table is a
+        simplified one with an invented quality formula, not bcftools.</p>
+      </div>
+    </details>
   </div>
 
   <div class="plan">
   <div class="spinebar"><span class="k">The match in this section</span><span class="v">Each read against the reference, repeated at scale, with the uncertainty carried into everything downstream.</span></div>
-    <h2>The plan: how you turn raw reads into a variant</h2>
-    <div class="plan-intro">Before we open a terminal, here's the whole workflow on one page. Keep it as your map: every command you run below is one of these boxes.</div>
+    <h2>The map</h2>
+    <!-- tabindex: SC 2.1.1. The map scrolls sideways on a narrow screen, and a
+         region that scrolls with no focusable child cannot be scrolled by
+         keyboard. axe caught this on 2026-08-19, the day the map was added:
+         the third time this exact failure has entered this project. -->
+    <div class="lmap" tabindex="0" role="group"
+         aria-label="Pipeline map. The step you are on is highlighted. Scrolls sideways on a narrow screen.">
+      <div class="lrow">
+        <span class="ln io">tnf_ref.fa</span><span class="larr">→</span><span class="ln" data-n="index">index</span><span class="larr" aria-hidden="true">↘</span>
+      </div>
+      <div class="lrow">
+        <span class="ln io">reads.fastq</span><span class="larr">→</span><span class="ln" data-n="qc">FastQC</span><span class="larr">→</span><span class="ln io">QC report</span>
+      </div>
+      <div class="lrow">
+        <span class="ln io">reads.fastq</span><span class="larr">→</span><span class="ln" data-n="align">align</span><span class="larr">→</span><span class="ln" data-n="sort">sort / index</span><span class="larr">→</span><span class="ln" data-n="call">call</span><span class="larr">→</span><span class="ln io" data-n="vcf">calls.vcf</span>
+      </div>
+      <p class="lnow" id="lmap-now" aria-live="polite">Nothing has run yet.</p>
+    </div>
+    <details>
+      <summary>The complete pipeline, with genome-scale runtimes</summary>
+      <div class="body">
     <div class="flow">
       <div class="flow-node io">
         <div class="flow-tool">reads.fastq</div>
@@ -441,16 +491,15 @@
     </div>
     <div class="plan-legend">
       <span><span class="swatch" style="background:var(--good)"></span>data in / out &amp; quick steps</span>
-      <span><span class="swatch" style="background:var(--warn)"></span>⏳ compute-heavy on real data, where you submit a job and wait</span>
+      <span><span class="swatch" style="background:var(--warn)"></span>⏳ compute-heavy on real data, where the job is queued and you wait</span>
     </div>
-    <div class="plan-bridge">
-      That's the entire plan on one page, your map for what follows. <b>Now you'll do exactly this in a terminal, the way a bioinformatician does</b>, one command per box. Because our data is a tiny 20 kb slice, every step finishes instantly. But watch the <span style="color:var(--warn)">⏳</span> boxes: on a real 3-billion-base genome those take minutes to hours, which is precisely why this work runs on a cluster: on real data these same commands go into a short script that the cluster's queue runs while you do something else.
-    </div>
+      </div>
+    </details>
   </div>
 
   <div class="goal">
-    <div class="step-badge" id="step-badge">Step 0 / 9</div>
-    <div class="goal-text" id="goal-text"><b>Connect to the cluster.</b> Everything real in genomics happens on a remote machine. Log in to get started.</div>
+    <div class="step-badge" id="step-badge">Step 0 / 8</div>
+    <div class="goal-text" id="goal-text"><b>Connect to the cluster.</b> Large sequencing analyses usually run on remote or cloud compute. Sign in to the teaching cluster.</div>
   </div>
 
   <div class="terminal">
@@ -466,7 +515,8 @@
     <div class="term-body" id="term-body" tabindex="0" role="log" aria-live="polite" aria-label="Terminal output"></div>
     <div class="term-input-row">
       <span class="ps1" id="ps1-static">student@laptop</span><span class="path" id="path-static">:~$</span>
-      <input id="cmd-input" autocomplete="off" spellcheck="false" placeholder="type a command and press Enter…" />
+      <input id="cmd-input" autocomplete="off" spellcheck="false" aria-label="Terminal command"
+             placeholder="type a command and press Enter…" />
     </div>
   </div>
 
@@ -480,6 +530,13 @@
   <!-- QC reveal -->
   <div class="panel-card" id="qc-panel">
     <h3>📊 FastQC report · reads.fastq</h3>
+    <!-- The report folds to this strip once the decision is recorded and the
+         pipeline moves on, so the panel directly beneath the terminal is the
+         one the current command is about. (Justin, 2026-08-20: "once we had
+         done the FastQC that needs to disappear".) It never folds while the
+         decision is still owed, and reopening it is one click. -->
+    <details id="qc-fold" open>
+      <summary id="qc-fold-sum">Report and decision</summary>
     <table class="data">
       <thead><tr><th>Module</th><th>Verdict</th></tr></thead>
       <tbody id="qc-rows"></tbody>
@@ -487,28 +544,20 @@
     <div class="teach editnote">
       <h4>Every module passed. That is not the reassurance it looks like.</h4>
       <p id="qc-measured">Measured on your reads.</p>
-      <p>A clean FastQC report says the instrument produced the kind of data it was
-      supposed to produce. It says nothing about whether the reads came from the right sample, whether they
-      can be placed on the genome, or whether the conclusion you eventually draw is sound. Every failure
-      this section goes on to show you happens <b>downstream of a clean report like this one</b>.</p>
-      <div class="takeaway"><b>Lesson:</b> QC bounds what can go wrong at one step. It does not certify
-      anything after it. Passing is a floor.</div>
+      <p>A clean report says the instrument produced the kind of data it was supposed to. It says
+      nothing about whether the reads came from the right sample, can be placed on the genome, or
+      support the conclusion you eventually draw. Every failure below happens
+      <b>downstream of a clean report like this one</b>.</p>
+      <div class="takeaway"><b>FastQC bounds what could have failed before this point. It does not
+      validate anything after it.</b> Passing is a floor.</div>
     </div>
 
     <fieldset class="decide" id="qc-decide">
       <legend>Answer this before you type the next command</legend>
-      <p style="font-size:14px;margin:4px 0 10px"><b>The terminal will wait.</b> This is the decision a
-      clean report cannot make for you, it is one of the five things this section asks of you, and it is
-      easier to think about here, next to the report, than three commands later.</p>
-      <p style="font-size:14px;margin:4px 0 10px"><b>Your own reads do not show this.</b> Their largest
-      per-base imbalance is <span id="qc-imb">2.7</span>%, and FastQC does not warn below 10%. So what
-      follows is a counterfactual, deliberately, because the interesting decisions in quality control are
-      the ones your own data happens not to hand you.</p>
-      <p style="font-size:14px;margin:4px 0 10px"><b>Suppose</b> the report had come back with <b>Per base
-      sequence content: FAIL</b>, a large imbalance in the first dozen bases. Before doing anything, ask
-      what library produced these reads. A <b>tagmentation</b> library can be biased at the start because
-      transposase insertion is itself sequence-biased, so the flag would be real without necessarily making
-      the library unusable. What would you do?</p>
+      <p style="font-size:14px;margin:4px 0 10px">The terminal will wait. <b>Your own reads passed</b>:
+      largest per-base imbalance <span id="qc-imb">2.7</span>%, and FastQC warns above 10%. Now suppose
+      the report had said <b>Per base sequence content: FAIL</b>, a strong imbalance in the first dozen
+      bases, in a <b>tagmentation</b> library. What would you do?</p>
       <div class="decide-opts" id="qc-decide-opts" role="group" aria-label="Quality control decision">
         <button type="button" class="btn qdec" data-qdec="trim" aria-pressed="false">Trim the first 12 bases</button>
         <button type="button" class="btn qdec" data-qdec="reject" aria-pressed="false">Reject the run</button>
@@ -518,6 +567,7 @@
       the alternatives cost.</div>
     </fieldset>
     <div class="prov" id="qc-prov">FastQC module verdicts · simulated reads · 75 bp.</div>
+    </details>
   </div>
 
   <!-- VCF reveal -->
@@ -539,10 +589,8 @@
     </div>
     <div class="teach">
       <h4><span id="vcf-n2">0</span> variants. But how many do you believe?</h4>
-      <p>The pipeline ran without error and handed you the list. A naive analyst reports all of them. A good one
-      asks: <i>what's the evidence behind each?</i> The terminal is still live, so interrogate the call set with
-      the next two commands (the suggestion chips walk you through them): first <b>filter by depth</b>, then
-      <b>read the substitution spectrum</b>. These are the same moves you'd make on any real VCF.</p>
+      <p><b>The VCF is an output, not a conclusion.</b> The terminal is still live: filter the calls
+      by depth and see what the filter buys, and what it costs.</p>
     </div>
     <div class="teach" id="filter-result" style="display:none">
       <h4>① What the depth filter actually bought you</h4>
@@ -554,10 +602,12 @@
   <!-- Edge-case reveal -->
   <div class="panel-card" id="edge-panel">
     <h3>② What the caller actually did</h3>
-    <p>You have a list. Before you trust any of it, it is worth seeing what produced it, because a
-    variant caller does something far less clever than its output suggests. It stacks the reads that
-    cover a position, <b>counts the letters in that column</b>, and decides what genotype would best
-    explain the counts. That is the whole idea. Everything else is bookkeeping.</p>
+    <p>A variant caller does something far less clever than its output suggests. It stacks the reads
+    that cover a position, <b>counts the letters in that column</b>, and decides what genotype would
+    best explain the counts. Everything else is bookkeeping.</p>
+    <p class="fine">One pattern worth a glance on any call set: tally the substitution types
+    (<code>bcftools query -f '%REF>%ALT\n' | sort | uniq -c</code>). Here no class dominates, which is
+    what germline DNA should look like; a skewed spectrum is a processing signature, not biology.</p>
 
     <div class="pv-picker" id="pv-picker" role="group" aria-label="Choose a position to inspect"></div>
 
@@ -639,10 +689,10 @@
       the ambiguous read was <i>not</i> discarded. It was kept, and piled up at whichever of the three
       equally good locations the aligner happened to report. Had you run DeepVariant or HaplotypeCaller
       on the same BAM, it would have been thrown away before the caller saw it.</p>
-      <div class="takeaway"><b>Lesson:</b> uncertainty does not disappear, it changes form. A permissive
+      <div class="takeaway"><b>Uncertainty does not disappear; it changes form.</b> A permissive
       pipeline attaches the read to an arbitrary reported location and shows you a result. A stricter one
-      discards it and shows you silence. Neither has resolved anything, and a filter you did not set, in a
-      tool you did not write, decided which of the two you got.</div>
+      discards it and shows you silence. A filter you did not set, in a tool you did not write, decided
+      which of the two you got.</div>
     </div>
 
     <div class="teach" id="silence-teach" style="display:none">
@@ -673,8 +723,8 @@
       record reference confidence at non-variant positions precisely so that "we looked and saw reference"
       can be distinguished from "we could not look". If the question you are answering is whether a gene
       is clear, a variants-only VCF is the wrong output to be reading.</p>
-      <div class="takeaway"><b>Lesson:</b> no record is not the same as no variant. Before calling a
-      result negative, check coverage, mapping quality and whether the region was callable at all.</div>
+      <div class="takeaway"><b>No record is not the same as no variant.</b> Before calling a result
+      negative, check coverage, mapping quality and whether the region was callable at all.</div>
 
       <fieldset class="decide" id="silence-decide">
         <legend>Before you move on, commit to a conclusion</legend>
@@ -785,7 +835,7 @@
       its hardest sequence as gaps, and nobody was counting what was inside them.
       <br><br>
       <span class="fine">Two caveats on those figures, because they are easy to over-read.
-      <b>They are calculated for this course</b> from the GIAB v3.6 union stratification BED files, by
+      <b>They are calculated for this page</b> from the GIAB v3.6 union stratification BED files, by
       summing the covered bases and dividing by the reference length; they are not a published headline
       number, and the derivation is the previous sentence. And <b>difficult does not mean invisible</b>:
       most of that 21% is callable, just with lower confidence or with a caveat attached. It is the
@@ -797,28 +847,20 @@
   <!-- Completion -->
   <div class="panel-card" id="done-panel">
     <h3>✓ You have finished Section 4.</h3>
-    <p>You turned reads into alignments and alignments into candidate variants, following the shape of
-    the workflow a genomics lab uses: quality control, alignment, sorting and indexing, pileup and calling,
-    then filtering. You also found where information was lost along the way, which is the harder half.
-    It was lost at the quality-control decision, at the moment the aligner turned each read into a
-    coordinate, at the depth filter, and in asking for variant sites only.</p>
-    <p style="margin-top:12px">The thing worth carrying: <b>a command that succeeds tells you software
-    ran. It does not tell you the biological conclusion is sound.</b> Every failure in this section
-    happened downstream of a clean quality-control report and a pipeline that never errored.</p>
-    <p style="margin-top:12px"><b>One thing this section deliberately does not teach.</b> On real data
-    the ⏳ steps run for hours, so nobody types them at a prompt and waits. They go into a short script
-    handed to the cluster's queue, which runs it on a compute node and emails you when it is done. That
-    wrapper is worth learning and it is not worth learning here, because the commands for it differ by
-    site: SLURM, SGE, PBS and the cloud schedulers all take different syntax, and your institution will
-    have its own conventions on top. <b>The part that transfers is what you have just done.</b> Once you
-    know which commands to run and in what order, whoever runs your cluster can show you how to put them
-    in a wrapper in about ten minutes.</p>
-    <p style="margin-top:12px;"><b>Next: Section 5, which variant matters.</b> This section ended with a
-    list of candidate variants, nearly all of which survive simple quality filtering. Section 5 changes
-    the question from "is this call well supported?" to "of millions of well-supported differences, which
-    one is relevant to the biological or clinical problem in front of me?"</p>
-    <p class="prov">Your lab notebook is a record of what you did in this section, kept for your own
-    reference. Download it if you want to keep it.</p>
+    <p><b>FASTQ became BAM, then VCF, and at each conversion a rule compressed or discarded
+    information</b>: at the quality decision, at the moment the aligner turned each read into a
+    coordinate, at the depth filter, and in asking for variant sites only. A command that succeeds
+    tells you the software ran. It does not tell you the biological conclusion is sound.</p>
+    <details>
+      <summary>How this runs at genome scale</summary>
+      <div class="body">
+        <p>On real data the ⏳ steps run for hours, so nobody types them at a prompt and waits: they
+        go into a short script handed to the cluster's queue, which runs it on a compute node and
+        emails you when it finishes. The wrapper syntax differs by site (SLURM, SGE, PBS, the cloud
+        schedulers), so learn it from whoever runs your cluster; it takes about ten minutes once you
+        know which commands to run and in what order, which is what this section was for.</p>
+      </div>
+    </details>
   </div>
 
 
@@ -830,7 +872,7 @@
       <button type="button" id="download-notebook" class="ghost nb-dl" disabled
               aria-describedby="nb-dl-hint">⤓ Download notebook</button>
     </div>
-    <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <p class="nb-dl-hint" id="nb-dl-hint">Saved locally as a text file.</p>
     <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 5 steps done</p>
     <ul class="milestones" id="milestone-list4" aria-label="Steps in this section"></ul>
     <div id="nb-entries" role="log" aria-live="polite"><div class="nb-entry" style="color:var(--text-dim);">(commands and findings log here as you go)</div></div>
@@ -843,9 +885,6 @@
   <a class="nav-next" href="Section%205%20-%20Which%20variant%20matters.html"><span class="k">Next</span><span class="t">5. Which variant matters</span></a>
 </nav>
 
-  <div class="footer-note">
-    Prototype · Section 4 of the Molecular Techniques Interactive Bioinformatics Module · 2026/27 cycle · simulated whole-genome dataset, live pileup and variant calling
-  </div>
 </div>
 
 <script>
@@ -1281,8 +1320,8 @@ function vcfStats(){
 
 const STEPS = [
   {
-    id:0, badge:"Step 0 / 9",
-    goal:"<b>Connect to the cluster.</b> Everything real in genomics happens on a remote machine. Log in to get started.",
+    id:0, badge:"Step 0 / 8",
+    goal:"<b>Connect to the cluster.</b> Large sequencing analyses usually run on remote or cloud compute. Sign in to the teaching cluster.",
     suggest:"ssh student@photo51.rosalindfranklin.edu",
     annotation:"<b>ssh</b> opens a secure shell on a remote computer: here, a compute cluster with the tools and the data already on it.",
     match:/^ssh\s+\S+/i,
@@ -1294,8 +1333,7 @@ const STEPS = [
       ["banner","------------------------------------------------------------------"],
       ["dim","  Named for Photograph 51, Rosalind Franklin's 1952 X-ray"],
       ["dim","  diffraction image of DNA, the data behind the double helix."],
-      ["dim","  (A teaching cluster, aspirational for now: RFU doesn't actually"],
-      ["dim","   run one yet, so this is a faithful simulation. Maybe one day.)"],
+      ["dim","  (A simulated login for this module.)"],
       ["banner","=================================================================="],
       ["dim","Last login: Fri Jul 17 2026 from teaching-vlan"],
       ["good","Connection established. You are now on photo51-login01."],
@@ -1304,7 +1342,7 @@ const STEPS = [
     nb:"Logged into cluster (photo51-login01)."
   },
   {
-    id:1, badge:"Step 1 / 9",
+    id:1, badge:"Step 1 / 8",
     goal:"<b>Load the tools.</b> Clusters keep software in versioned modules so everyone's results are reproducible. Load the four you'll need.",
     suggest:"module load fastqc bwa samtools bcftools",
     annotation:"<b>module load</b> puts specific tool versions on your PATH. Reproducibility starts here: the version is part of the result.",
@@ -1323,7 +1361,7 @@ const STEPS = [
     nb:"Loaded fastqc, bwa, samtools, bcftools."
   },
   {
-    id:2, badge:"Step 2 / 9",
+    id:2, badge:"Step 2 / 8",
     goal:"<b>Quality-check the raw reads.</b> Before aligning anything, look at what came off the sequencer. Run FastQC on the reads.",
     suggest:"fastqc reads.fastq",
     annotation:"<b>FastQC</b> scans the raw reads and flags quality problems <i>before</i> you waste compute aligning junk. Always the first step.",
@@ -1350,7 +1388,7 @@ const STEPS = [
     nb:"Ran quality control: every module inside its threshold."
   },
   {
-    id:3, badge:"Step 3 / 9",
+    id:3, badge:"Step 3 / 8",
     goal:"<b>Index the reference.</b> To align fast, the aligner pre-processes the reference into a searchable structure (the FM-index from Section 1). Build it once.",
     suggest:"bwa index tnf_ref.fa",
     annotation:"<b>bwa index</b> builds the Burrows–Wheeler / FM-index: the exact trick from Section 1 that lets the aligner skip brute-force searching.",
@@ -1366,7 +1404,7 @@ const STEPS = [
     nb:"Built BWA/FM-index for the reference."
   },
   {
-    id:4, badge:"Step 4 / 9",
+    id:4, badge:"Step 4 / 8",
     goal:"<b>Align the reads.</b> Map every read back to where it came from on the reference. This is Section 1's by-hand game, automated once per read.",
     suggest:"bwa mem tnf_ref.fa reads.fastq > aln.sam",
     annotation:"<b>bwa mem</b> aligns each read to the reference and writes <b>SAM</b> (Sequence Alignment/Map). The <b>&gt;</b> saves it to a file.",
@@ -1384,7 +1422,7 @@ const STEPS = [
     teachAfter:{cls:"editnote", h:"What the aligner just decided on your behalf", html:"Every read now has a coordinate, and that coordinate is an <b>assertion</b>, not a measurement. bwa took each read, found the best place it fits, and wrote that down. For most reads the best place is far better than any alternative and the assertion is safe. For some it is not, and the SAM file records that too, in a field called <b>MAPQ</b> that nothing downstream is obliged to look at. <b>Alignment is where a set of sequences becomes a set of claims about the genome</b>, and every later step inherits those claims without re-examining them. You will meet the read that breaks this at the end of the section."}
   },
   {
-    id:5, badge:"Step 5 / 9",
+    id:5, badge:"Step 5 / 8",
     goal:"<b>Sort &amp; index the alignments.</b> Downstream tools need reads ordered by genomic position and indexed for random access. Convert, sort, index in one go.",
     suggest:"samtools sort aln.sam -o aln.sorted.bam \u0026\u0026 samtools index aln.sorted.bam",
     annotation:"Two commands, not one. <b>samtools sort</b> orders reads by position and writes compact binary <b>BAM</b>; it does <i>not</i> create an index. <b>samtools index</b> is a separate step that builds the <span style='font-family:var(--mono)'>.bai</span>, and without it a genome browser or a variant caller cannot jump to a region without reading the whole file.",
@@ -1401,7 +1439,7 @@ const STEPS = [
     nb:"Sorted + indexed alignments → aln.sorted.bam."
   },
   {
-    id:6, badge:"Step 6 / 9",
+    id:6, badge:"Step 6 / 8",
     goal:"<b>Check the alignment worked.</b> Before trusting any downstream result, ask: what fraction of reads actually mapped?",
     suggest:"samtools flagstat aln.sorted.bam",
     annotation:"<b>samtools flagstat</b> summarises the SAM flags: your one-glance sanity check that alignment succeeded.",
@@ -1419,7 +1457,7 @@ const STEPS = [
     nb:"flagstat: almost every read placed on the reference." 
   },
   {
-    id:7, badge:"Step 7 / 9",
+    id:7, badge:"Step 7 / 8",
     goal:"<b>Call variants.</b> Scan every position: where do the reads consistently disagree with the reference? Pipe the pileup into the caller.",
     suggest:"bcftools mpileup -f tnf_ref.fa aln.sorted.bam | bcftools call -mv -o calls.vcf",
     annotation:"<b>bcftools mpileup</b> stacks the reads at each position; <b>bcftools call -mv</b> keeps positions that look variant. The <b>|</b> pipes one into the next.",
@@ -1439,7 +1477,7 @@ const STEPS = [
     reveal:"vcf-panel" 
   },
   {
-    id:8, badge:"Step 8 / 9",
+    id:8, badge:"Step 8 / 8",
     goal:"<b>Don't trust it yet: filter by evidence.</b> Depth is the cheapest check and the first one most people type, so type it. Then look carefully at what it did to the list, because the result is not the one the exercise is usually built to produce.",
     suggest:"bcftools view -i 'DP>=10' calls.vcf",
     annotation:"<b>bcftools view -i</b> keeps only records matching an expression: here, depth (<b>DP</b>) of at least 10. This is how you separate signal from single-read noise.",
@@ -1456,28 +1494,18 @@ const STEPS = [
       return lines;
     },
     reveal:"edge-panel",
-    onComplete: revealFilter,
+    onComplete: function(){ revealFilter(); finishPipeline(); },
     nb: function(){ const v = vcfStats();
           return 'Depth filter DP>=10: ' + v.deep.length + ' of ' + v.total + ' calls survive; '
             + v.droppedTrue + ' real variant(s) removed.'; }
-  },
-  {
-    id:9, badge:"Step 9 / 9",
-    goal:"<b>Now read the pattern in what you filtered out.</b> Tally the substitution types across every SNV call: the shape of the noise is itself a clue.",
-    suggest:"bcftools query -f '%REF>%ALT\\n' calls.vcf | sort | uniq -c | sort -rn",
-    annotation:"<b>bcftools query</b> pulls chosen fields from each record; piping to <b>sort | uniq -c</b> tallies how often each substitution type appears.",
-    match:/^bcftools\s+query.*\|\s*sort/i,
-    out: function(){
-      const tally = {};
-      VCF.filter(v => v[1].length === 1 && v[2].length === 1)
-         .forEach(v => { const k = v[1] + '>' + v[2]; tally[k] = (tally[k] || 0) + 1; });
-      const rows = Object.keys(tally).map(k => [tally[k], k]).sort((a,b) => b[0]-a[0] || a[1].localeCompare(b[1]));
-      return rows.map(([n,k]) => [n >= 2 ? "out" : "dim", String(n).padStart(7) + " " + k]);
-    },
-    onComplete: revealSpectrum,
-    nb:"Substitution spectrum: flat, as germline DNA should be. No class of change dominates."
   }
 ];
+/* A tenth step used to follow: tallying the substitution spectrum with
+   `bcftools query | sort | uniq -c`. Removed in the 2026-08-19 editorial pass:
+   its conclusion (the spectrum is flat, as germline DNA should be) did not
+   connect to the pileup lesson it was being used to reveal, and the command is
+   one anybody can be shown in a minute. The observation survives as one line
+   in the panel below the calls. */
 /* Two bonus steps used to follow: `sbatch align_job.sh` and `squeue -u student`.
    Removed 2026-08-19 on Justin's instruction. The point they made is real and is
    kept in the conclusion, but the commands themselves are site-specific (SLURM,
@@ -1516,9 +1544,51 @@ function recordNb(text){
   el.innerHTML = nbEntries.map(e=>`<div class="nb-entry"><b>${e.t}</b> · ${e.text}</div>`).join('');
 }
 
+/* One line per step for the map: input, operation, output, and the claim the
+   output supports. The four-part question from the top of the page, answered
+   live as the pipeline advances. */
+var LMAP = {
+  0: { n:null,    t:"Nothing has run yet. Sign in first." },
+  1: { n:null,    t:"Tools on the PATH. The data has not moved." },
+  2: { n:'qc',    t:"In: reads.fastq · Op: scan base quality and adapter · Out: QC report · Claim: bounds what could have failed so far, nothing after." },
+  3: { n:'index', t:"In: tnf_ref.fa · Op: build the FM-index · Out: index files · Claim: the reference is searchable. Nothing about your reads yet." },
+  4: { n:'align', t:"In: reads.fastq + index · Op: find each read's best placement · Out: aln.sam · Claim: every read has a reported position and a confidence, not a guarantee." },
+  5: { n:'sort',  t:"In: aln.sam · Op: sort by position, then index · Out: aln.sorted.bam + .bai · Claim: the same information, now queryable by position." },
+  6: { n:'sort',  t:"In: aln.sorted.bam · Op: count how the reads aligned · Out: totals on screen · Claim: alignment ran. Says nothing about whether reads landed where they belong." },
+  7: { n:'call',  t:"In: BAM + reference · Op: pile reads up at each position, call genotypes · Out: calls.vcf · Claim: candidate differences, each only as good as the pileup behind it." },
+  8: { n:'vcf',   t:"In: calls.vcf · Op: keep calls with DP >= 10 · Out: a shorter list · Claim: the survivors have more evidence. Some of what was removed was real." }
+};
+function paintMap(i){
+  const m = LMAP[i];
+  document.querySelectorAll('.lmap .ln[data-n]').forEach(e => e.classList.remove('now'));
+  if (m && m.n){
+    document.querySelectorAll('.lmap .ln[data-n="' + m.n + '"]').forEach(e => e.classList.add('now'));
+  }
+  const out = document.getElementById('lmap-now');
+  if (out && m) out.textContent = m.t;
+}
+
+/* Fold the FastQC panel once its decision is recorded AND the pipeline has
+   moved past it, so the current command's output panel sits directly beneath
+   the terminal. Never fold while the decision is owed: hiding an unanswered
+   question would bury the milestone. One-way: reopening is the student's. */
+var qcFolded = false;
+function maybeFoldQc(stepId){
+  if (qcFolded || stepId < 3 || !milestones4.qc) return;
+  var fold = document.getElementById('qc-fold');
+  if (!fold) return;
+  fold.open = false;
+  qcFolded = true;
+  var sum = document.getElementById('qc-fold-sum');
+  if (sum) sum.textContent =
+    'Every module passed · decision recorded · select to reopen';
+}
+
 function loadStep(i){
   stepIndex = i;
   const s = STEPS[i];
+  paintMap(i);
+  maybeFoldQc(i);
   document.getElementById('step-badge').textContent = s.badge;
   document.getElementById('goal-text').innerHTML = s.goal;
   document.getElementById('annotation').innerHTML = s.annotation || '';
@@ -1709,8 +1779,7 @@ function revealFilter(){
   document.getElementById('edge-panel').classList.add('active');
   document.getElementById('filter-result').style.display = 'block';
 }
-function revealSpectrum(){
-  document.getElementById('edge-panel').classList.add('active');
+function finishPipeline(){
   buildPileupSites();
   pipelineDone = true;
   document.getElementById('map-panel').classList.add('active');

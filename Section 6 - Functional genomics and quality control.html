@@ -304,41 +304,46 @@
 <div class="wrap">
   <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 6 of 8</b> · Functional genomics and quality control</div>
   <h1>Quality control: what can this experiment still answer?</h1>
-  <p class="sub">Earlier sections let you inspect individual reads, alignments and variants. Here you
-  have twenty four ATAC-seq libraries, each represented by a handful of imperfect summaries. The task
-  is not to find a magic cutoff. It is to decide whether each library, <b>and the comparison it
-  belongs to</b>, is still interpretable.</p>
-  <p class="sub"><small>Simulated libraries. The thresholds, the protocol comparisons and the
-  arithmetic are real, and each is quoted with the source that set it.</small></p>
+  <p class="sub">You have <b>twenty four ATAC-seq libraries</b>. Use their signal profiles, the
+  protocol, and the study design to decide which samples, <b>and whether the comparison itself</b>,
+  remain interpretable.</p>
+  <p class="sub"><small>Simulated libraries; the thresholds, protocol comparisons and arithmetic are
+  real, each quoted with the source that set it.</small></p>
 
   <div class="prompt">
-    Sections 4 and 5 were <b>genetics</b>: what is in this genome, and which of it matters. From here
-    the question changes. <b>Functional genomics asks what the cell is doing with the genome</b>, which
-    is a question about activity rather than sequence: which regions are open, which proteins are
-    bound, which genes are being transcribed and how much. It is a family of assays rather than one
-    assay, and they share a pipeline. This section takes the first of them, ATAC-seq, as far as
-    deciding which samples you are allowed to use. Section 7 takes RNA-seq the rest of the way.
-    <br><br>
-    <b>ATAC-seq measures where Tn5 inserts more often than background.</b> That is a statement about
-    a population of cells: accessibility is probabilistic and averaged over however many nuclei went
-    into the reaction, so an ATAC peak is evidence that a region is more often open, not proof that a
-    gene there is active.
-    <br><br>
-    The reads themselves match the genome plainly. This is DNA, so an ordinary aligner places it, with
-    none of the trouble RNA will give you in Section 7. <b>What separates a good ATAC library from a
-    bad one is not whether the reads match, but where they land, and how their distribution compares
-    with what you expected.</b> Every metric in this section measures that without looking at
-    individual reads, because at twenty four samples, let alone twenty four hundred, looking has
-    stopped being available to you.
+    Sections 4 and 5 were <b>genetics</b>: what is in this genome. <b>Functional genomics asks what
+    the cell is doing with the genome</b>: which regions are open (ATAC-seq), which proteins are
+    bound (ChIP-seq), which genes are transcribed (RNA-seq). It is a family of assays rather than
+    one assay, sharing a pipeline; this
+    section takes ATAC-seq as far as deciding which samples you may use, and at twenty four
+    libraries, judging them means numbers standing in for looking.
   </div>
 
   <div class="spinebar"><span class="k">The match in this section</span><span class="v">Reads still match the genome. The new comparisons are distributions: insertion sites against expected background, and each library against its replicates and the design it belongs to.</span></div>
   <h2>Quality control is not a step. It is a gate at every junction</h2>
-  <p class="sub">A pipeline is a chain of things that turn one file into another, and each link can
-  fail in a way the previous check could not have seen. So there is no single moment called quality
-  control. There are three, at least, and this section is the middle one.</p>
+  <p class="sub">Each gate exists because the one before it is blind to something, and this section
+  is the middle one.</p>
 
   <div class="panel">
+    <div class="tvscroll" tabindex="0" role="group"
+         aria-label="The three quality gates. Scrolls sideways on a narrow screen.">
+      <table class="tv gatestbl">
+        <thead><tr><th scope="col">Boundary</th><th scope="col">Check</th>
+        <th scope="col">What it cannot see</th></tr></thead>
+        <tbody>
+          <tr><td>FASTQ</td><td>base quality, adapter, demultiplexing</td><td>where reads land</td></tr>
+          <tr><td><b>BAM · this section</b></td><td>mapping, fragments, mitochondrial fraction, TSS enrichment</td><td>replicate and design structure</td></tr>
+          <tr><td>Matrix, cohort</td><td>peaks, FRiP, replicate agreement, batch</td><td>biological causation</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:14px;margin:10px 0 0"><b>Nothing computed on a single sample can see a batch
+    effect</b>, which is why the last gate looks at the samples together, and why quality is a
+    property of the comparison as well as of each sample.</p>
+
+    <details>
+      <summary>Each gate in full: what it checks and what it catches</summary>
+      <div class="body">
     <div class="gates">
       <div class="gate">
         <div class="g-when"><b>On the raw reads</b><span>FASTQ</span></div>
@@ -355,7 +360,7 @@
         because it needs only an annotation of start sites.
         <span class="catch">Catches reads that were perfectly good and landed in the wrong places, or
         in no useful place. A library can be flawless on the first gate and dead on this one, which is
-        exactly what happened to B12 above.</span></div>
+        exactly what happens to B12 below.</span></div>
       </div>
       <div class="gate">
         <div class="g-when"><b>Peaks, counts and cohort</b><span>peaks, counts, matrix</span></div>
@@ -368,61 +373,20 @@
         comparison rather than of any one sample.</span></div>
       </div>
     </div>
-    <div class="spine">
-      <b>Each gate exists because the one before it is blind to something.</b> Read quality cannot see
-      where a read went. Alignment rate cannot see whether the reads that aligned landed anywhere
-      informative. TSS enrichment cannot see how the samples relate to each other. And nothing
-      computed on a single sample can see a batch effect, which is why the last gate looks at the
-      samples together rather than one at a time.
-      <br><br>
-      That last point is the one this section builds to. <b>Quality is a property of the comparison as
-      well as of each sample.</b> Every library in a cohort can pass every per-sample check and the
-      experiment can still be unable to answer the question it was designed for.
-    </div>
-  </div>
-
-  <h2>What the experiment actually is</h2>
-  <p class="sub">You cannot judge data from an assay you cannot picture. This is one paragraph of bench
-  work, and every quality metric in this section follows from it.</p>
-
-  <div class="panel">
-    <p style="font-size:14px;margin:0 0 10px"><b>ATAC-seq is the "assay for transposase-accessible
-    chromatin".</b> The reagent is <b>Tn5 transposase</b>, pre-loaded with sequencing adapters. Put it
-    into permeabilised nuclei and it does two jobs in one reaction: it cuts the DNA, and it ligates
-    adapters onto the ends it just cut. Buenrostro's protocol paper puts it in one sentence: "The
-    transposase simultaneously fragments the DNA and inserts sequence handles that are then used for
-    amplification during library preparation." That combined step is called <b>tagmentation</b>, and it
-    is why an ATAC library can be made in a few hours from fifty thousand cells.</p>
-    <p style="font-size:14px;margin:0 0 10px"><b>The measurement is a consequence of the enzyme being
-    large.</b> Tn5 is a protein complex, and DNA wrapped around a nucleosome or covered by a bound
-    protein is <b>harder for it to reach</b>, so insertion there is less probable rather than
-    impossible. It cuts more often where the chromatin is open, and where it cut is the experiment.
-    Nothing is being detected; something is being reached, more often in some places than others.
-    That probabilistic wording matters: ATAC-seq measures an <b>aggregate</b> over every nucleus in
-    the reaction, so a peak means a region was open in more of those cells, not that it was open in
-    all of them.</p>
-    <div class="conseq">
-      <div><b>The library is ordinary DNA.</b><span>An ordinary aligner places it. There is no splicing
-        to allow for, which is what makes Section 7 harder rather than this.</span></div>
-      <div><b>The cut site is offset.</b><span>Tn5 works as a dimer and its two active sites cut nine
-        bases apart, so the field adds 4 bases to plus-strand read starts and subtracts 5 from
-        minus-strand ones. A published pipeline does this for you and never mentions it.</span></div>
-      <div><b>Fragment lengths come in bands.</b><span>Sub-nucleosomal fragments under about 100 bases,
-        then peaks near 200, 400 and 600 as a fragment spans one, two or three nucleosomes. The
-        distribution is a picture of chromatin, drawn by an enzyme that could not get through it.</span></div>
-      <div><b>Mitochondrial DNA is a soft target.</b><span>It carries no histone nucleosomes, though it
-        is not naked either: it is packaged into TFAM-containing nucleoids. What really drives the
-        problem is <b>copy number</b>, because a cell holds hundreds to thousands of mitochondrial
-        genomes against two copies of the nuclear one, and how much you get also depends on cell type,
-        how hard the lysis was and how cleanly the nuclei were prepared. Hold on to that: it explains
-        the second half of this section.</span></div>
-    </div>
+      <p style="margin-top:10px">Read quality cannot see where a read went. Alignment rate cannot
+      see whether the reads landed anywhere informative. TSS enrichment cannot see how the samples
+      relate to each other. Every library in a cohort can pass every per-sample check and the
+      experiment can still be unable to answer the question it was designed for.</p>
+      </div>
+    </details>
   </div>
 
   <h2>The plot that decides it</h2>
-  <p class="sub">Take every transcription start site in the genome, line them up, and add up the reads
-  around them. In a library that worked, the pile is concentrated where the chromatin is open. In one
-  that did not, the reads are spread everywhere and the pile is flat.</p>
+  <p class="sub">Take every transcription start site in the genome, line the sites up, and add up
+  the reads around them. For a measurement of open chromatin, start sites are where enrichment is
+  expected: active promoters are accessible. Four of the twenty four libraries are below.
+  <b>Select one to see what its number is worth.</b></p>
+
 
   <div class="panel">
     <p style="font-size:14px;margin:0 0 4px">Four of the twenty four libraries. Same axes, same scale.
@@ -462,9 +426,48 @@
     </details>
   </div>
 
+  <div class="panel" id="assay-panel" style="display:none">
+    <p style="font-size:14px;margin:0 0 10px" id="assay-why"><b>Why a good library makes that shape.</b>
+    ATAC-seq, the "assay for transposase-accessible chromatin", uses <b>Tn5 transposase</b> loaded
+    with sequencing adapters: in one reaction it cuts DNA and tags the ends it cut (<b>tagmentation</b>).
+    Tn5 is large, so DNA wrapped in a nucleosome or covered by a protein is harder for it to reach.
+    <b>It cuts more often where chromatin is open, and where it cut is the experiment</b>, aggregated
+    over every nucleus in the reaction: a peak means a region was open in more of those cells, not in
+    all of them. A library that worked concentrates insertions around accessible regulatory regions;
+    one that failed spreads them everywhere, and the pile is flat.</p>
+    <details>
+      <summary>How ATAC-seq leaves marks in the data</summary>
+      <div class="body">
+        <p>Buenrostro's protocol paper puts the reaction in one sentence: "The transposase
+        simultaneously fragments the DNA and inserts sequence handles that are then used for
+        amplification during library preparation." That is why an ATAC library can be made in a few
+        hours from fifty thousand cells. Insertion under a nucleosome is less probable rather than
+        impossible: nothing is being detected; something is being reached, more often in some places
+        than others.</p>
+    <div class="conseq">
+      <div><b>The library is ordinary DNA.</b><span>An ordinary aligner places it. There is no splicing
+        to allow for, which is what makes Section 7 harder rather than this.</span></div>
+      <div><b>The cut site is offset.</b><span>Tn5 works as a dimer and its two active sites cut nine
+        bases apart, so the field adds 4 bases to plus-strand read starts and subtracts 5 from
+        minus-strand ones. A published pipeline does this for you and never mentions it.</span></div>
+      <div><b>Fragment lengths come in bands.</b><span>Sub-nucleosomal fragments under about 100 bases,
+        then peaks near 200, 400 and 600 as a fragment spans one, two or three nucleosomes. The
+        distribution is a picture of chromatin, drawn by an enzyme that could not get through it.</span></div>
+      <div><b>Mitochondrial DNA is a soft target.</b><span>It carries no histone nucleosomes, though it
+        is not naked either: it is packaged into TFAM-containing nucleoids. What really drives the
+        problem is <b>copy number</b>, because a cell holds hundreds to thousands of mitochondrial
+        genomes against two copies of the nuclear one, and how much you get also depends on cell type,
+        how hard the lysis was and how cleanly the nuclei were prepared. Hold on to that: it explains
+        the second half of this section.</span></div>
+    </div>
+      </div>
+    </details>
+  </div>
+
   <h2>Where the reads went instead</h2>
-  <p class="sub">The transposase cuts accessible DNA. Mitochondria have no chromatin, so their genome
-  is the most accessible DNA in the cell, and in the original protocol it dominated the run.</p>
+  <p class="sub">Mitochondrial DNA lacks canonical nucleosomal chromatin and sits at hundreds to
+  thousands of copies per cell, so it is the softest, most numerous target in the reaction, and in
+  the original protocol it dominated the run.</p>
 
   <div class="panel">
     <div class="tiles">
@@ -625,18 +628,16 @@
         <p>The ChIP-seq guidelines say out loud where such numbers come from. They were "constructed
         based on the historical experiences of ENCODE ChIP-seq data production groups with the purpose
         of balancing data quality with practical attainability", and are "routinely revised".</p>
-        <p><b>And they move under you.</b> An earlier version of this section quoted the ATAC page as
-        asking for "15 million non-duplicate, non-mitochondrial aligned reads for single-end sequencing
-        and 50 million for paired-ended sequencing", and pointed out that fifty million paired-end
-        reads is twenty five million fragments, not fifteen: the page contradicted itself. Checked
-        again on 18 August 2026, it now reads <b>"25 million non-duplicate, non-mitochondrial aligned
-        reads for single-end sequencing and 50 million for paired-ended sequencing (i.e. 25 million
-        fragments, regardless of sequencing run type)"</b>. The inconsistency is gone and the number
-        this section filters on went up by two thirds.</p>
-        <p>That is not a criticism of ENCODE, who say themselves that these are "routinely revised". It
-        is the reason to <b>record the version and the date of any standard you applied</b>, because a
-        methods section that says "libraries meeting ENCODE standards were retained" does not say which
-        standard, and the answer changed while this page was being written.</p>
+        <p><b>And they move under you.</b> The ATAC depth requirement used to read "15 million
+        non-duplicate, non-mitochondrial aligned reads for single-end sequencing and 50 million for
+        paired-ended sequencing", which contradicts itself: fifty million paired-end reads is twenty
+        five million fragments, not fifteen. As of 18 August 2026 it reads <b>"25 million
+        non-duplicate, non-mitochondrial aligned reads for single-end sequencing and 50 million for
+        paired-ended sequencing (i.e. 25 million fragments, regardless of sequencing run type)"</b>:
+        the inconsistency fixed, the requirement up by two thirds.</p>
+        <p>ENCODE say themselves these are "routinely revised". So <b>record the version and the date
+        of any standard you applied</b>: a methods section that says "libraries meeting ENCODE
+        standards were retained" does not say which standard, and the answer moves.</p>
         <p>A published threshold is a consortium's working compromise, written down. Treating it as a
         law of nature is a decision you made, not one they made for you.</p>
       </div>
@@ -681,36 +682,13 @@
     </details>
   </div>
 
-  <h2>And then you test twenty thousand times</h2>
-  <div class="panel">
-    <p style="font-size:14px;margin:0 0 12px">Suppose every library passed and the design survived. You
-    are about to compare the two arms across 20,000 genes, which is what the volcano plot in Section 7
-    does.
-    At the conventional 5% threshold, the number of genes you would expect to call significant if the
-    treatment did nothing whatsoever is:</p>
-    <div class="tiles">
-      <div class="tile hero"><div class="k">False positives expected</div><div class="v">1,000</div></div>
-      <div class="tile"><div class="k">Tests run</div><div class="v">20,000</div></div>
-      <div class="tile"><div class="k">Threshold</div><div class="v">p &lt; 0.05</div></div>
-    </div>
-    <p style="font-size:14px;margin:14px 0 0">A thousand hits from an experiment where nothing happened.
-    That is not a subtle statistical point, it is arithmetic, and it is why the volcano plot in
-    Section 7 is drawn against an <b>adjusted</b> p-value rather than a raw one. Genome-wide
-    association uses a threshold near 5 times ten to the minus eight, which is roughly 0.05 divided by
-    the number of independent tests.</p>
-    <p style="font-size:14px;margin:10px 0 0">Notice what this shares with the threshold you just moved.
-    In neither case is any single number wrong. In both,
-    <b>the number of chances you gave yourself changed what the numbers mean</b>, and nothing in the
-    output says so.</p>
-  </div>
-
   <div class="nb" id="nb">
     <div class="nb-head">
       <h3>🗒 Lab notebook</h3>
       <button type="button" id="download-notebook" class="nb-dl" disabled
               aria-describedby="nb-dl-hint">⤓ Download notebook</button>
     </div>
-    <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <p class="nb-dl-hint" id="nb-dl-hint">Saved locally as a text file.</p>
     <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 4 steps done</p>
     <ul class="milestones" id="milestone-list6" aria-label="Steps in this section"></ul>
     <div role="log" aria-live="polite" aria-label="Lab notebook entries">
@@ -720,28 +698,12 @@
 
   <div class="section-done" id="section-done" role="status" aria-live="polite">
     <h3>✓ You have finished Section 6.</h3>
-    <p>Everything up to here was one thing at a time, and you could look at it. This section was the
-    first where you could not, so numbers stood in for looking: a profile shape, a fraction, a count of
-    fragments. You judged twenty four libraries without opening one of them.</p>
-    <p>Three things are worth carrying into the analysis sections. <b>A quality metric is a hypothesis
-    about how experiments fail</b>, so when the way they fail changes, the metric quietly stops being
-    about quality. <b>A metric is a property of your data and a file</b>, so two groups can report
-    different numbers from the same reads and neither is wrong. And <b>a threshold is a decision about
-    your experiment</b>, not a decision about your data.</p>
-    <p><b>Quality control is evidence integration across samples and across the design, not a sequence
-    of independent pass/fail verdicts.</b> A threshold turns continuous evidence into a consequential
-    decision. Record which samples were excluded, why, and what comparisons remain possible once they
-    are gone. In this experiment the honest answer to that last part was uncomfortable: condition and
-    batch were the same column, so the treatment effect was never estimable, and no threshold you
-    chose could have changed it.</p>
-    <p>Where possible, define your inclusion rules <b>before</b> you interpret the treatment result,
-    so the rules are not chosen by the answer you were hoping for. But quality control does not stop
-    at the start of the analysis: replicate agreement, clustering and batch structure are all
-    quality control, and none of them exists until after quantification. Exploratory analysis is part
-    of quality control, not a thing that happens once it is finished.</p>
-    <p>Section 7 takes the other assay in this family the rest of the way, and carries the same
-    problem with it: <b>differential analysis cannot recover information the experimental design never
-    contained.</b></p>
+    <p><b>Quality control integrates evidence across files, samples and the design. A threshold can
+    exclude a sample; it cannot repair confounding.</b> Record what was excluded, why, and which
+    comparisons remain possible, and define the rules before you interpret the result. Exploratory
+    analysis is part of quality control, not a thing that happens after it. What carries forward is
+    the hard version: <b>differential analysis cannot recover information the experimental design
+    never contained.</b></p>
     <p class="nb-aside">Your lab notebook holds what you did, kept for your own reference. Download it
     if you want to keep it.</p>
   </div>
@@ -753,8 +715,6 @@
   <a class="nav-next" href="Section%207%20-%20Functional%20genomics%20and%20analysis.html"><span class="k">Next</span><span class="t">7. Functional genomics and analysis</span></a>
 </nav>
 
-  <p class="footer-note">Prototype · Section 6 of the Molecular Techniques Interactive Bioinformatics
-  Module · 2026/27 cycle · simulated libraries, published thresholds</p>
 </div>
 <div class="tip" id="tip" role="status" aria-live="polite"></div>
 
@@ -1030,6 +990,10 @@ function buildProfiles(){
 }
 
 function selectProfile(s){
+  // The assay explanation appears with the first selection: at that moment the
+  // student has a shape in front of them for it to explain.
+  var ap = document.getElementById('assay-panel');
+  if (ap) ap.style.display = 'block';
   [].forEach.call(document.getElementById('smgrid').children, function(b){
     b.setAttribute('aria-pressed', b.id === 'prof-' + s.id ? 'true' : 'false');
   });

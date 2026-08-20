@@ -156,6 +156,15 @@
     font-family:var(--mono)}
   .nb li.empty{color:var(--text-dim);font-style:italic;font-family:inherit}
 
+  details.postscript{margin:18px 0;border:1px solid var(--border-ctrl);border-radius:10px;
+    background:var(--panel)}
+  details.postscript>summary{cursor:pointer;padding:12px 16px;color:var(--accent);font-size:14px;
+    font-weight:600;list-style:none}
+  details.postscript>summary::-webkit-details-marker{display:none}
+  details.postscript>summary::before{content:'▸ ';color:var(--text-dim)}
+  details.postscript[open]>summary::before{content:'▾ '}
+  details.postscript>.body{padding:0 16px 14px}
+  details.postscript h3{color:var(--accent);font-size:15px;margin:14px 0 6px}
   .section-done{background:var(--panel);border:1px solid var(--accent);border-radius:8px;
     padding:18px 22px;margin-top:22px;display:none}
   .section-done.show{display:block}
@@ -218,40 +227,39 @@
   <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 7 of 8</b> · Functional genomics and analysis</div>
   <h1>From reads to a defensible result</h1>
   <p class="sub">Section 6 ended with an experiment that <b>could not separate treatment from
-  batch</b>, so no analysis could have rescued it. The lab repeated it properly. Both conditions are
-  now represented in both batches, which gives twelve usable RNA-seq libraries and a treatment effect
-  that is actually estimable.</p>
+  batch</b>, so no analysis could have rescued it. Here is an RNA-seq experiment designed so that
+  cannot happen: both conditions represented in both batches, twelve libraries, and a treatment
+  effect that is actually estimable.</p>
   <p class="sub">Quality control told you the libraries are technically usable. It did not tell you
   what changed. That is the job here, and the last step is the hardest: turning a result into a
   sentence you can defend.</p>
   <p class="sub"><small>The counts are simulated. <b>The analysis is not.</b> Counts for 2,000 genes
   across 12 samples were drawn from a negative binomial, then normalised and modelled with a per-gene
-  negative binomial GLM and a Wald test, adjusted with Benjamini-Hochberg. It was run once, offline,
-  and the output embedded; the scripts are in the project folder. It behaves like a real result,
-  including the false positives and the changes it misses.</small></p>
+  negative binomial GLM and a Wald test, adjusted with Benjamini-Hochberg, run once offline with the
+  output embedded in this page. It behaves like a real result, including the false positives and the
+  changes it misses.</small></p>
 
   <div class="prompt">
-    <b>After immune stimulation, which RNA abundances changed?</b>
+    <b>After immune stimulation, which RNA abundances changed?</b> Bulk RNA-seq measures the RNA
+    molecules in a mixture of cells: an abundance difference can come from transcription, degradation,
+    processing, or a change in the cell-type mixture, and steady-state RNA-seq cannot tell those apart
+    on its own. <b>What you get is evidence of changed abundance, not yet a mechanism.</b>
     <br><br>
-    Be careful with what that question can be answered with. Bulk RNA-seq measures <b>the RNA
-    molecules present in a mixture of cells</b>. An abundance difference can come from more
-    transcription, from slower degradation, from a change in RNA processing, or from the mixture
-    containing different proportions of cell types than before. Steady-state RNA-seq cannot tell those
-    apart on its own. What you get is evidence of changed abundance, which is not yet an explanation
-    of mechanism.
-    <br><br>
-    <small>This section deliberately does <b>not</b> ask what a variant is doing. That question needs
-    a different experiment: expression stratified by genotype, allele-specific expression, an eQTL
-    design, or a direct perturbation. Nothing in these twelve libraries carries genotype information,
-    so nothing here could answer it.</small>
+    <small>What a variant is doing needs a different experiment: genotype-stratified expression,
+    allele-specific expression, an eQTL design, or a perturbation. Nothing in these twelve libraries
+    carries genotype information.</small>
   </div>
 
   <div class="spinebar"><span class="k">The match in this section</span><span class="v">An RNA read against a genome that still has the intron in it, then counts against a model of the samples, and finally a gene list against a catalogue of gene sets.</span></div>
   <h2>What the experiment actually is</h2>
-  <p class="sub">One paragraph of bench work, because two decisions made at the bench decide what your
-  count table can and cannot contain.</p>
+  <p class="sub"><b>The library preparation determines which RNA species can appear in the count
+  matrix at all, and whether read direction identifies the transcript's strand.</b> The details are
+  below; the two sentences above are what they add up to.</p>
 
   <div class="panel">
+    <details>
+    <summary>What the library preparation decided</summary>
+    <div class="body">
     <p style="font-size:14px;margin:0 0 10px"><b>Almost none of the RNA in a cell is the RNA you
     want.</b> Ribosomal RNA is "the most highly abundant component of total RNA isolated from animal or
     human cells and tissues, comprising the majority (&gt;80% to 90%) of the molecules". Sequence total
@@ -283,6 +291,8 @@
     transcript strand is a property of the protocol rather than a universal rule. If you do not know
     which one your library used, you do not know how to count it, and every quantification tool will
     ask.</p>
+    </div>
+    </details>
   </div>
 
   <h2>First, the same problem in a new shape</h2>
@@ -346,6 +356,23 @@
     size factors, a per-gene negative binomial GLM, a Wald test on the condition term and
     Benjamini-Hochberg adjustment across all genes tested. Run once offline by
     <code>_s7_simulate.py</code>; the page displays its output rather than inventing one.</div>
+  </div>
+
+  <h2>And then you test two thousand times</h2>
+  <div class="panel">
+    <p style="font-size:14px;margin:0 0 12px">Before reading any plot of per-gene results, do one
+    piece of arithmetic. At the conventional 5% threshold, testing every gene, the number you would
+    expect to call significant <b>if the treatment did nothing at all</b> is:</p>
+    <div class="tiles">
+      <div class="tile hero"><div class="k">False positives expected</div><div class="v">1,000</div></div>
+      <div class="tile"><div class="k">Tests run</div><div class="v">20,000</div></div>
+      <div class="tile"><div class="k">Threshold</div><div class="v">p &lt; 0.05</div></div>
+    </div>
+    <p style="font-size:14px;margin:14px 0 0">A thousand hits from an experiment where nothing
+    happened, by arithmetic alone. That is why the volcano plot below is drawn against an
+    <b>adjusted</b> p-value: <b>the number of chances you gave yourself changes what the numbers
+    mean</b>, and nothing in the output says so. (Genome-wide association pushes the same logic to
+    about 5&times;10<sup>&minus;8</sup>, roughly 0.05 divided by the number of independent tests.)</p>
   </div>
 
   <h2>Which genes changed</h2>
@@ -456,7 +483,10 @@
     </div>
   </div>
 
-  <h2>The same analysis, on peaks instead of genes</h2>
+  <details class="postscript">
+  <summary>Postscript: the same count-matrix logic on peaks, and the other assays in this family</summary>
+  <div class="body">
+  <h3>The same analysis, on peaks instead of genes</h3>
   <p class="sub">ATAC-seq and ChIP-seq end in peaks rather than counts per gene. Almost everything you
   have just done still applies, and the one place it does not is the interesting place.</p>
 
@@ -528,7 +558,7 @@
     </details>
   </div>
 
-  <h2>The same machinery, three shapes</h2>
+  <h3>The same machinery, three shapes</h3>
   <p class="sub">RNA-seq is one of three assays that all match reads to the same genome and differ in
   what the reads look like when they land. That difference is not a detail, it is the experiment.</p>
 
@@ -611,6 +641,8 @@
       than "we called peaks".
     </div>
   </div>
+  </div>
+  </details>
 
   <div class="nb" id="nb">
     <div class="nb-head">
@@ -618,7 +650,7 @@
       <button type="button" id="download-notebook" class="nb-dl" disabled
               aria-describedby="nb-dl-hint">⤓ Download notebook</button>
     </div>
-    <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <p class="nb-dl-hint" id="nb-dl-hint">Saved locally as a text file.</p>
     <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 4 steps done</p>
     <ul class="milestones" id="milestone-list7" aria-label="Steps in this section"></ul>
     <div role="log" aria-live="polite" aria-label="Lab notebook entries">
@@ -632,7 +664,7 @@
     <div class="decide-opts" id="claim-opts" role="group" aria-label="Which sentence is supported">
       <button type="button" class="btn sdec7" data-c="cause" aria-pressed="false">Stimulation switched on these genes</button>
       <button type="button" class="btn sdec7" data-c="transcription" aria-pressed="false">Stimulation increased transcription of these genes</button>
-      <button type="button" class="btn sdec7" data-c="abundance" aria-pressed="false">In this balanced repeat, these RNA abundances changed</button>
+      <button type="button" class="btn sdec7" data-c="abundance" aria-pressed="false">In this balanced experiment, these RNA abundances changed</button>
       <button type="button" class="btn sdec7" data-c="variant" aria-pressed="false">This explains what the variant is doing</button>
     </div>
     <div class="decide-fb" id="claim-fb" role="status" aria-live="polite">Pick the strongest sentence
@@ -641,18 +673,11 @@
 
   <div class="section-done" id="section-done" role="status" aria-live="polite">
     <h3>✓ You have finished Section 7.</h3>
-    <p>You watched an RNA read fail to match a genome it came from, fixed it with an aligner that
-    knows about introns, and then stopped looking at sequence entirely. From that point on it was a
-    table of numbers, and every step narrowed what the final sentence could say: <b>reads were
-    matched, counts were normalised, a model was chosen, a reporting rule made a shortlist, and
-    enrichment summarised it against the genes that were eligible to be there.</b></p>
-    <p>Notice how much the sentence had to give up on the way. Not "switched on", because abundance is
-    not transcription. Not "caused", because a stimulus and an abundance change are not a mechanism.
-    Not anything about a variant, because no genotype was ever measured. What survives is a claim
-    about changed RNA abundance in a balanced repeat, with a positive control that agrees with the
-    stimulus, and that is a real result rather than a deflated one.</p>
-    <p>The peak panel is worth keeping too. A gene is an object somebody else defined and largely
-    shares. A peak is an object you made, and it moves when you change your mind about a threshold.</p>
+    <p><b>Reads became gene counts; counts were normalised and modelled; a reporting rule produced a
+    shortlist; enrichment summarised it against the genes eligible to be tested.</b> The strongest
+    supported claim is that RNA abundance changed in this balanced experiment. Not "switched on", because
+    abundance is not transcription; not "caused", because no mechanism was measured; nothing about a
+    variant, because no genotype was. That is a real result, not a deflated one.</p>
     <p class="nb-aside">Your lab notebook is a record of what you did in this section, kept for your
     own reference. Download it if you want to keep it.</p>
   </div>
@@ -663,8 +688,6 @@
   <a class="nav-next" href="Section%208%20-%20A%20new%20assay.html"><span class="k">Next</span><span class="t">8. A new assay</span></a>
 </nav>
 
-  <p class="footer-note">Prototype · Section 7 of the Molecular Techniques Interactive Bioinformatics
-  Module · 2026/27 cycle · simulated expression data, real statistics</p>
 </div>
 
 <script>
@@ -879,7 +902,7 @@ var DESIGN_VERDICT = {
       + 'missed. Leaving a known nuisance out of the model does not make it go away.',
   batchcond: '<b>This is the defensible choice here, and it is what was fitted.</b> Batch is a '
       + 'nuisance you know about and did not care about, so you let the model account for it and then '
-      + 'ask about condition with batch held constant. Note what makes this possible: the repeat is '
+      + 'ask about condition with batch held constant. Note what makes this possible: the design is '
       + 'balanced. In Section 6 this exact formula would have failed, because the two columns were '
       + 'identical and the model matrix was not full rank.',
   inter: '<b>Defensible only if you have a reason.</b> An interaction term asks a different question: '
@@ -1143,7 +1166,7 @@ var CLAIM_VERDICT = {
        + 'is a balance between how fast RNA is made and how fast it is destroyed. Steady-state '
        + 'RNA-seq cannot separate those. Measuring transcription itself needs a different experiment: '
        + 'metabolic labelling, nascent RNA, or a rate measurement of some kind.',
-  abundance: '<b>This is the one you can defend.</b> Spelled out in full: in a balanced repeat with '
+  abundance: '<b>This is the one you can defend.</b> Spelled out in full: in a balanced experiment with '
        + 'twelve libraries, ' + '{{N}}' + ' genes met a reporting rule of adjusted p below 0.05 and '
        + '|log2 fold change| of at least 1, and cytokine-related sets were over-represented among '
        + 'them relative to the genes eligible for testing. That supports a stimulation-associated '

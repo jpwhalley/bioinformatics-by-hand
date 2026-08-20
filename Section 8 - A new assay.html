@@ -239,111 +239,20 @@
 <body>
 <div class="wrap">
   <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 8 of 8</b> · A new assay</div>
-  <h1>The same questions, on an assay you have not met</h1>
-  <p class="sub"><b>This is not a lesson in single-cell RNA-seq.</b> It is a test of whether the
-  habits from the course transfer to an assay nobody has taught you.</p>
+  <h1>A new assay</h1>
   <p class="sub"><small>Simulated cells, built to behave like a droplet experiment on human monocytes
   and lymphocytes. The read structure, the barcode and UMI lengths, and the sources quoted are
   real.</small></p>
 
   <div class="prompt">
-    In Section 1 you were told to come back to four questions whenever a workflow turned into a black
-    box. Here they are again, unchanged:
-    <ol class="fourq">
-      <li>What observation is being compared?</li>
-      <li>What is the reference?</li>
-      <li>How is agreement scored?</li>
-      <li>What happens when no answer, or several answers, fit?</li>
-    </ol>
-    Seven sections later you can add a second layer, because the questions above stop at the point
-    where a read gets a coordinate, and every claim you have made since then came from somewhere after
-    that: <b>how did those assignments become measurements, and how did those measurements become a
-    biological claim?</b>
-    <br><br>
-    Below is the chain those questions sit on, and then the same chain run forward on single-cell
-    RNA-seq, which is the examination material rather than the subject. Three questions carry it:
-    <b>what is being matched, does the data deserve to be believed, and what does the answer mean.</b>
-    Each is Section 1's four questions asked at a different boundary.
-  </div>
-
-  <div class="panel">
-    <div class="qgrid">
-      <div class="qcard">
-        <div class="qn">Where the four questions live</div>
-        <div class="qq">Observations become assignments</div>
-        <div class="qa">Sections 1 to 4. A read against a reference, a query against a database, an
-        index against a sample sheet. Section 1's four questions are exactly the questions to ask at
-        this boundary, and the fourth one, about no answer or several, is the one people skip.</div>
-      </div>
-      <div class="qcard">
-        <div class="qn">The layer added since</div>
-        <div class="qq">Assignments become measurements</div>
-        <div class="qa">Sections 4, 6 and 7. Counting variants, counting reads in peaks, counting reads
-        in genes. This is where a set of coordinates turns into a table of numbers, and where quality
-        control decides what is allowed into it.</div>
-      </div>
-      <div class="qcard">
-        <div class="qn">And the layer after that</div>
-        <div class="qq">Measurements become claims</div>
-        <div class="qa">Sections 5, 6 and 7. A shortlist you can defend, a design that can estimate the
-        effect you care about, and the discipline of asking what else would produce this figure.</div>
-      </div>
-    </div>
+    <b>A collaborator sends you single-cell RNA-seq data and a cell map, and says the map shows a new
+    cell population.</b> Nobody has walked you through this assay. Before believing the plot, work out
+    what was matched to what, how the reads became counts, which cells were kept, and what the true
+    experimental unit is. Three questions structure it, and they are the ones you have been asking
+    all module.
   </div>
 
   <div class="spinebar"><span class="k">The match in this section</span><span class="v">A cell barcode against a whitelist, a UMI against the other UMIs, and cDNA against the genome. Three lists and one reference, for every read.</span></div>
-  <h2>First, what you have actually been doing</h2>
-  <p class="sub">Seven sections is enough to have lost the shape of it. Here it is in one line, and
-  every section you have worked through is one box on it.</p>
-
-  <div class="panel">
-    <div class="chain">
-      <div class="step">
-        <div class="n">Step one</div>
-        <div class="h">Raw data</div>
-        <div class="d">Reads come off the machine, with adapters, barcodes and quality scores
-        attached. Nothing has been compared to anything yet.</div>
-        <span class="s">Sections 3, 4</span>
-      </div>
-      <div class="step">
-        <div class="n">Step two</div>
-        <div class="h">Map them</div>
-        <div class="d">Match every read against a reference and record where it went, and how well.
-        This is the operation the whole module is built on.</div>
-        <span class="s">Sections 1, 2, 4</span>
-      </div>
-      <div class="step">
-        <div class="n">Step three</div>
-        <div class="h">Turn positions into measurements</div>
-        <div class="d">Call variants, count reads per gene, or call peaks. The output stops being
-        sequence and becomes a table of numbers.</div>
-        <span class="s">Sections 4, 6, 7</span>
-      </div>
-      <div class="step">
-        <div class="n">Step four</div>
-        <div class="h">Interpret</div>
-        <div class="d">Filter a variant list, test which genes changed, ask what the changed ones have
-        in common, and decide what you are willing to claim.</div>
-        <span class="s">Sections 5, 7</span>
-      </div>
-    </div>
-
-    <div class="gatebar">
-      <b>And quality control is not a fifth box.</b> It sits between every pair of them: on the raw
-      reads, after mapping, and after the counting or calling, each gate catching something the one
-      before it could not see. Section 6 set that out. It is the part people draw as a single step and
-      then wonder why a problem surfaced three stages downstream.
-    </div>
-
-    <div class="spine">
-      <b>Every assay you meet from now on is a version of that chain.</b> What changes between them is
-      what the reads are made of, what a measurement is called at step three, and which analyses step
-      four supports. What does not change is that reads get matched to something, that the matching
-      has to be checked before it is used, and that the result means less than it appears to. The rest
-      of this section runs the chain forward on an assay nobody has taught you.
-    </div>
-  </div>
-
   <h2>Question one: what is being matched?</h2>
   <p class="sub">A droplet experiment <b>aims</b> to put one cell and one barcoded bead into each of
   many thousands of partitions. It does not manage it every time: most partitions end up with no cell
@@ -603,13 +512,10 @@
     thousand measurements down to two numbers so they can be drawn, using <b>UMAP</b> or
     <b>t-SNE</b>. Cells that look alike land near each other, and groups become visible.
     <b>Colour the same plot four different ways</b> and see how much the colouring decides.</p>
-    <p class="fine" style="margin-bottom:8px"><b>What this particular picture is.</b> It is a
-    <b>schematic cell map</b>, not a UMAP. The coordinates below were drawn around six chosen centres;
-    no count matrix, no principal components, no neighbour graph and no clustering were computed to
-    make it. That is a deliberate choice, because this section is a test of interpretation rather than
-    a single-cell tutorial, and everything the exercise is about survives it. It does mean the shapes
-    here are not evidence of anything: the claims below about what such plots can and cannot support
-    are about real embeddings, and are cited.</p>
+    <p class="fine" style="margin-bottom:8px"><b>Schematic cell map:</b> the coordinates were drawn
+    around six chosen centres for this page, not computed by UMAP, so the shapes here are not
+    evidence of anything. The claims below about what real embeddings can and cannot support are
+    cited.</p>
     <div class="picker" id="umap-picker" role="group" aria-label="Colour the plot by"></div>
 
     <div class="chartwrap" tabindex="0" role="group"
@@ -662,6 +568,64 @@
       <h3 style="margin-top:16px">Your checklist, and where each line came from</h3>
       <ol class="fourq" id="check-list"></ol>
       <div class="spine" id="check-spine"></div>
+
+    <div id="the-chain">
+      <h3 style="margin-top:18px">What you just did, named</h3>
+      <p style="font-size:14px;margin:4px 0 8px">Every line of that checklist guards a boundary, and
+      the whole module has been one chain crossed at growing scale:
+      <b>observations become assignments, assignments become measurements, measurements become
+      claims.</b> Here is that chain, with the sections that taught each box, and what you just did
+      on an assay nobody briefed you on: decoding the read was observation becoming assignment,
+      collapsing UMIs into the matrix was assignments becoming measurements, and the QC rule, the
+      experimental unit and the map were measurements becoming claims.</p>
+    <div class="chain">
+      <div class="step">
+        <div class="n">Step one</div>
+        <div class="h">Raw data</div>
+        <div class="d">Reads come off the machine, with adapters, barcodes and quality scores
+        attached. Nothing has been compared to anything yet.</div>
+        <span class="s">Sections 3, 4</span>
+      </div>
+      <div class="step">
+        <div class="n">Step two</div>
+        <div class="h">Map them</div>
+        <div class="d">Match every read against a reference and record where it went, and how well.
+        This is the operation the whole module is built on.</div>
+        <span class="s">Sections 1, 2, 4</span>
+      </div>
+      <div class="step">
+        <div class="n">Step three</div>
+        <div class="h">Turn positions into measurements</div>
+        <div class="d">Call variants, count reads per gene, or call peaks. The output stops being
+        sequence and becomes a table of numbers.</div>
+        <span class="s">Sections 4, 6, 7</span>
+      </div>
+      <div class="step">
+        <div class="n">Step four</div>
+        <div class="h">Interpret</div>
+        <div class="d">Filter a variant list, test which genes changed, ask what the changed ones have
+        in common, and decide what you are willing to claim.</div>
+        <span class="s">Sections 5, 7</span>
+      </div>
+    </div>
+
+    <div class="gatebar">
+      <b>And quality control is not a fifth box.</b> It sits between every pair of them: on the raw
+      reads, after mapping, and after the counting or calling, each gate catching something the one
+      before it could not see. Section 6 set that out. It is the part people draw as a single step and
+      then wonder why a problem surfaced three stages downstream.
+    </div>
+
+      <p style="font-size:14px;margin:12px 0 8px"><b>Every assay you meet from now on is a version of
+      that chain.</b> And the four questions from Section 1, unchanged, are how you interrogate its
+      first boundary, where observations become assignments:</p>
+      <ol class="fourq">
+        <li>What observation is being compared?</li>
+        <li>What is the reference?</li>
+        <li>How is agreement scored?</li>
+        <li>What happens when no answer, or several answers, fit?</li>
+      </ol>
+    </div>
     </div>
   </div>
 
@@ -671,7 +635,7 @@
       <button type="button" id="download-notebook" class="nb-dl" disabled
               aria-describedby="nb-dl-hint">⤓ Download notebook</button>
     </div>
-    <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <p class="nb-dl-hint" id="nb-dl-hint">Saved locally as a text file.</p>
     <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 4 steps done</p>
     <ul class="milestones" id="milestone-list8" aria-label="Steps in this section"></ul>
     <div role="log" aria-live="polite" aria-label="Lab notebook entries">
@@ -685,22 +649,13 @@
        conclusion, and it is ordinary content. -->
   <div class="section-done" id="section-done">
     <h3>✓ You have finished Section 8, and the module.</h3>
-    <p>You began by placing twelve letters against a reference, where you could see every base you were
-    judging. Everything since has been the same operation at a scale that removed your ability to look:
-    six species at once, then a million reads, then a genome, then five million variants, then twenty
-    four libraries, then twenty thousand genes, and finally a few thousand cells you judged without
-    opening one of them. <b>What changed was how far you were from the letters, and what you therefore
-    had to take on trust.</b></p>
-    <p>The scale changed. The obligation did not. Find where observations became assignments, where
-    assignments became measurements, and where measurements became claims, and at every one of those
-    boundaries ask what was assumed, what was discarded, and whether that choice could change the
-    biological answer.</p>
-    <p>Nobody taught you this assay. You worked out what was being matched to what, you turned reads
-    into a measurement by hand, you decided what the data was worth and said what that cost, you named
-    the experimental unit, and you found the thing the plot was hiding. <b>The tools will change. That
-    transfers.</b></p>
-    <p class="nb-aside">Your lab notebook holds what you did across this section, including the
-    checklist you built. Download it if you want to keep it.</p>
+    <p>You began by placing twelve letters against a reference. The scale changed; the obligation did
+    not. <b>Find where observations became assignments, where assignments became measurements, and
+    where measurements became claims, and at every boundary ask what was assumed, what was discarded,
+    and whether that choice could change the biological answer.</b> What changed at every step was how
+    far you were from the letters, and what you therefore had to take on trust.</p>
+    <p>The tools will change. <b>That habit transfers.</b></p>
+    <p class="nb-aside">Your lab notebook holds what you did, including the checklist you built.</p>
   </div>
 
 
@@ -710,8 +665,6 @@
   
 </nav>
 
-  <p class="footer-note">Prototype · Section 8 of the Molecular Techniques Interactive Bioinformatics
-  Module · 2026/27 cycle · simulated cells, real read structure</p>
 </div>
 
 <script>
@@ -1264,7 +1217,8 @@ function drawUmap(){
   } else if (MODE.id === 'mito'){
     var dam = CELLS.filter(function(c){ return c.pop === DAMAGED_POP; });
     var med = dam.map(function(c){ return c.mito; }).sort(function(a, b){ return a - b; })[Math.floor(dam.length / 2)];
-    out = '<b>There it is.</b> The group in the middle is not a cell type. Its median mitochondrial '
+    out = '<b>There it is, and it is the collaborator\'s new population.</b> The group in the '
+      + 'middle is not a cell type. Its median mitochondrial '
       + 'fraction is ' + med.toFixed(0) + '%, against roughly 5% everywhere else, and it has the fewest '
       + 'genes detected of any group on the plot. These are cells whose membranes broke before they '
       + 'were captured. They cluster together because <b>they resemble each other</b>, and they '

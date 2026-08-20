@@ -507,12 +507,9 @@
   </header>
 
   <div class="prompt">
-    <b>What is the least you could do and reasonably call it bioinformatics?</b>
-    Start with two strings of letters. The longer one is a reference; the shorter one is an
-    observed read. Your task is to compare the read with possible positions on the reference,
-    then decide which placement is best supported. You will solve three versions of that problem:
-    first an exact match, then mismatches, then a gap. Do not memorise syntax. Watch what has to
-    change when the evidence becomes less tidy.
+    A 12 base read came from somewhere in this 40 base reference. <b>Move it, score each
+    placement, and find the best-supported position.</b> Then do it again when the read carries
+    mismatches, and again when it carries a gap.
   </div>
 
   <div class="workspace">
@@ -538,8 +535,9 @@
       <button id="left-btn" title="Move read 1 base left (← arrow key)">◀ Left</button>
       <button id="right-btn" title="Move read 1 base right (→ arrow key)">Right ▶</button>
       <button id="gap-btn" style="display:none;" title="Insert a gap into the read at the current cursor">＋ Insert gap</button>
-      <button id="reveal-btn" disabled>Show best position</button>
-      <div class="position-display">Read start (0-based): <b id="pos-display">0</b></div>
+      <button id="reveal-btn" disabled
+              title="Unlocks after several genuine attempts. Using it is a way forward, not a penalty.">Show best position</button>
+      <div class="position-display" title="Zero-based: the first base is position 0. Formats differ; always check the convention.">Read start (0-based): <b id="pos-display">0</b></div>
     </div>
 
     <div class="score-grid" role="status" aria-live="polite" aria-atomic="true">
@@ -574,12 +572,8 @@
   <div class="help-panel">
     <h4>How to play</h4>
     <ul>
-      <li>Drag the read horizontally with a mouse, tap <b>Left</b> / <b>Right</b>, or focus the read and press <kbd>←</kbd> <kbd>→</kbd>.</li>
-      <li>In Phase 3, step 2, <kbd>Tab</kbd> to a base tile and press <kbd>Enter</kbd> to choose where the gap goes. <kbd>Enter</kbd> on an existing gap removes it. Nothing here requires a mouse.</li>
-      <li>Each base you line up correctly is a <span style="color:var(--good)">match</span> ✓ (+1). Each base that lines up with the wrong letter is a <span style="color:var(--bad)">mismatch</span> ✗ (−1).</li>
-      <li>Matching tiles pick up a solid border and a ✓; mismatches get a dashed border and a ✗. Try to maximise the total score.</li>
-      <li>After you have tested several positions, the reveal button becomes available. Using it is a way forward, not a penalty.</li>
-      <li>The positions on this page are <b>zero-based</b>: the first base is position 0. Real bioinformatics formats do not all use the same convention, so always check.</li>
+      <li>Drag the read, use the <b>Left</b> / <b>Right</b> buttons, or press <kbd>←</kbd> <kbd>→</kbd>. Nothing here requires a mouse.</li>
+      <li>A base on the right letter is a <span style="color:var(--good)">match</span> ✓ (+1); on the wrong letter, a <span style="color:var(--bad)">mismatch</span> ✗ (−1). Maximise the score.</li>
     </ul>
   </div>
 
@@ -604,7 +598,7 @@
       <button type="button" id="download-notebook" class="notebook-dl" disabled
               aria-describedby="notebook-dl-hint">⤓ Download notebook</button>
     </div>
-    <p class="notebook-dl-hint" id="notebook-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <p class="notebook-dl-hint" id="notebook-dl-hint">Saved locally as a text file.</p>
     <div class="notebook-entries" id="notebook-entries" role="log" aria-live="polite">
       <div class="notebook-entry" style="color:var(--text-dim);">(your discoveries will appear here as you work)</div>
     </div>
@@ -617,25 +611,19 @@
   <a class="nav-next" href="Section%202%20-%20Searching%20a%20database%20with%20BLAST.html"><span class="k">Next</span><span class="t">2. Searching a database with BLAST</span></a>
 </nav>
 
-  <div class="footer-note">
-    Prototype · Section 1 of the Molecular Techniques Interactive Bioinformatics Module · 2026/27 cycle
-  </div>
+
 </div>
 
 <div class="modal-backdrop" id="completion-modal">
   <div class="modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="completion-title">
     <h2 id="completion-title">✓ You have finished Section 1.</h2>
-    <p>You have done the smallest version of sequence alignment: compare an observation with a reference, score the possible placements, and choose the best-supported answer.</p>
-    <p>When a later workflow starts to feel like a black box, come back to four questions:</p>
+    <p>When a workflow starts to feel like a black box, come back to four questions:</p>
     <ol>
       <li>What observation is being compared?</li>
       <li>What is the reference?</li>
       <li>How is agreement scored?</li>
       <li>What happens when no answer, or several answers, fit?</li>
     </ol>
-    <p>A real aligner performs this kind of reasoning at scale, using indexes and heuristics rather than checking every position the way you did.</p>
-    <p style="margin-top:12px;"><b>Next: Section 2, BLAST search across TNF orthologs.</b> It takes the scoring idea you just used and applies it to searching a database, comparing your human TNF sequence against the same gene in mouse, zebrafish and fly.</p>
-    <p style="margin-top:12px;color:var(--text-dim);font-size:13px;">Your lab notebook is a record of what you did in this section, kept for your own reference. Download it if you want to keep it.</p>
     <div style="margin-top:14px;">
       <button type="button" class="primary" id="download-notebook-modal">⤓ Download my lab notebook</button>
     </div>
@@ -676,13 +664,12 @@ const PHASES = [
     revealAfterAttempts: 6,
     notebookTakeaway: "First principle: compared an observed read with candidate reference positions, scored them, and chose the best-supported placement.",
     debrief: {
-      title: "That counted: you just did bioinformatics.",
-      body: `<p>You compared an observed sequence with a reference, scored candidate placements, and chose the
-             best-supported one. That is the smallest version of sequence alignment.</p>
-             <p>You solved the same <i>problem</i> as a modern aligner, but not with the same algorithm. You checked
-             each possible start directly. Real tools use indexes and heuristics to avoid most of those comparisons,
-             and they must be willing to report one placement, several plausible placements, or no placement at all.
-             A highest score is a candidate answer; it is not automatically a unique or trustworthy one.</p>`,
+      title: "You have just aligned a read.",
+      body: `<p>You compared an observation with a reference, scored candidate placements, and chose the
+             best supported: the smallest version of sequence alignment. You solved the same <i>problem</i>
+             as a modern aligner, not with the same algorithm: real tools use indexes and heuristics rather
+             than checking every start, and they must be willing to report one placement, several, or none.
+             A highest score is a candidate answer, not automatically a trustworthy one.</p>`,
       takeaway: "<b>First principle:</b> compare the letters with a reference, score the possible placements, then ask whether the winner deserves to be believed.",
       deeper: `<p>This page uses <b>brute-force exact matching</b>. For a reference of length <i>n</i> and a read of length
               <i>m</i>, checking every possible start requires roughly O(<i>n</i>×<i>m</i>) base comparisons per read. At human-genome

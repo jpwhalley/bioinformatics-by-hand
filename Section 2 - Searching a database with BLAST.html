@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Section 2: BLAST mini-simulator: TNF across species</title>
+<title>Section 2: Searching a database with BLAST</title>
 <style>
   :root {
     --bg: #0f1419;
@@ -313,23 +313,17 @@
 
 <header>
   <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 2 of 8</b> · Searching a database with BLAST</div>
-  <h1>BLAST mini-simulator: search for similarity across species</h1>
+  <h1>Search a sequence database</h1>
   <div class="spinebar"><span class="k">The match in this section</span><span class="v">The same comparison as Section 1, run against ten database entries at once and scored, so that chance can be ruled out.</span></div>
 
   <div class="subtitle">Synthetic sequences, real Karlin and Altschul statistics.</div>
 </header>
 
 <div class="prompt">
-  <b>The same act, repeated and scored.</b> In Section 1 you slid one short read along one reference and
-  counted matches. That is the whole subject in miniature: compare one set of letters with another set of
-  letters. What you could not do by hand was decide whether the best position you found was <i>convincing</i>,
-  because you had nothing to judge it against.
-  <br><br>
-  This section runs that same comparison against ten sequences instead of one, and attaches a number to each
-  result rather than leaving you to judge by eye. That is what BLAST (Basic Local Alignment Search Tool) is:
-  the same sliding comparison, made fast enough for a database, with a statistic that says how often a match
-  this good turns up by chance. The question is no longer "where does this read go?" but
-  <b>"what else looks like this, and should I believe it?"</b>
+  BLAST (Basic Local Alignment Search Tool) compares one query with many database sequences and ranks
+  the local similarities: Section 1's comparison, run at database speed, with a statistic attached.
+  <b>Predict the strongest non-human hit, run the search, and decide which matches are too strong to
+  attribute to chance.</b>
 </div>
 
 <!-- Phase 1: Familiarisation -->
@@ -366,9 +360,8 @@
       <button type="button" class="btn pred" data-pred="Dm_eiger" aria-pressed="false">Fruit-fly eiger</button>
       <button type="button" class="btn pred" data-pred="Hs_IL6" aria-pressed="false">Human IL6</button>
     </div>
-    <p class="predict-note" id="predict-note">Optional, and nothing is graded. The point is to have an
-    expectation on record before the numbers arrive, because a result you predicted teaches you something
-    a result you merely read does not.</p>
+    <p class="predict-note" id="predict-note">A result you predicted teaches you more than a result you
+    merely read.</p>
   </fieldset>
 
   <div class="controls">
@@ -411,7 +404,7 @@
     </table>
     </div>
     <p style="font-size: 12px; color: var(--text-dim); margin-top: 10px;">
-      Click any column header to re-sort · click any row to inspect the alignment ·
+      Select a column header to re-sort · select a row to inspect the alignment ·
       rows below the <b>E-value = 0.01</b> significance line are dimmed.
     </p>
 
@@ -473,12 +466,12 @@
     </div>
 
     <div class="quiz-q" data-correct="b"
-         data-why="The E-value counts alignments, not sequences, and it is an expected number rather than a probability. It answers &quot;how many hits this good would chance produce in a search this size?&quot; and says nothing at all about whether these two sequences are related. That second question is biology, and the debrief below is about how easily the two get confused."
-         data-why-wrong="An E-value is an expected count of chance alignments in a search of this size. It is not a probability, and it is not about relatedness.">
+         data-why="The E-value is an expected count, not a probability and not a fraction: it estimates how many alignments scoring at least this well a search this size would produce by chance alone. At 1e-12 that expected count makes chance an implausible explanation. It says nothing about whether the two sequences are related; that second question is biology, and the debrief below is about how easily the two get confused."
+         data-why-wrong="An E-value is an expected count of chance alignments scoring at least this well, in a search of this size. It is not a probability, and it is not about relatedness.">
       <div style="margin: 18px 0 6px;"><b>Q3.</b> An E-value of <code>1e-12</code> means roughly:</div>
       <div class="quiz-opts">
         <button class="btn quiz-opt" data-opt="a">There's a 1-in-10^12 chance the two sequences are related.</button>
-        <button class="btn quiz-opt" data-opt="b">You'd expect about 10⁻¹² alignments this good to turn up by chance in a search this size.</button>
+        <button class="btn quiz-opt" data-opt="b">In a search this size, the expected number of chance alignments scoring at least this well is 10⁻¹².</button>
         <button class="btn quiz-opt" data-opt="c">The alignment covers 12 base pairs.</button>
         <button class="btn quiz-opt" data-opt="d">The hit is 12% identical to the query.</button>
       </div>
@@ -492,27 +485,30 @@
 </div>
 
 <div class="debrief" id="debrief" style="display: none;">
-  <h3>What just happened: the BLAST recipe in one paragraph</h3>
-  <p>
-    BLAST is a <b>heuristic</b> for the alignment problem. Smith–Waterman (the rigorous algorithm) is O(mn): way too slow for a multi-billion-base database.
-    The trick: don't try to align everything to everything. First find short exact <b>seed</b> matches. How short depends on the task rather than on the alphabet: blastn uses 11, megablast 28 because it is looking for near-identical sequence, blastn-short 7 for primers and probes, and blastp 3 for proteins. A longer seed is faster and less sensitive; a shorter one catches more diverged matches and costs more time. Then <b>extend</b> each seed in both directions, scoring matches and mismatches, and dropping any extension whose score drops too far below the running maximum (the <i>X-drop</i> rule). Whatever survives that pruning gets a final score and an E-value.
+  <h3>The three numbers in the table</h3>
+  <p style="margin-top: 8px;">
+    <b>Raw score:</b> agreement under this scoring scheme. Change the scheme and it changes, so it
+    travels nowhere.<br>
+    <b>Bit score:</b> the raw score with the scheme normalised out, comparable across compatible
+    searches.<br>
+    <b>E-value:</b> the expected number of chance alignments scoring at least this well, in a
+    search this size. Near zero means the similarity is no accident of searching. It says nothing
+    about <i>why</i> the sequences are similar.
   </p>
 
-  <p style="margin-top: 14px;"><b>Two scores, and they are not the same number.</b></p>
-  <p style="margin-top: 8px;">
-    Adding up matches and mismatches under your scoring scheme gives the <b>raw score</b>. It is not
-    comparable to anything: change the scheme and the number changes. So the raw score is converted
-    into a <b>bit score</b>, which normalises out the scoring scheme, which is why a bit score of 56
-    means the same thing whoever computed it. The table above shows both, for the same alignments.
-  </p>
-  <p style="margin-top: 10px;">
-    The <b>E-value</b> then combines the score with the size of the search space: how many hits this
-    good would you expect by chance, in a database this size, with a query this long? Longer queries
-    and bigger databases give you more chances to match by accident, so the same score is
-    <i>less</i> impressive on a bigger search. An E-value near zero means "this would essentially
-    never happen by chance here". It does not mean the sequences are related, only that the
-    similarity is not an accident of searching.
-  </p>
+  <details class="deeper">
+    <summary>Go deeper: how BLAST searches</summary>
+    <p>
+      Smith–Waterman, the rigorous algorithm, is O(mn): too slow for a multi-billion-base database.
+      BLAST is a <b>heuristic</b>: find short exact <b>seed</b> matches first, then <b>extend</b>
+      each seed in both directions, dropping any extension whose score falls too far below its
+      running maximum (the <i>X-drop</i> rule). Seed length is set by task, not alphabet: blastn 11,
+      megablast 28, blastn-short 7 for primers, blastp 3 for proteins. Longer seeds are faster and
+      less sensitive. Whatever survives the pruning gets a score and an E-value. Bigger databases
+      and longer queries give chance more opportunities, so the same score is less impressive on a
+      bigger search.
+    </p>
+  </details>
 
   <details class="deeper">
     <summary>Go deeper: the actual equations</summary>
@@ -530,19 +526,16 @@
   </details>
 
   <div class="prompt" style="margin-top:16px">
-    <b>One word of care about what you have just shown.</b> A convincing sequence match is evidence of
-    <b>homology</b>: these sequences share an ancestor. It is not by itself evidence of
-    <b>orthology</b>, which is the stronger claim that they are the <i>same gene</i> in two species,
-    separated by speciation rather than by duplication. Establishing that needs the surrounding
-    genes, the rest of the gene family, and the species tree. Nothing in a single BLAST table can
-    settle it, and a table like this one is where a great many mistaken gene assignments begin.
+    <b>Similarity is not orthology.</b> A strong hit is evidence of <b>homology</b>, shared sequence
+    ancestry. The stronger claim of <b>orthology</b>, the same gene in two species, also needs
+    gene-family and species-tree context, and no single BLAST table can settle it.
   </div>
 
   <details class="deeper">
-    <summary>Go deeper: how this prototype simplifies real BLAST</summary>
+    <summary>Go deeper: how this page simplifies real BLAST</summary>
     <p>
       Real BLAST chooses its seed length by task (11 for blastn, 28 for megablast, 7 for blastn-short), scores proteins with a matrix estimated from real alignments, and can open gaps.
-      This prototype uses k=4 seeds, so they are easy to spot in a 41 bp database sequence, and it extends without gaps.
+      This page uses k=4 seeds, so they are easy to spot in a 41 bp database sequence, and it extends without gaps.
       <br><br>
       What is <i>not</i> simplified is the statistics. The scoring scheme is +2 for a match and −3 for a mismatch, which is the same reward and penalty pair real blastn offers as <code>-reward 2 -penalty -3</code>, and the two constants in the E-value formula below are the genuine Karlin and Altschul values for that scheme under uniform base composition: λ = 0.6337 and K = 0.4080. That is why a perfect 30 bp match here reports 56.2 bits, which is what real blastn reports for the same alignment.
       The one thing that is toy-scale is the search space. The E-values are computed against 10 × 41 = 410 bp, so they are <i>much</i> larger than the same alignment would score against nt at roughly 10¹¹ bp. Make the database a hundred million times bigger and every E-value here grows by the same factor.
@@ -562,17 +555,9 @@
 <div class="section-done" id="section-done" role="status" aria-live="polite">
   <h3>✓ You have finished Section 2.</h3>
   <p>You ran a seed-and-extend search, read a hit table, and used an E-value to decide which similarities
-  were too strong to put down to chance.</p>
-  <p>Be careful about what the ranking showed. These ten sequences were written for this exercise with the
-  divergence built into them, so recovering the order mouse, then zebrafish, then fly demonstrates that the
-  score tracks divergence. It is not BLAST discovering the species tree, and a real search would not hand you
-  a clean gradient like that. What <i>is</i> real is the reasoning you did on the way: a long alignment at
-  moderate identity beat a short one at perfect identity, and three human entries scored no better than the
-  bacterial one, because sharing a species label is not the same as sharing a sequence.</p>
-  <p><b>Next: Section 3, reading a FASTQ file.</b> So far the sequences have arrived ready to use. Section 3
-  goes back a step, to what actually comes off the sequencer and how you judge whether it is any good.</p>
-  <p class="nb-aside">Your lab notebook is a record of what you did in this section, kept for your own
-  reference. Download it if you want to keep it.</p>
+  were too strong to put down to chance. The mouse-zebrafish-fly gradient was built into these sequences,
+  so do not read it as BLAST discovering a species tree; what is real is the reasoning: a long alignment
+  at moderate identity beat a short perfect one, and sharing a species label bought nothing.</p>
 </div>
 
 
@@ -582,8 +567,6 @@
   <a class="nav-next" href="Section%203%20-%20Reading%20a%20FASTQ%20file.html"><span class="k">Next</span><span class="t">3. Reading a FASTQ file</span></a>
 </nav>
 
-  <p class="footer-note">Prototype · Section 2 of the Molecular Techniques Interactive Bioinformatics
-  Module · 2026/27 cycle · synthetic sequences, real Karlin and Altschul statistics</p>
 
 </div><!-- /container -->
 
@@ -596,7 +579,7 @@
     <button type="button" id="download-notebook" class="nb-dl" disabled
             aria-describedby="nb-dl-hint">⤓ Download notebook</button>
   </div>
-  <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+  <p class="nb-dl-hint" id="nb-dl-hint">Saved locally as a text file.</p>
   <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 6 steps done</p>
   <div role="log" aria-live="polite" aria-label="Lab notebook entries">
       <ul id="notebook-list" tabindex="0">
@@ -1058,7 +1041,7 @@ function updateProgress(){
 function buildNotebookText(){
   var now=new Date(), L=[];
   L.push('Molecular Techniques: Interactive Bioinformatics Module');
-  L.push('Section 2: BLAST-style search across TNF orthologs');
+  L.push('Section 2: Searching a database with BLAST');
   L.push('');
   L.push('Student: ______________________________');
   L.push('Downloaded: '+now.toLocaleDateString()+', '+now.toLocaleTimeString());

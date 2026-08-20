@@ -183,42 +183,28 @@
 <div class="wrap">
   <div class="breadcrumb"><a href="index.html">Bioinformatics Module</a> · <b>Section 5 of 8</b> · Which variant matters</div>
   <h1>Which variant matters</h1>
-  <p class="sub">Section 4 left you with variants supported by the reads. Genome-wide, a typical human
-  genome differs from the reference at roughly <b>four to five million sites</b>. Most of those
-  differences are genuine, and almost none of them are relevant to the question being asked.</p>
-  <p class="sub">Your task is not to find the most dramatic annotation. It is to decide which variants
-  remain plausible <b>under a stated disease model</b>.</p>
-  <p class="sub"><small>Simulated variants and simulated annotations. The arithmetic below is real and
-  the thresholds are the ones people use, but the numbers in the table were written for this
-  exercise.</small></p>
-
-  <div class="prompt">
-    The pipeline is finished, and it was never the hard part. You now have to get from five million
-    true statements to the one or two worth acting on, and every step you take to do that is
-    <b>a hypothesis about what you are looking for</b>. Choose the wrong hypothesis and you will
-    filter away the answer without ever seeing it.
-  </div>
+  <p class="sub">A genome differs from the reference at four to five million sites, almost all of
+  them real and irrelevant. <b>Every filter that narrows them is a hypothesis about what you are
+  looking for.</b></p>
+  <p class="sub"><small>Simulated variants and annotations; the arithmetic is real, and the
+  calculations and kinds of evidence are the ones used in practice.</small></p>
 
   <div class="panel">
     <h4>The case</h4>
-    <p style="font-size:14px;margin:0 0 8px">A child has a rare condition affecting roughly
-    <b>1 in 50,000</b> people. Both parents are unaffected, and all twelve candidates below are
-    heterozygous in the child.</p>
-    <p style="font-size:14px;margin:0 0 8px"><b>For this exercise the working model is a highly
-    penetrant autosomal dominant condition, often caused by a new variant.</b> Everything that follows
-    depends on that model, so treat it as a hypothesis rather than a fact: unaffected parents are
-    equally compatible with a recessive condition, and the numbers would then come out differently.</p>
-    <p style="font-size:14px;margin:0">Quality filtering has already been done, and it removed almost
-    nothing, exactly as you saw. What follows are <b>12 variants</b> a first pass flagged for a human
-    look. The referring clinician has also supplied a short list of genes they consider consistent with
-    the child's presentation, which is where the last filter's opinion comes from: you are not being
-    asked to judge the phenotype match yourself.</p>
+    <p style="font-size:14px;margin:0 0 8px">A child has a condition affecting about <b>1 in
+    50,000</b> people. Both parents are unaffected. Twelve heterozygous candidates below, plus a
+    clinician's list of genes consistent with the presentation. <b>Working model: a highly penetrant
+    dominant condition, often caused by a new variant.</b> Reduce the twelve without treating any
+    annotation as a verdict.</p>
+    <p style="font-size:14px;margin:0" class="fine"><b>Change the disease model and the filters
+    change.</b> Unaffected parents are equally compatible with a recessive condition, and the numbers
+    below would then come out differently.</p>
   </div>
 
   <div class="spinebar"><span class="k">The match in this section</span><span class="v">Each variant against population data, predicted molecular consequence, the patient’s phenotype and the family’s genotypes.</span></div>
   <h2>Twelve candidates</h2>
-  <p class="sub">Switch filters on and off. Each states what it assumes and what it might cost you,
-  because a filter described only by what it keeps is hiding half of its behaviour.</p>
+  <p class="sub">Switch filters on and off. The first time you use one, it states what it assumed and
+  what it cost, because a filter described only by what it keeps is hiding half its behaviour.</p>
 
   <div class="filters" id="filters"></div>
 
@@ -269,28 +255,25 @@
     carrying at least one copy is 1 − (1 − 0.021)², which is <b>4.16%</b>, or about <b>1 person in
     24</b>. Reading 2.1% as "1 in 50 people" conflates the two, and the error runs in both directions:
     the recessive note below is where it usually runs the other way.</p>
-    <p style="font-size:14px;margin:12px 0 0"><b>Notice the direction of the evidence.</b> Being common
-    can rule a variant out under this model. Being rare cannot rule one in: almost every variant in the
-    genome is rare, and so is almost every variant that explains nothing.</p>
+    <div class="tiles" style="margin-top:12px">
+      <div class="tile"><div class="k">Can exclude</div><div class="v" style="font-size:14px;font-weight:400">Under this model, a common variant cannot explain a very rare dominant condition.</div></div>
+      <div class="tile"><div class="k">Cannot establish</div><div class="v" style="font-size:14px;font-weight:400">Rarity alone does not make a variant causal: almost every variant is rare, including the ones that explain nothing.</div></div>
+    </div>
 
-    <p style="font-size:14px;margin:12px 0 0">That argument needs no tool, no prediction and no
-    assumption about the gene. It is counting. It is also why a <b>frameshift is not automatically
-    interesting</b>: severity tells you what a variant does to a protein, and frequency tells you
-    whether it could possibly be causing a rare disease. Only one of those is evidence about your
-    patient.</p>
-    <p style="font-size:14px;margin:12px 0 0">Notice what the five filters are asking.
-    <b>Some evidence asks whether a variant could disrupt biology at all</b>: the predicted
-    consequence, the conservation of the position, the in-silico prediction.
-    <b>Other evidence asks whether that disruption is compatible with this disease model and this
-    family</b>: the population frequency, and which parent carries it. The gene list sits across both,
-    because it is a comparison between the gene and the child's presentation rather than a property of
-    the variant.
-    <br><br>
-    You need both kinds, and <b>no single annotation is a verdict</b>. Real frameworks such as
-    ACMG/AMP combine population data, predicted consequence, phenotype fit, de novo occurrence,
-    segregation and functional work, weighting each as evidence rather than sorting them into two
-    boxes. The reason FBN1 is about to catch you is not that its annotations are a lesser kind of
-    evidence. It is that they are all true and none of them is about this child.</p>
+    <details>
+      <summary>Two kinds of evidence, and why a frameshift is not automatically interesting</summary>
+      <div class="body">
+        <p>Severity tells you what a variant does to a protein; frequency tells you whether it could
+        be causing a rare disease. Only one of those is evidence about your patient. Some filters ask
+        whether a variant could disrupt biology at all (consequence, conservation, prediction);
+        others ask whether that disruption fits this model and this family (frequency, inheritance).
+        The gene list sits across both. You need both kinds, and <b>no single annotation is a
+        verdict</b>: real frameworks such as ACMG/AMP weight population data, consequence, phenotype
+        fit, de novo occurrence, segregation and functional work as evidence, not as boxes. FBN1 is
+        about to catch you not because its annotations are weak, but because they are all true and
+        none of them is about this child.</p>
+      </div>
+    </details>
 
     <details>
       <summary>Go deeper: where this argument stops working</summary>
@@ -302,7 +285,7 @@
         <br><br>
         Those two numbers are easy to swap, and swapping them is the same unit error as reading 2.1%
         as "1 in 50 people". <b>0.890% is the carrier frequency, not an allele frequency.</b> A single
-        causal allele could sit at up to about <b>0.447%</b> under this deliberately simplified
+        causal allele could sit at up to about <b>0.447%</b> under this simplified
         one-allele model, and usually a good deal lower, because most recessive conditions are caused
         by many different alleles sharing that budget between them.</p>
         <p><b>Late onset and incomplete penetrance.</b> If only a fraction of carriers ever develop
@@ -422,7 +405,7 @@
       <button type="button" id="download-notebook" class="nb-dl" disabled
               aria-describedby="nb-dl-hint">⤓ Download notebook</button>
     </div>
-    <p class="nb-dl-hint" id="nb-dl-hint">Saves a plain text file to your computer. Nothing is sent anywhere.</p>
+    <p class="nb-dl-hint" id="nb-dl-hint">Saved locally as a text file.</p>
     <p class="progress-cue" id="progress-cue" role="status" aria-live="polite">0 of 4 steps done</p>
     <ul class="milestones" id="milestone-list5" aria-label="Steps in this section"></ul>
     <div role="log" aria-live="polite" aria-label="Lab notebook entries">
@@ -432,22 +415,10 @@
 
   <div class="section-done" id="section-done" role="status" aria-live="polite">
     <h3>✓ You have finished Section 5.</h3>
-    <p>You reduced a toy shortlist by making a disease model explicit. The filters each rested on
-    something different, and each answered a different question: predicted consequence and
-    conservation ask whether a variant could disrupt biology, population frequency and the parents'
-    genotypes ask whether that disruption fits this model and this family, and the gene list compares
-    the gene with the child. You need all of it, and none of it is a verdict on its own.</p>
-    <p>Two candidates remain, and they remain because <b>the evidence shown cannot distinguish
-    them</b>. That is not a failure of the exercise. Filtering has produced a question worth
-    investigating, not a diagnosis, and the things that would settle it are the things nobody
-    collected: a sharper phenotype, evidence about these exact changes in other patients, a confirmed
-    de novo event, transcript or functional data.</p>
-    <p>Two habits worth taking with you. <b>Being common can rule a variant out under a stated model;
-    being rare cannot rule one in.</b> And the model itself is a hypothesis: change it from dominant
-    to recessive and the bound moves by more than a hundredfold, along with everything you concluded
-    from it.</p>
-    <p class="nb-aside">Your lab notebook is a record of what you did in this section, kept for your
-    own reference. Download it if you want to keep it.</p>
+    <p><b>A filter is a disease-model assumption expressed as code.</b> Common can rule a variant out
+    under that model; rare cannot rule one in, and change the model from dominant to recessive and
+    the bound moves a hundredfold. The two remaining candidates need evidence that is not in this
+    file: other patients, a confirmed de novo event, transcript or functional data.</p>
   </div>
 
 <nav class="sectnav" aria-label="Section navigation">
@@ -456,8 +427,6 @@
   <a class="nav-next" href="Section%206%20-%20Functional%20genomics%20and%20quality%20control.html"><span class="k">Next</span><span class="t">6. Functional genomics and quality control</span></a>
 </nav>
 
-  <p class="footer-note">Prototype · Section 5 of the Molecular Techniques Interactive Bioinformatics
-  Module · 2026/27 cycle · simulated variants, real thresholds</p>
 </div>
 
 <script>
@@ -558,16 +527,24 @@ function buildFilters(){
     var d = document.createElement('div');
     d.className = 'filt';
     d.id = 'filt-' + f.id;
+    /* The assumption and the cost are revealed by the first toggle rather than
+       printed in advance: five cards of rationale before any action was most of
+       this section's opening wall of text, and the consequence lands harder
+       when it arrives with the row count it just changed. */
     d.innerHTML =
       '<div class="fhead"><input type="checkbox" id="cb-' + f.id + '">'
     + '<label for="cb-' + f.id + '">' + f.label + '</label></div>'
+    + '<div class="fdetail" id="fd-' + f.id + '" style="display:none">'
     + '<div class="why">' + f.why + '</div>'
     + '<div class="cost"><b>Cost:</b> ' + f.cost + '</div>'
+    + '</div>'
     + '<div class="n" id="n-' + f.id + '"></div>';
     wrap.appendChild(d);
     d.querySelector('input').addEventListener('change', function(){
       active[f.id] = this.checked;
       d.classList.toggle('on', this.checked);
+      var det = document.getElementById('fd-' + f.id);
+      if (det) det.style.display = 'block';
       if (this.checked && !tried[f.id]){
         tried[f.id] = true;
         nb('Applied filter: ' + f.label + '.');

@@ -1,30 +1,16 @@
 GMIC605 Molecular Biology Techniques
 Interactive Bioinformatics Module
 
-START
------
-Keep all of these files in the same folder, then open index.html.
+Keep these files together in one folder and open index.html.
 No installation, login or internet connection is required.
 
-Work through the 8 sections in order. Complete the main route in each
-section. Panels marked "Go deeper" are optional explorations of the
-algorithms, assumptions and edge cases; skipping them leaves no gap.
+Work through the 8 sections in order. The main route is complete on its
+own; "Go deeper" panels are optional. Each section builds a lab notebook
+of what you did. It is not saved automatically: download it before
+closing or refreshing a page.
 
-There is no clock on any of this and no target you are meant to hit.
-
-NOTEBOOK
---------
-Each section builds a lab notebook from your decisions and observations.
-Nothing is uploaded or submitted. The notebook is NOT saved automatically:
-it exists only in the open page. Download it before refreshing or closing
-the page if you want to keep it.
-
-DATA
-----
-All sample-level reads, genotypes and family data are synthetic. They
-reproduce selected characteristics of real experiments without containing
-donor data. index.html explains what simulation preserves and what it
-takes away.
+All individual-level reads, genotypes and family data are synthetic.
+index.html has the details.
 
 SECTIONS
 --------
@@ -36,15 +22,3 @@ SECTIONS
 6. Functional genomics and quality control
 7. Functional genomics and analysis
 8. A new assay
-
-Note that the module does not run in the order the laboratory does. A sequencer
-produces FASTQ files, and alignment happens afterwards; here we start with
-alignment by hand because it is the idea everything else is built on, then go
-back to the raw data. index.html sets both orders out side by side.
-
-Not necessarily in one sitting. Each section picks up where the one before it
-left off.
-
-These sections are built to raise more questions than they answer. Keep the
-ones you cannot resolve: they are the valuable part, and they are what to bring
-to whoever is teaching you.
