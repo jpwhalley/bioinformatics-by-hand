@@ -380,7 +380,7 @@
   .notebook-entry b { color: var(--text); }
 
   /* Notebook export, added 2026-08-13.
-     Replaces the "take a screenshot" instruction in the completion modal.
+     Replaces the "take a screenshot" instruction the section used to close on.
      The file is built in the browser with a Blob and never leaves the machine. */
   .notebook-head {
     display: flex;
@@ -400,29 +400,23 @@
     color: var(--text-dim);
   }
 
-  /* Modal */
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-  }
-  .modal-backdrop.active { display: flex; }
-  .modal {
+  /* Closing panel. This was a modal dialog until 2026-08-20 (Justin: "lets
+     remove the popup at the end of section 1"). Same shape as the closing
+     panels in Sections 5 and 7: it appears in the page's own flow, there is
+     nothing to dismiss, and the four questions stay readable afterwards. */
+  .section-done {
     background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 28px;
-    max-width: 520px;
-    width: calc(100% - 32px);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-top: 20px;
+    display: none;
   }
-  .modal h2 { margin: 0 0 12px; font-size: 20px; color: var(--accent); }
-  .modal p { font-size: 14px; }
-  .modal ol { margin: 10px 0 14px; padding-left: 22px; font-size: 14px; }
-  .modal li { margin: 5px 0; }
+  .section-done.show { display: block; animation: fadeIn 0.4s; }
+  .section-done h3 { margin: 0 0 8px; font-size: 17px; color: var(--accent); }
+  .section-done p { margin: 8px 0; font-size: 14px; }
+  .section-done ol { margin: 10px 0 0; padding-left: 22px; font-size: 14px; }
+  .section-done li { margin: 5px 0; }
 
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(8px); }
@@ -592,6 +586,17 @@
 
 
 
+  <div class="section-done" id="section-done" role="status" aria-live="polite">
+    <h3>✓ You have finished Section 1.</h3>
+    <p>When a workflow starts to feel like a black box, come back to four questions:</p>
+    <ol>
+      <li>What observation is being compared?</li>
+      <li>What is the reference?</li>
+      <li>How is agreement scored?</li>
+      <li>What happens when no answer, or several answers, fit?</li>
+    </ol>
+  </div>
+
   <div class="notebook">
     <div class="notebook-head">
       <h3>📓 Your lab notebook</h3>
@@ -612,25 +617,6 @@
 </nav>
 
 
-</div>
-
-<div class="modal-backdrop" id="completion-modal">
-  <div class="modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="completion-title">
-    <h2 id="completion-title">✓ You have finished Section 1.</h2>
-    <p>When a workflow starts to feel like a black box, come back to four questions:</p>
-    <ol>
-      <li>What observation is being compared?</li>
-      <li>What is the reference?</li>
-      <li>How is agreement scored?</li>
-      <li>What happens when no answer, or several answers, fit?</li>
-    </ol>
-    <div style="margin-top:14px;">
-      <button type="button" class="primary" id="download-notebook-modal">⤓ Download my lab notebook</button>
-    </div>
-    <div style="margin-top:20px;text-align:right;">
-      <button class="primary" id="close-modal">Close</button>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -693,7 +679,13 @@ const PHASES = [
     allowGaps: false,
     scoring: { match: 1, mismatch: -1, gap: -3 },
     targetScore: 8,                // 10 matches − 2 mismatches = 8
-    revealAfterAttempts: 6,
+    // Three, not six. This phase's answer is four moves from the start, and
+    // arriving there clears the phase, which disables the reveal for good. A
+    // six-attempt threshold could therefore never be reached: the button was
+    // dead in this phase from the day it was written (Justin, 2026-08-20:
+    // "never lights up or is clickable"). The invariant the test now enforces
+    // is that the threshold must be lower than the distance to the answer.
+    revealAfterAttempts: 3,
     notebookTakeaway: "The best placement is optimal under a scoring scheme; changing the scoring can change the answer.",
     debrief: {
       title: "The best placement depends on the rules.",
@@ -763,7 +755,6 @@ let gapStep = 1;              // Phase 3 two-part flow: 1 = align (no gap), 2 = 
 let focusReadIdx = null;      // keyboard focus survives the renderRead() rebuild
 let step1Reached = false;     // has the student found the best gapless position yet?
 let attemptsTried = 0;        // unlocks the reveal as a genuine stuck path
-let modalReturnFocus = null;
 
 // =========================================================
 //  Initialise UI
@@ -1075,9 +1066,11 @@ function showDebrief() {
 var phasesDone = false;
 function maybeComplete(){
   if (!phasesDone) return;
-  modalReturnFocus = document.activeElement;
-  document.getElementById('completion-modal').classList.add('active');
-  document.querySelector('#completion-modal .modal').focus();
+  // Reveal in place rather than over the page. The panel is a live region, so
+  // it announces itself; focus is deliberately left where the student put it,
+  // which is what the closing panels in Sections 5 and 7 do. No scrollIntoView:
+  // this module does not move the page under the reader.
+  document.getElementById('section-done').classList.add('show');
 }
 
 function recordNotebook(text) {
@@ -1095,7 +1088,7 @@ function recordNotebook(text) {
 // =========================================================
 //  Notebook export, added 2026-08-13
 //  --------------------------------------------------------
-//  The completion modal used to say "take a screenshot and bring it to office
+//  The section used to close by telling the student to "take a screenshot and bring it to office
 //  hours". Superseded 2026-08-13 (Justin): the notebook is NOT collected and is
 //  not brought anywhere. It is the student's own record of what they did, kept
 //  for their reference. Keep the framing neutral: do not tell the student to
@@ -1197,15 +1190,6 @@ function bindControls() {
     }
   });
   document.getElementById('download-notebook').addEventListener('click', downloadNotebook);
-  document.getElementById('download-notebook-modal').addEventListener('click', downloadNotebook);
-
-  document.getElementById('close-modal').addEventListener('click', () => {
-    document.getElementById('completion-modal').classList.remove('active');
-    if (modalReturnFocus && typeof modalReturnFocus.focus === 'function') modalReturnFocus.focus();
-  });
-  document.getElementById('completion-modal').addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') document.getElementById('close-modal').click();
-  });
 
   // Keyboard navigation while the read itself has focus.
   const readEl = document.getElementById('read');
@@ -1222,14 +1206,12 @@ function bindControls() {
   // is not how it behaved before. The guard below restores the old feel without
   // taking the arrow keys back off anything that wants them. It fires only when
   // focus is on <body>, so the gap tiles in step two, the horizontally
-  // scrolling reference track, the buttons and the completion dialog all keep
-  // their own arrow-key behaviour untouched.
+  // scrolling reference track and the buttons all keep their own arrow-key
+  // behaviour untouched.
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     const a = document.activeElement;
     if (a && a !== document.body && a !== document.documentElement) return;
-    const modal = document.getElementById('completion-modal');
-    if (modal && modal.classList.contains('active')) return;
     moveRead(e.key === 'ArrowRight' ? 1 : -1);
     e.preventDefault();
   });
