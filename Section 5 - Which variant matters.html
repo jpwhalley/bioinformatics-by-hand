@@ -263,8 +263,8 @@
     <details>
       <summary>Two kinds of evidence, and why a frameshift is not automatically interesting</summary>
       <div class="body">
-        <p>Severity tells you what a variant does to a protein; frequency tells you whether it could
-        be causing a rare disease. Only one of those is evidence about your patient. Some filters ask
+        <p>A predicted consequence asks how a variant might affect a selected transcript or protein;
+        frequency asks whether the variant is compatible with the disease model. Only one of those is evidence about your patient. Some filters ask
         whether a variant could disrupt biology at all (consequence, conservation, prediction);
         others ask whether that disruption fits this model and this family (frequency, inheritance).
         The gene list sits across both. You need both kinds, and <b>no single annotation is a
@@ -351,53 +351,8 @@
     </details>
   </div>
 
-  <h2>Two other places this reasoning goes</h2>
-  <div class="panel">
-    <details>
-      <summary>Cancer: drivers and passengers</summary>
-      <div class="body">
-        <p>The comparison changes completely. You are no longer asking how a variant compares with the
-        population, you are comparing <b>the tumour against the patient's own normal tissue</b>, so
-        most of what they inherited subtracts out and what remains arose in the tumour. It is a large
-        improvement, not a clean cancellation: tumour cells in the "normal" sample, and mosaic changes
-        present in only some tissue, both put variants on the wrong side of the subtraction, and there
-        are tools whose whole job is estimating how badly the normal is contaminated.</p>
-        <p>A tumour typically carries thousands of such changes, and almost all are
-        <b>passengers</b>: real mutations that came along for the ride and do nothing. A handful are
-        <b>drivers</b>. Population frequency has little to say about a change that arose in this
-        tumour this year, so the evidence becomes different: is
-        this gene hit far more often across many tumours than chance predicts, and is the pattern of
-        damage the kind that would knock out a tumour suppressor or switch on an oncogene?</p>
-        <p>The lesson transfers exactly. The filter you choose is a hypothesis about the mechanism,
-        and it decides what you are able to find.</p>
-      </div>
-    </details>
-
-    <details>
-      <summary>Common disease: risk instead of cause</summary>
-      <div class="body">
-        <p>Everything above assumed one variant causing one condition. Most disease is not like that.
-        A genome-wide association study compares hundreds of thousands of people and finds variants
-        <b>slightly more common</b> in those with a condition. The effects are usually tiny: a few
-        percent of extra risk, across a population.</p>
-        <p><b>The associated marker is not necessarily causal.</b> Most association signals are
-        carried by a marker that is merely inherited alongside the real culprit, because nearby
-        variants travel together, so a hit usually tags a <i>region</i> rather than naming a variant.
-        Most of those regions are not in genes at all: they sit in regulatory sequence, and the honest
-        position after finding one is that you do not yet know which variant matters, which gene it
-        acts on, or how. <b>That question is what Section 6 is about.</b></p>
-        <p>Add many small effects together and you get a <b>polygenic risk score</b>. It is a useful
-        number about a population and a much weaker one about a person, and it inherits every bias in
-        who was sequenced to build it. A score trained mostly on European-ancestry genomes predicts
-        poorly elsewhere, and it is worth being precise about why, because "just collect more data" is
-        only part of it. The training sets are unbalanced, which is a data problem. But allele
-        frequencies differ between populations, so a marker that is common enough to measure in one
-        may be rare in another; and which variants travel together differs too, so a marker that tags
-        the causal variant in one population may not tag it in another. The last two are properties of
-        the populations, not of the sample size.</p>
-      </div>
-    </details>
-  </div>
+  <p class="sub" style="margin:18px 0 14px">The same principle applies far beyond rare disease:
+  change the biological model, and the useful comparisons and filters change with it.</p>
 
   <div class="nb" id="nb">
     <div class="nb-head">
@@ -417,7 +372,7 @@
     <h3>✓ You have finished Section 5.</h3>
     <p><b>A filter is a disease-model assumption expressed as code.</b> Common can rule a variant out
     under that model; rare cannot rule one in, and change the model from dominant to recessive and
-    the bound moves a hundredfold. The two remaining candidates need evidence that is not in this
+    the bound moves by more than 400-fold. The two remaining candidates need evidence that is not in this
     file: other patients, a confirmed de novo event, transcript or functional data.</p>
   </div>
 

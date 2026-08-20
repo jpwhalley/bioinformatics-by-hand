@@ -487,8 +487,8 @@
 <div class="debrief" id="debrief" style="display: none;">
   <h3>The three numbers in the table</h3>
   <p style="margin-top: 8px;">
-    <b>Raw score:</b> agreement under this scoring scheme. Change the scheme and it changes, so it
-    travels nowhere.<br>
+    <b>Raw score:</b> agreement under this scoring scheme, interpretable within it but not directly
+    comparable across schemes.<br>
     <b>Bit score:</b> the raw score with the scheme normalised out, comparable across compatible
     searches.<br>
     <b>E-value:</b> the expected number of chance alignments scoring at least this well, in a
@@ -510,25 +510,12 @@
     </p>
   </details>
 
-  <details class="deeper">
-    <summary>Go deeper: the actual equations</summary>
-    <p>
-      Karlin and Altschul, 1990. In terms of the raw score S:<br>
-      <span class="formula" style="display:inline-block;margin:6px 0;">E ≈ K · m · n · e<sup>−λ·S</sup></span><br>
-      where m is the query length, n is the database size, and K and λ are constants of the scoring
-      scheme. The bit score is that raw score with the scheme divided out:<br>
-      <span class="formula" style="display:inline-block;margin:6px 0;">S′ = (λ·S − ln K) / ln 2</span><br>
-      and substituting gives the form you will see quoted more often:<br>
-      <span class="formula" style="display:inline-block;margin:6px 0;">E = m · n · 2<sup>−S′</sup></span><br>
-      K and λ have vanished. That is the whole point of the normalisation, and it is why a raw score
-      is meaningless on its own while a bit score travels.
-    </p>
-  </details>
 
   <div class="prompt" style="margin-top:16px">
-    <b>Similarity is not orthology.</b> A strong hit is evidence of <b>homology</b>, shared sequence
-    ancestry. The stronger claim of <b>orthology</b>, the same gene in two species, also needs
-    gene-family and species-tree context, and no single BLAST table can settle it.
+    <b>Similarity is not orthology.</b> A low E-value argues the similarity is not a random search
+    result; a strong hit is <b>consistent with homology</b>, shared ancestry, but that remains a
+    biological inference. The stronger claim of <b>orthology</b>, the same gene in two species, also
+    needs gene-family and species-tree context, and no single BLAST table can settle it.
   </div>
 
   <details class="deeper">
@@ -537,15 +524,15 @@
       Real BLAST chooses its seed length by task (11 for blastn, 28 for megablast, 7 for blastn-short), scores proteins with a matrix estimated from real alignments, and can open gaps.
       This page uses k=4 seeds, so they are easy to spot in a 41 bp database sequence, and it extends without gaps.
       <br><br>
-      What is <i>not</i> simplified is the statistics. The scoring scheme is +2 for a match and −3 for a mismatch, which is the same reward and penalty pair real blastn offers as <code>-reward 2 -penalty -3</code>, and the two constants in the E-value formula below are the genuine Karlin and Altschul values for that scheme under uniform base composition: λ = 0.6337 and K = 0.4080. That is why a perfect 30 bp match here reports 56.2 bits, which is what real blastn reports for the same alignment.
-      The one thing that is toy-scale is the search space. The E-values are computed against 10 × 41 = 410 bp, so they are <i>much</i> larger than the same alignment would score against nt at roughly 10¹¹ bp. Make the database a hundred million times bigger and every E-value here grows by the same factor.
+      What is <i>not</i> simplified is the statistics. The scoring scheme, +2 for a match and −3 for a mismatch, is a reward and penalty pair real blastn offers, and the bit scores and E-values are computed with the published statistical constants for that scheme, so the numbers in the table are the numbers the real tool would report for the same alignments.
+      The one thing that is toy-scale is the search space: these E-values are computed against 410 bases of database. Real nucleotide databases hold hundreds of billions of letters and keep growing, and because the E-value scales with search space, the same alignment scores a far larger E-value there. Make the database bigger and every E-value grows with it.
     </p>
   </details>
 
   <details class="deeper">
     <summary>Go deeper: why % identity is not enough on its own</summary>
     <p>
-      A 30 bp alignment at 80% identity (24/30 matches) sounds great until you remember that with a 4-letter alphabet you expect ~25% identity by pure chance, so the random baseline is already 7.5 matches. The bit score, and therefore the E-value, account for this; raw % identity does not.
+      A 30 bp alignment at 80% identity (24/30 matches) sounds great until you remember that under a toy model with independent, equally frequent bases, chance identity is already 25%, a random baseline of 7.5 matches. The bit score, and therefore the E-value, account for this; raw % identity does not.
       <br><br>
       So read a hit in three parts, in this order. <b>One, the E-value:</b> could a score like this turn up by chance in a search this size? <b>Two, the alignment length and how much of the query it covers:</b> a spectacular match to 6 bases of a 300 base query has explained almost nothing. <b>Three, the identity, together with what you know about the biology:</b> how similar is the part that did align, and is that similarity meaningful for these two organisms and this gene? A hit with 100% identity over 6 bases passes the third test and fails the first two, which is why no one of the three is enough alone.
     </p>

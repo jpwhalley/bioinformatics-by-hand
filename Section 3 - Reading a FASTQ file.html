@@ -391,26 +391,9 @@
       </div>
     </details>
 
-    <details>
-      <summary>What string do you actually search for, and how long is a real adapter?</summary>
-      <div class="body">
-        <p>The full TruSeq adapter is far longer than anything you see in a read. Illumina publishes a
-        33-base sequence for trimming Read 1,
-        <code>AGATCGGAAGAGCACACGTCTGAACTCCAGTCA</code>, and a different 33-base sequence for Read 2,
-        <code>AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT</code>. They are identical for the first thirteen bases
-        and then diverge, which is why <code>AGATCGGAAGAGC</code> is the stub everyone quotes: it is the
-        longest piece that is the same whichever read you are looking at, and whatever the index.</p>
-        <p>FastQC screens for something shorter still. Its adapter list holds
-        <code>AGATCGGAAGAG</code>, twelve bases, and the file says why in a comment: "it's going to be
-        easier to interpret this plot if all of the sequences provided are the same length, so we've
-        gone with 12bp fragments for now". The same list holds
-        <code>CTGTCTCTTATA</code> for Nextera, which is the transposase adapter you will meet again in
-        Section 6, because that is what ATAC-seq uses.</p>
-        <p>So "the adapter sequence" is three different strings depending on who is asking, and all
-        three are correct for their purpose. A twelve-base screen, a thirteen-base stub, a thirty-three
-        base trimming target.</p>
-      </div>
-    </details>
+    <p class="fine">The probe used here is the short shared stub trimming and screening tools look
+    for; adapter detection is a specified query sequence and a matching rule, chosen for the tool's
+    purpose.</p>
   </div>
 
   <h2 id="h-multiplex">One flow cell, many samples</h2>
@@ -421,8 +404,8 @@
   <div class="panel">
     <p style="font-size:14px;margin:0 0 10px">The barcode sits inside the adapter, so it is attached to
     every fragment from that library before anything is pooled. The machine reads it separately from
-    your insert, in a short <b>index read</b>, and writes what it saw into the header line of every
-    FASTQ record:</p>
+    your insert, in a short <b>index read</b>. In this Illumina-style example the converter records
+    what it saw in the header line of every FASTQ record:</p>
     <div class="hdrdiag" aria-hidden="true">
       <code>@SIM-RUN1:1:1107:26433:14103 1:N:0:<b>TCCGGAGA</b></code>
     </div>
@@ -483,12 +466,11 @@
         collision checking enforces the distance and refuses to start the run, while the relaxed
         checking that recent BCL Convert versions default to will accept index sets without that
         guarantee. The bound is the same either way; what changes is whether software stops you.</p>
-        <p>Illumina designs its index sets with a Hamming distance of four, and then advises that two
-        mismatches can be used "to maximize data recovery". Notice that four is less than 2(2) + 1, so
-        at two mismatches the correction is no longer guaranteed to be unique. Illumina defends it on
-        measured misassignment rates rather than on the bound. That is a perfectly reasonable
-        engineering position, and it is worth recognising it for what it is: <b>a threshold justified
-        by how often it goes wrong, not by a proof that it cannot</b>.</p>
+        <p>Many Illumina index sets are designed with a pairwise distance of at least four, and the
+        vendor still advises that two mismatches can be used "to maximize data recovery". Four is less
+        than 2(2) + 1, so at two mismatches the correction is no longer guaranteed unique; the advice
+        rests on measured misassignment rates rather than on the bound. Recognise it for what it is:
+        <b>a threshold justified by how often it goes wrong, not by a proof that it cannot</b>.</p>
       </div>
     </details>
 
@@ -499,19 +481,11 @@
         it is not. Free adapter left in the pool, and the chemistry used on patterned flow cells, can
         cause a fragment to be sequenced carrying <b>a different sample's index, perfectly</b>. There is
         no mismatch. There is nothing to detect.</p>
-        <p>How often is disputed, and the disagreement is instructive. Illumina reports index hopping at
-        "≤ 1%" on non-patterned flow cells and "≤ 2%" on patterned ones. Costello and colleagues,
-        measuring across HiSeq X, HiSeq 4000 and NovaSeq, report "0.2 to 6%", and found it depended more
-        on library preparation than on the flow cell: PCR-free genomes hopped at about 3% where
-        PCR-plus genomes hopped at about 0.2%. A preprint from Sinha and colleagues reported 5 to 10%
-        under free-primer contamination. All of these are measurements of the same phenomenon.</p>
-        <p>The fix is structural rather than analytical. <b>Unique dual indexes</b> give every sample
-        its own i7 <i>and</i> its own i5, so a hopped read carries a combination that is not on the
-        sample sheet, so most single-index hops land in the undetermined pile instead of in somebody else's
-        data. They <b>mitigate</b> index hopping; they do not prove that every read which survives has
-        the origin its index claims. With combinatorial indexes, where i7 and i5 values are shared
-        across the plate and only the pairing is unique, a hop can produce a valid combination and
-        quietly contaminate a real sample.</p>
+        <p>How often it happens varies with flow-cell chemistry and library preparation, and the fix
+        is structural rather than analytical. <b>Unique dual indexes</b> give every sample its own i7
+        <i>and</i> its own i5, making many hopped combinations invalid: those reads land in the
+        undetermined pool rather than silently in another sample. They <b>mitigate</b> index hopping;
+        they do not prove that every surviving read has the origin its index claims.</p>
       </div>
     </details>
   </div>
@@ -525,13 +499,9 @@
     ASCII 35, so it encodes Q2: about a <b>63% predicted error rate</b>, not the even chance the symbol
     is often described as. A call like that is effectively uninformative. Select any quality symbol above
     to see the arithmetic computed live.</div></details>
-  <details><summary>Phred+33 vs Phred+64: a historical trap</summary>
-    <div class="body">Older Illumina pipelines (1.3–1.7) offset by 64 instead of 33, so the <i>same</i> symbol meant a
-    different score. Feed a Phred+64 file to a modern tool assuming +33 and every quality is inflated by 31: a classic silent bug. Modern data (including this dataset) is Phred+33; always confirm the encoding before trusting qualities.</div></details>
   <details><summary>Why does quality fall off toward the 3′ end? (Read B)</summary>
     <div class="body">Illumina reads a cluster base-by-base through cycles of chemistry. With each cycle the millions of
-    molecules in a cluster drift slightly out of sync ("phasing") and signal-to-noise decays, so late cycles, the 3′ end of the read, are less certain. This is why quality trimming and adapter trimming clip the 3′ end,
-    and why paired-end R2 is usually a bit worse than R1.</div></details>
+    molecules in a cluster drift slightly out of sync ("phasing") and signal-to-noise decays, so late cycles, the 3′ end of the read, are less certain. That is why <b>quality trimming</b> clips the 3′ end, and why paired-end R2 is usually a bit worse than R1. <b>Adapter trimming</b> also acts on the 3′ end, for a different reason: a short insert reads through into adapter, as read D showed.</div></details>
   <details><summary>Q20 vs Q30: what people actually mean by "%≥Q30"</summary>
     <div class="body">Sequencing-run reports quote the fraction of bases at or above Q30. It is a compact
     run-level summary, and it is <b>not</b> a universal pass mark: what counts as normal depends on the

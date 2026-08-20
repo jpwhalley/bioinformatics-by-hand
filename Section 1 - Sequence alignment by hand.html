@@ -704,12 +704,10 @@ const PHASES = [
              unmapped. A lighter penalty can make a similar but incorrect region look acceptable. Neither setting is simply
              "more accurate" in every experiment.</p>`,
       takeaway: "<b>An alignment is an optimum under stated rules.</b> Change the rules and the winning placement can change.",
-      deeper: `<p>Real aligners use richer scoring models. BWA-MEM's defaults give +1 for a match, charge 4 for a mismatch,
-              6 to open a gap and 1 for each base by which the gap is extended. These values encode assumptions about plausible
-              errors and differences while balancing sensitivity against incorrect placement; they are parameters, not laws of biology.</p>
-              <p>Section 2 will add <b>BLAST E-values</b>. An E-value is not the probability that a hit is wrong. It is the number
-              of alignments with that score or better expected by chance in a search space of that size. The score, query length,
-              scoring system and database size all matter.</p>`
+      deeper: `<p>Real aligners use richer scoring models: separate penalties for a mismatch, for opening a gap, and for
+              each base a gap extends. Those numbers encode assumptions about which errors and differences are plausible,
+              balancing sensitivity against incorrect placement. They are parameters, not laws of biology, and changing
+              them can change which placement wins.</p>`
     }
   },
   {

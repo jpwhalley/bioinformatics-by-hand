@@ -276,17 +276,12 @@
         cDNA in Read 2. The bead oligo runs: a Read 1 primer, then the barcode, then the UMI, then an
         anchored poly-dT that captures polyadenylated transcripts. Because priming starts at the polyA
         tail, <b>the sequence you get is the 3' end of the transcript</b>, not the whole thing.</p>
-        <p>The lengths depend on the version, and quoting the wrong one is a common error. <b>v2</b> used
-        a 16 base barcode and a <b>10</b> base UMI, read in 26 cycles. <b>v3, v3.1 and GEM-X v4</b> use a
-        16 base barcode and a <b>12</b> base UMI, read in 28 cycles. The original 2017 paper describes a
-        <b>14</b> base barcode with a 10 base UMI, which belongs to <b>a superseded chemistry</b>, and is
-        nonetheless what gets cited. Superseded is not the same as gone: those datasets are public and
-        still get reanalysed, so the number matters the moment you open somebody else's FASTQ.</p>
-        <p>This section uses 16 and 12. <b>The eight base sample index above is not part of that
-        structure.</b> It is Section 3's index, reused so the demultiplexing you have already done stays
-        visible on the same read. A real v3.1 dual index library is sequenced as 28 cycles of Read 1,
-        <b>ten</b> cycles of i7 and <b>ten</b> of i5, and 90 cycles of Read 2: two indexes, both ten
-        bases, and neither of them eight.</p>
+        <p>This page uses a <b>16 base cell barcode and a 12 base UMI</b>. Those lengths are
+        <b>chemistry- and version-specific</b>: earlier and later kit versions differ, and public
+        datasets made with older chemistries are still reanalysed, so check the documentation for the
+        version behind any dataset before interpreting its reads. <b>The eight base sample index
+        above is not part of the 10x structure</b>: it is Section 3's index, reused so the
+        demultiplexing you have already done stays visible on the same read.</p>
       </div>
     </details>
 
@@ -428,21 +423,17 @@
         leaked out, and what is left is disproportionately the transcripts held inside mitochondria.
         Luecken and Theis describe these as "cells whose cytoplasmic mRNA has leaked out through a
         broken membrane, and thus, only mRNA located in the mitochondria is still conserved".</p>
-        <p><b>Can be, not is.</b> A high mitochondrial fraction is also ordinary biology in cells doing
-        a lot of respiration, and what counts as ordinary varies by species, tissue, cell type, state
-        and protocol. Osorio and Cai measured it systematically across human and mouse tissues and
-        found proportions running from 0.17% to 14.64%; nearly a third of the 44 human tissues they
-        examined exceeded 5%, which is why they propose 10% for human data and 5% for mouse rather than
-        one number for everything. Look again at the strict rule on the plot above: its 5% ceiling is
-        the threshold they argue against for human tissue. Their conclusion is that "omitting the
-        mtDNA% QC filter or adopting a suboptimal mtDNA% threshold may lead to erroneous biological
-        interpretations of scRNA-seq data".</p>
+        <p><b>Can be, not is.</b> A high mitochondrial fraction is also ordinary biology in cells
+        doing a lot of respiration, and what counts as ordinary varies by species, tissue, cell type,
+        state and protocol: published surveys find such wide variation across tissues that they
+        propose different cutoffs for human and mouse data rather than one number for everything, and
+        warn that a suboptimal threshold can produce erroneous biological interpretations. The strict
+        rule on the plot above sits in exactly that danger zone for human tissue.</p>
         <p>So treat the number as <b>evidence to investigate alongside the others</b>, not as an
-        instruction to delete a cell. What makes the middle group on the map safe to call damaged is not
-        its mitochondrial fraction on its own; it is that several independent indicators agree, and you
-        can check two of them in the table above. It has the fewest genes detected of any group and by
-        a wide margin the highest mitochondrial fraction. One of those is a hint. Both of them pointing
-        the same way, in cells that also carry the fewest molecules, is a finding.</p>
+        instruction to delete a cell. The middle group on the map is consistent with damage because
+        several independent indicators agree, and you can check two of them in the table above: the
+        fewest genes detected of any group, and by a wide margin the highest mitochondrial fraction.
+        One of those is a hint. Both, in cells that also carry the fewest molecules, is a finding.</p>
         <p><b>Same number, different meaning, different action.</b> In Section 6 you responded by
         changing protocol or accepting the loss of depth. Here the response is to look harder at those
         cells, and often to remove them. Notice that you cannot tell which meaning applies without
@@ -451,30 +442,23 @@
     </details>
 
     <details>
-      <summary>Two failures with no equivalent in a bulk experiment</summary>
+      <summary>Two failure modes especially important in droplet single-cell data</summary>
       <div class="body">
-        <p><b>Ambient RNA.</b> Cells that lysed before they were encapsulated leave their messages
-        floating in the input suspension, and that soup is loaded into every droplet. So every barcode
-        receives a background of transcripts from cells it is not. The effect is not subtle and not
-        rare: the authors of SoupX note that it "is recognized that these contaminating non-endogenous
-        RNAs are present even within datasets of the highest quality", and that it "may significantly
-        confound the biological interpretation". You will see T cell markers in your monocytes. They are
-        not there.</p>
-        <p><b>Doublets.</b> Two cells in one droplet share a barcode and are reported as one cell with a
-        hybrid transcriptome. The DoubletFinder authors put the danger precisely: doublets "may be
-        interpreted as previously-undescribed cell types, developmental intermediates, or disease
-        states". A doublet of a monocyte and a T cell is a beautiful, publishable, non-existent
-        intermediate. The column you built earlier carried two LYZ molecules and two CD3D molecules in
-        one barcode, which are markers of exactly those two lineages. At four molecules that is noise.
-        The same pattern at four hundred molecules is this question, and you would have no way to tell
-        it from a real hybrid cell by looking at the column.</p>
-        <p>Both can be estimated or mitigated computationally, by tools such as SoupX or CellBender for
-        ambient RNA and Scrublet or DoubletFinder for doublets. <b>Both are already in the count
-        matrix</b>, which is the difficulty: ambient transcripts are counted as though they belonged to
-        the barcode that caught them, and a doublet's two cells are added together into a single
-        column. What the matrix does not contain is a <b>label</b> saying which counts are ambient or
-        which barcodes hold more than one cell. Those tools estimate that label. None of them recovers
-        ground truth, and every one of them has a threshold in it.</p>
+        <p><b>Ambient RNA.</b> Cells that lysed before encapsulation leave their transcripts floating
+        in the input suspension, and that soup is loaded into every droplet, so every barcode carries
+        a background of molecules from cells it is not. Ambient contamination can put low-level
+        T cell marker counts into monocyte droplets even when those molecules never came from the
+        encapsulated monocyte, and it is present "even within datasets of the highest quality".</p>
+        <p><b>Doublets.</b> Two cells in one droplet share a barcode and are reported as one cell
+        with a hybrid transcriptome, which "may be interpreted as previously-undescribed cell types,
+        developmental intermediates, or disease states". The column you built earlier held LYZ and
+        CD3D in one barcode: at four molecules that is noise, but the same pattern at four hundred is
+        this question, and the column alone cannot distinguish it from a real hybrid cell.</p>
+        <p>Both can be estimated or mitigated computationally (SoupX or CellBender for ambient RNA;
+        Scrublet or DoubletFinder for doublets). <b>Both are already in the count matrix</b>; what the
+        matrix lacks is a <b>label</b> saying which counts are ambient or which barcodes hold two
+        cells. The tools estimate that label, none recovers ground truth, and every one has a
+        threshold in it.</p>
       </div>
     </details>
   </div>
@@ -508,9 +492,9 @@
   their own.</p>
 
   <div class="panel">
-    <p style="font-size:14px;margin:0 0 8px">The standard first move is to squeeze each cell's few
-    thousand measurements down to two numbers so they can be drawn, using <b>UMAP</b> or
-    <b>t-SNE</b>. Cells that look alike land near each other, and groups become visible.
+    <p style="font-size:14px;margin:0 0 8px">A common step after preprocessing and
+    higher-dimensional reduction is to display the cells in two dimensions with <b>UMAP</b> or
+    <b>t-SNE</b>: cells that look alike land near each other, and groups become visible.
     <b>Colour the same plot four different ways</b> and see how much the colouring decides.</p>
     <p class="fine" style="margin-bottom:8px"><b>Schematic cell map:</b> the coordinates were drawn
     around six chosen centres for this page, not computed by UMAP, so the shapes here are not

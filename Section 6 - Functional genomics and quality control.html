@@ -313,7 +313,7 @@
   <div class="prompt">
     Sections 4 and 5 were <b>genetics</b>: what is in this genome. <b>Functional genomics asks what
     the cell is doing with the genome</b>: which regions are open (ATAC-seq), which proteins are
-    bound (ChIP-seq), which genes are transcribed (RNA-seq). It is a family of assays rather than
+    bound (ChIP-seq), which RNAs are present and how abundant (RNA-seq). It is a family of assays rather than
     one assay, sharing a pipeline; this
     section takes ATAC-seq as far as deciding which samples you may use, and at twenty four
     libraries, judging them means numbers standing in for looking.
@@ -356,8 +356,8 @@
       <div class="gate here">
         <div class="g-when"><b>Mapped and filtered fragments</b><span>BAM</span></div>
         <div class="g-what">Alignment rate, duplicate rate, insert size distribution, mitochondrial
-        fraction, and TSS enrichment, which is the one signal-to-noise measure available at this stage
-        because it needs only an annotation of start sites.
+        fraction, and TSS enrichment, one useful signal-to-noise measure available before peak
+        calling, because it needs only an annotation of start sites.
         <span class="catch">Catches reads that were perfectly good and landed in the wrong places, or
         in no useful place. A library can be flawless on the first gate and dead on this one, which is
         exactly what happens to B12 below.</span></div>
@@ -365,9 +365,9 @@
       <div class="gate">
         <div class="g-when"><b>Peaks, counts and cohort</b><span>peaks, counts, matrix</span></div>
         <div class="g-what">How many peaks were called, <b>FRiP</b>, whether replicates agree, how the
-        samples cluster, and whether the design is balanced. FRiP belongs here and not on the gate
-        above: it is the fraction of usable reads falling inside <i>called peaks</i>, so it cannot
-        exist until peaks do, and it moves when the peak caller's settings move.
+        samples cluster, and whether the design is balanced. FRiP, the fraction of usable reads
+        falling inside <i>called peaks</i>, becomes available only here: it cannot exist until peaks
+        do, and its value depends partly on how those peaks were defined.
         <span class="catch">Catches a sample that mapped beautifully and still measured almost
         nothing, and a batch effect no per-sample metric can see, because it is a property of the
         comparison rather than of any one sample.</span></div>
@@ -399,29 +399,15 @@
     <div class="readout" id="prof-readout" role="status" aria-live="polite">Select a library.</div>
 
     <details>
-      <summary>How that number is actually computed, and why two groups can disagree about it</summary>
+      <summary>How that number is computed</summary>
       <div class="body">
         <p>ENCODE's definition: collect the reads around a reference set of transcription start sites
         into one aggregate distribution "extending to 2000 bp in either direction (for a total of
         4000bp)", then normalise by "the average read depth in the 100 bps at each of the end flanks
-        of the distribution (for a total of 200bp of averaged data)". That is why the flanks sit at 1.
-        A TSS enrichment of 9 means nine times the signal in <b>those flanks</b>, two kilobases either
-        side of the start site. It is a fold change over a chosen background, not over "nowhere in
-        particular", and moving the background moves the number, which is exactly what the next
-        paragraph is about.</p>
-        <p><b>The documentation and the code do not agree.</b> The portal says the metric is "the
-        signal value at the center of the distribution after this normalization". The pipeline's own
-        <code>encode_task_tss_enrich.py</code> reports <code>max(bam_array.mean(axis=0))</code>, the
-        highest point of the profile. Those two definitions coincide only when the profile's apex sits
-        exactly on the start site, and it often does not: in the simulated profiles on this page the
-        apex is slightly upstream, so the two definitions return different numbers. Do not read that
-        offset as a universal fact about real libraries. It varies with the annotation used, the
-        cell type and the Tn5 shift correction, and the point being made is about the <b>discrepancy
-        between a definition and its implementation</b>, not about which direction the peak leans.</p>
-        <p><b>And a different paper computes it differently again.</b> The Omni-ATAC paper normalises
-        against the left flank only: "the signal from bases &minus;2,000 to &minus;1,800 was used to
-        represent the background signal". Same libraries, same reads, different number. When you read
-        "TSS enrichment 6.2" in a methods section, you have not been told enough to reproduce it.</p>
+        of the distribution (for a total of 200bp of averaged data)". That is why the flanks sit at 1:
+        the number is a fold change over a chosen background, and moving the background moves the
+        number. Implementations differ in exactly how they compute it, and the annotation itself
+        matters, so record which tool and annotation produced any value you report.</p>
       </div>
     </details>
   </div>
@@ -517,8 +503,9 @@
           worked illustration, not as three measured libraries.</p>
           <p><b>Omni-ATAC does not remove mitochondrial reads.</b> It reduces them. The protocol paper
           from the same laboratory expects "less than 15% of all reads mapping to the mitochondrial
-          genome", and calls a higher figure a sign of over-lysis. Every pipeline still discards chrM,
-          because a small fraction of a large number is still a lot of reads.</p>
+          genome", and calls a higher figure a sign of over-lysis. Many nuclear ATAC-seq analyses
+          still exclude chrM after reporting its fraction, because a small fraction of a large number
+          is still a lot of reads.</p>
         </div>
       </details>
     </div>
@@ -526,8 +513,9 @@
 
   <h2>Now move the line</h2>
   <p class="sub"><b>Most</b> quality control is done sample by sample. Every library gets its own set
-  of numbers and its own verdict, and a library that fails is excluded outright: it never reaches
-  Section 7, and nothing downstream will remind you it existed. So one question gets asked twenty four
+  of numbers and its own verdict, and a library that fails may be excluded under the predefined
+  inclusion rule; once excluded it never reaches Section 7, and nothing downstream will remind you it
+  existed. So one question gets asked twenty four
   times: is this one good enough to keep?</p>
   <p class="sub">Keep an eye on a second question the per-sample view cannot ask, and which this
   exercise is really about: <b>what happens to the comparison</b> as libraries leave it.</p>
@@ -607,79 +595,15 @@
 
   <h2>What a threshold actually is</h2>
   <div class="panel">
-    <p style="font-size:14px;margin:0 0 10px">Three things are true of the number you have just been
-    moving, and none of them is visible from seeing that number on a report.</p>
-
-    <details>
-      <summary>1. ENCODE grades and audits. It does not make your inclusion decision.</summary>
-      <div class="body">
-        <p>The ATAC-seq standards have no column called "fail". They have a column called
-        <b>Resulting Data Status</b>, whose values are Ideal, Acceptable and Concerning. The wording is
-        hedged throughout, on purpose: alignment rate "should be greater than 95%, though values
-        &gt;80% may be acceptable"; FRiP "should be &gt;0.3, though values greater than 0.2 are
-        acceptable", and then, in the same sentence, "for EN-TEx tissues, FRiP scores will not be
-        enforced as QC metric".</p>
-        <p>Do not push that too far, though. ENCODE also runs <b>audits</b>, and those are less gentle
-        than the bands: a dataset with TSS enrichment below 5, or FRiP below 0.2, gets flagged as not
-        compliant. So the accurate statement is not that ENCODE never judges. It is that <b>ENCODE
-        grades and audits data against its own production standards, and does not make the scientific
-        inclusion decision for your study.</b> That decision is yours, it depends on what you are
-        asking, and nobody else can be blamed for it.</p>
-        <p>The ChIP-seq guidelines say out loud where such numbers come from. They were "constructed
-        based on the historical experiences of ENCODE ChIP-seq data production groups with the purpose
-        of balancing data quality with practical attainability", and are "routinely revised".</p>
-        <p><b>And they move under you.</b> The ATAC depth requirement used to read "15 million
-        non-duplicate, non-mitochondrial aligned reads for single-end sequencing and 50 million for
-        paired-ended sequencing", which contradicts itself: fifty million paired-end reads is twenty
-        five million fragments, not fifteen. As of 18 August 2026 it reads <b>"25 million
-        non-duplicate, non-mitochondrial aligned reads for single-end sequencing and 50 million for
-        paired-ended sequencing (i.e. 25 million fragments, regardless of sequencing run type)"</b>:
-        the inconsistency fixed, the requirement up by two thirds.</p>
-        <p>ENCODE say themselves these are "routinely revised". So <b>record the version and the date
-        of any standard you applied</b>: a methods section that says "libraries meeting ENCODE
-        standards were retained" does not say which standard, and the answer moves.</p>
-        <p>A published threshold is a consortium's working compromise, written down. Treating it as a
-        law of nature is a decision you made, not one they made for you.</p>
-      </div>
-    </details>
-
-    <details>
-      <summary>2. The number everyone quotes has no threshold, and the one with a threshold has moved.</summary>
-      <div class="body">
-        <p>Ask anyone what you check in an ATAC-seq library and you will hear "the mitochondrial
-        fraction". <b>ENCODE sets no threshold for it.</b> The word appears in the standards once,
-        inside the phrase "non-duplicate, non-mitochondrial aligned reads", and the pipeline discards
-        chrM before it counts anything: the released files are named
-        <code>...nodup.no_chrM_MT...</code>. The fraction is reported and nothing is decided on it.</p>
-        <p>Meanwhile TSS enrichment, which does have a threshold, is quoted against an annotation that
-        has moved. The ENCODE4 table labels its rows "GRCh38 Refseq TSS annotation". The file the
-        pipeline actually ships for hg38 is <code>hg38_gencode_v29_tss_unique.zero_based.bed.gz</code>,
-        which is GENCODE, not RefSeq. Between two versions of the pipeline's genome data that file was
-        also reissued in zero-based coordinates, a one base shift that moves every sample's score
-        without a single read having changed.</p>
-        <p>So the metric with no threshold is the one everybody checks, and the metric with a threshold
-        is checked against a file that is not the one the threshold names. "Everyone does this" and
-        "the standard requires this" are different claims, and they are constantly confused.</p>
-      </div>
-    </details>
-
-    <details>
-      <summary>3. A metric can expire, because it was measuring the protocol.</summary>
-      <div class="body">
-        <p>You just watched the mitochondrial fraction fall from around half a run to a few percent
-        across three protocol generations, without anybody improving their bioinformatics. A metric
-        that separated good libraries from bad ones in 2013 separates almost nothing in a laboratory
-        running Omni-ATAC in 2026, because the thing it was detecting has largely been engineered
-        away.</p>
-        <p>That is worth holding on to, because it is not special to this metric. Duplicate rate is
-        another: the Corces laboratory's own protocol paper says "we do not use this metric as a way to
-        determine library quality", and points out that it fails in both directions. A library from
-        dead cells gives you high complexity and a low duplicate rate, and is still a bad library.</p>
-        <p>A quality metric is a hypothesis about how experiments fail. When the way they fail changes,
-        the metric quietly stops being about quality and starts being about which protocol somebody
-        used. Nothing in the report says so, and the threshold stays in the pipeline for years.</p>
-      </div>
-    </details>
+    <p style="font-size:14px;margin:0"><b>A published threshold is a documented policy, not a law of
+    biology.</b> Consortium standards are built from accumulated production experience and are
+    routinely revised as protocols and pipelines change; ENCODE's own tables grade data as Ideal,
+    Acceptable or Concerning rather than pass or fail, and the numbers in them have moved. So record
+    the <b>source, version and date</b> of any external standard you apply, then report which samples
+    it removed and whether the remaining design can still answer the question. Passing a consortium
+    threshold does not make a sample suitable for your particular comparison, and a metric can quietly
+    expire when the failure mode it was built to catch is engineered away, as the mitochondrial
+    fraction largely has been.</p>
   </div>
 
   <div class="nb" id="nb">

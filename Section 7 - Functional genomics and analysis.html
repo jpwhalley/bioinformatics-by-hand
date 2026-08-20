@@ -270,9 +270,11 @@
       <div><b>PolyA selection</b><span>Oligo-dT beads capture anything with a polyA tail. Simple and
         cheap, and it shapes your experiment: the library is strongly enriched for mature, polyadenylated
         message, so non-polyadenylated species are heavily depleted. That means replication-dependent
-        histone messages and many long non-coding RNAs are largely absent, and unspliced or intronic RNA
+        histone messages are depleted along with some long non-coding RNAs, and unspliced or intronic RNA
         is depleted rather than categorically excluded, which is why intronic reads still turn up in
-        polyA data. It also needs intact RNA, so a degraded or archival sample will fail.</span></div>
+        polyA data. It is also sensitive to degradation: libraries can still be made from degraded
+        RNA, but with strong 3' coverage bias and poorer representation of long transcripts, which is
+        why rRNA depletion is usually preferred for degraded or archival material.</span></div>
       <div><b>Ribosomal depletion</b><span>Probes hybridise to the rRNA itself and pull it out. More
         expensive, keeps the non-polyadenylated transcripts, and tolerates degraded input, which is why
         clinical and fixed-tissue work uses it.</span></div>
@@ -285,12 +287,12 @@
     <p style="font-size:14px;margin:10px 0 0"><b>One more decision leaves a mark on the data.</b> A read
     on its own does not say which strand of the genome the transcript came from, and for overlapping or
     antisense genes that ambiguity is expensive. A <b>stranded</b> library resolves it chemically, and
-    there is more than one way to do it. The most common marks the second cDNA strand with dUTP so that
+    there is more than one way to do it. Many stranded protocols mark the second cDNA strand with dUTP so that
     it is <b>not amplified</b> in the final PCR, leaving the surviving molecules pointing the same way.
     Other kits preserve direction differently, so the relationship between read orientation and
     transcript strand is a property of the protocol rather than a universal rule. If you do not know
-    which one your library used, you do not know how to count it, and every quantification tool will
-    ask.</p>
+    which one your library used, you do not know how to count it: strandedness has to be known or
+    inferred before counting, and tools either ask for it or apply a default assumption.</p>
     </div>
     </details>
   </div>
@@ -361,18 +363,19 @@
   <h2>And then you test two thousand times</h2>
   <div class="panel">
     <p style="font-size:14px;margin:0 0 12px">Before reading any plot of per-gene results, do one
-    piece of arithmetic. At the conventional 5% threshold, testing every gene, the number you would
-    expect to call significant <b>if the treatment did nothing at all</b> is:</p>
+    piece of arithmetic. At the conventional 5% threshold, testing every gene in this dataset, the
+    number you would expect to call significant <b>if the treatment did nothing at all</b> is:</p>
     <div class="tiles">
-      <div class="tile hero"><div class="k">False positives expected</div><div class="v">1,000</div></div>
-      <div class="tile"><div class="k">Tests run</div><div class="v">20,000</div></div>
+      <div class="tile hero"><div class="k">False positives expected</div><div class="v" id="mt-fp">0</div></div>
+      <div class="tile"><div class="k">Tests run</div><div class="v" id="mt-tests">0</div></div>
       <div class="tile"><div class="k">Threshold</div><div class="v">p &lt; 0.05</div></div>
     </div>
-    <p style="font-size:14px;margin:14px 0 0">A thousand hits from an experiment where nothing
-    happened, by arithmetic alone. That is why the volcano plot below is drawn against an
-    <b>adjusted</b> p-value: <b>the number of chances you gave yourself changes what the numbers
-    mean</b>, and nothing in the output says so. (Genome-wide association pushes the same logic to
-    about 5&times;10<sup>&minus;8</sup>, roughly 0.05 divided by the number of independent tests.)</p>
+    <p style="font-size:14px;margin:14px 0 0">About a hundred hits from an experiment where nothing
+    happened, by arithmetic alone, and a genome-wide study testing 20,000 genes would expect a
+    thousand. That is why the volcano plot below is drawn against an <b>adjusted</b> p-value:
+    <b>the number of chances you gave yourself changes what the numbers mean</b>, and nothing in the
+    output says so. (Genome-wide association pushes the same logic to about
+    5&times;10<sup>&minus;8</sup>, roughly 0.05 divided by the number of independent tests.)</p>
   </div>
 
   <h2>Which genes changed</h2>
@@ -425,24 +428,26 @@
         thousands of tests produce hundreds of hits from nothing at all. Every axis on that plot uses
         an <b>adjusted</b> p-value for that reason, and Section 6 did the arithmetic.</p>
         <p>The other trap is the opposite one. A gene with three reads in one group and nine in the
-        other has a fold change of three, which sounds enormous and is measuring noise. That is why
+        other has a fold change of three, which sounds enormous and could be dominated by counting
+        noise. That is why
         the vertical axis exists: the plot refuses to let you read a fold change without also reading
         how well it was measured.</p>
         <p><b>And counts are not the kind of number a t-test was built for.</b> They are discrete,
         their variance grows with their mean rather than staying constant, and with two or three
-        replicates a variance estimated separately for each gene is too noisy to trust. So DESeq2
-        applies a <b>Wald test on a negative binomial model of the raw counts</b>, and edgeR a
-        <b>quasi-likelihood F test on the same model</b>, in both cases after borrowing variance
-        information across all the genes at once rather than trusting each gene's own three
-        numbers.</p>
+        replicates a variance estimated separately for each gene is too noisy to trust. So the
+        standard DESeq2 workflow used here applies a <b>Wald test on a negative binomial model of the
+        raw counts</b>, and edgeR supports a <b>quasi-likelihood F test on the same model</b> among
+        its standard workflows, in both cases after borrowing variance information across all the
+        genes at once rather than trusting each gene's own three numbers.</p>
         <p>Notice what that sentence does and does not say. DESeq2 and edgeR are software; the Wald
         test and the F test are the tests; the negative binomial is the model. Setting a package
         against a t-test compares three different kinds of thing. <b>And the objection is to the naive
         t-test, not to t-statistics.</b> limma-voom turns the mean-variance relationship into a weight
         on each observation and then runs an ordinary linear model, producing a <i>moderated</i>
-        t-statistic whose variance has also been shared across genes, and it performs about as well.
+        t-statistic whose variance has also been shared across genes.
         What all three have in common is not avoiding t-like statistics. It is refusing to estimate a
-        variance from three numbers when twenty thousand genes are available to inform it.</p>
+        variance from three numbers when the rest of the genes in the dataset are available to
+        inform it.</p>
       </div>
     </details>
   </div>
@@ -483,166 +488,13 @@
     </div>
   </div>
 
-  <details class="postscript">
-  <summary>Postscript: the same count-matrix logic on peaks, and the other assays in this family</summary>
-  <div class="body">
-  <h3>The same analysis, on peaks instead of genes</h3>
-  <p class="sub">ATAC-seq and ChIP-seq end in peaks rather than counts per gene. Almost everything you
-  have just done still applies, and the one place it does not is the interesting place.</p>
-
-  <div class="panel">
-    <p style="font-size:14px;margin:0 0 10px"><b>A peak behaves like a gene.</b> Agree a set of
-    regions, count how many reads from each sample fall in each region, and you have a matrix with the
-    same shape as a count table. The standard tools say so out loud: DiffBind "uses statistical
-    routines developed in an RNA-Seq context (primarily the Bioconductor packages edgeR and DESeq2)".
-    The volcano plot you just read, the adjusted p-values and the trap of ranking by fold change all
-    carry over. <b>The count-matrix idea transfers; the assumptions do not come with it.</b>
-    DiffBind's own documentation warns that normalisation methods developed for RNA-seq rest on
-    assumptions that may not hold for ChIP or ATAC data, where the fraction of reads in peaks varies a
-    great deal between samples, and that the choice of what to normalise against can change the answer
-    more than the choice between edgeR and DESeq2. Defining the regions in the first place is a further
-    set of assumptions that RNA-seq never has to make.</p>
-
-    <div class="conseq">
-      <div><b>Then link peaks to genes</b><span>A peak with no gene attached is hard to say anything
-        about, so peaks get assigned to genes and the gene list goes through enrichment like the one
-        you ran above. How that assignment is made varies, and it matters. ChIPseeker will annotate to
-        the nearest gene; <b>GREAT does something different</b>, defining a regulatory domain around
-        each gene with a basal region plus an extension and then testing enrichment over regions
-        rather than over genes, which is the point of it.</span></div>
-      <div><b>Or ask what binds there</b><span>This is the analysis a gene list cannot support. Take
-        the sequence under each peak and ask which transcription factor motifs are over-represented
-        against a matched background: HOMER and the MEME suite do that, against databases such as
-        JASPAR. <b>chromVAR is not that.</b> It computes a bias-corrected measure of how much
-        accessibility deviates, per cell or per sample, across all the peaks sharing a motif, so it is
-        answering "is this factor's activity changing here?" rather than "is this motif unusually
-        common in this list?"</span></div>
-    </div>
-
-    <div class="readout" style="border-left-color:var(--warn)">
-      <b>The place it is easiest to go wrong.</b> Your genes were defined before the experiment
-      existed. Your peaks are defined <b>from the data you are about to test</b>, and if you define
-      them the wrong way the arithmetic stops holding. The authors of csaw are specific about which
-      way is wrong: "calling peaks in individual libraries or treatment groups can lead to loss of
-      error rate control during the DB analysis. This is because the definition of the regions to be
-      used for DB testing is not independent of the DB status of those regions."
-      <br><br>
-      Read that precisely. It is a warning about calling peaks <i>per library or per treatment group</i>
-      and then testing between those groups, not a claim that every region set derived from the data is
-      invalid. Defining regions once from the pooled data, without reference to the comparison, is a
-      normal and defensible thing to do. The choice between the union of every sample's peaks and only
-      the peaks they share still changes the answer, and neither is right in general.
-    </div>
-
-    <details>
-      <summary>Two caveats on the peak analyses, both worth knowing before you believe one</summary>
-      <div class="body">
-        <p><b>Nearest gene is a biased assignment, not a neutral one.</b> It was the motivating
-        example for GREAT: assigning regions to the nearest gene "introduces a strong bias toward
-        genes that are flanked by large intergenic regions", so that a term covering 14% of human
-        genes ended up associated with over 33% of the genome, producing "numerous false positive
-        enrichments". And enhancers genuinely skip past their neighbours to reach a target further
-        away, which no distance rule can capture. Contact-based and co-accessibility methods exist for
-        exactly this reason.</p>
-        <p><b>A motif nominates a family, not a protein.</b> A motif is a position weight matrix, a
-        summary of the bases a factor tends to sit on, and close relatives share them: as the ATAC
-        analysis guide puts it, "not all TFs have identified motifs and TFs from the same family can
-        share very similar motifs". So "a GATA motif is enriched in these peaks" is a real result and
-        it does not tell you which GATA. Deciding that needs expression data, a ChIP experiment, or a
-        perturbation.</p>
-        <p>For ATAC there is a further move, <b>footprinting</b>: a bound protein blocks the
-        transposase, so an occupied site shows a dip in insertions inside an otherwise open region.
-        The catch is that Tn5 has its own sequence preference, so an uncorrected footprint can be the
-        enzyme rather than the factor, and bias-correcting tools are not optional.</p>
-      </div>
-    </details>
+  <div class="readout" style="margin:18px 0">
+    <b>The count-matrix idea also transfers to ATAC-seq and ChIP-seq.</b> Define a set of regions,
+    count reads from each sample in each region, and model the resulting matrix with the machinery
+    you just used. The important difference: genes usually come from an external annotation, while
+    <b>peaks are partly defined from the data itself</b>, so region definition and normalisation add
+    assumptions RNA-seq does not have in the same form.
   </div>
-
-  <h3>The same machinery, three shapes</h3>
-  <p class="sub">RNA-seq is one of three assays that all match reads to the same genome and differ in
-  what the reads look like when they land. That difference is not a detail, it is the experiment.</p>
-
-  <div class="panel">
-    <div class="cmp-grid">
-      <div class="cmp-card">
-        <h5>RNA-seq</h5>
-        <dl>
-          <dt>At the bench</dt><dd>remove rRNA, fragment, reverse transcribe to cDNA</dd>
-          <dt>Measures</dt><dd>how much of each transcript</dd>
-          <dt>Coverage</dt><dd>follows expression, and is interrupted at every junction</dd>
-          <dt>Aligner</dt><dd>splice-aware, such as STAR</dd>
-          <dt>Endpoint</dt><dd>counts per gene</dd>
-        </dl>
-        <div class="unit">The unit is a <b>gene</b>, defined by an annotation somebody else maintains.</div>
-      </div>
-      <div class="cmp-card">
-        <h5>ATAC-seq</h5>
-        <dl>
-          <dt>At the bench</dt><dd>Tn5 transposase cuts and inserts adapters wherever it can reach</dd>
-          <dt>Measures</dt><dd>which chromatin is open</dd>
-          <dt>Coverage</dt><dd>peaks at accessible sites, and is otherwise background</dd>
-          <dt>Aligner</dt><dd>ordinary, such as bwa. This is DNA</dd>
-          <dt>Endpoint</dt><dd>peaks</dd>
-        </dl>
-        <div class="unit">The unit is a <b>peak</b>, defined by you and your threshold.</div>
-      </div>
-      <div class="cmp-card">
-        <h5>ChIP-seq</h5>
-        <dl>
-          <dt>At the bench</dt><dd>crosslink, shear, pull down with an antibody, reverse the crosslinks</dd>
-          <dt>Measures</dt><dd>where one protein is bound</dd>
-          <dt>Coverage</dt><dd>peaks where the antibody pulled something down</dd>
-          <dt>Aligner</dt><dd>ordinary, such as bwa. Also DNA</dd>
-          <dt>Endpoint</dt><dd>peaks, against a control</dd>
-        </dl>
-        <div class="unit">The unit is a <b>peak</b>, and it needs an input control to mean anything.</div>
-      </div>
-    </div>
-
-    <details>
-      <summary>ChIP-seq in full, because it is the one that is hardest to picture</summary>
-      <div class="body">
-        <p>Formaldehyde is added to living cells, which freezes proteins onto the DNA they are touching.
-        The cells are broken open and the chromatin sheared, usually by sonication, to fragments of
-        roughly 100 to 300 bases. Then an <b>antibody against one protein</b>, or one histone
-        modification, is used to pull that protein out of the mixture, bringing whatever DNA it was
-        crosslinked to with it. The crosslinks are reversed, the protein is digested away, and
-        <b>what you sequence is the DNA</b>. Never the protein.</p>
-        <p>So the antibody is the entire experiment. ENCODE's own guidelines list the two ways it fails:
-        "poor reactivity against the intended target and/or cross-reactivity with other DNA-associated
-        proteins". Neither failure produces an error message. Both produce peaks.</p>
-        <p><b>This is why ChIP needs an input control</b>, and why the other two assays on this page do
-        not. Shearing is not uniform: "DNA breakage during sonication is not uniform. In particular,
-        some regions of open chromatin are preferentially represented in the sonicated sample". So open
-        chromatin looks enriched whether or not your protein was there, and so do regions present at
-        higher copy number. An input is the same chromatin, crosslinked and sheared identically, with
-        the antibody step left out. ENCODE requires one: "Each ChIP-seq experiment should have a
-        corresponding input control experiment with matching run type, read length, and replicate
-        structure." Without it you are comparing your peaks against an assumption of uniformity that is
-        known to be false.</p>
-      </div>
-    </details>
-
-    <div class="readout" style="border-left-color:var(--warn)">
-      <b>The distinction worth carrying away, stated carefully.</b> An RNA-seq experiment counts into
-      <b>genes that were defined before you started</b>, so the object being counted is far more stable
-      than a peak and two laboratories have a much better chance of comparing numbers.
-      <br><br>
-      "Far more stable" is not "identical", and treating gene counts as automatically comparable is its
-      own mistake. Which annotation release you used changes gene models and boundaries; whether the
-      library was stranded changes what counts for overlapping genes; what you did with reads matching
-      several places changes the totals; and how transcripts were aggregated to genes changes them
-      again. The methods section still has to say all of that.
-      <br><br>
-      A peak is not like that. <b>You created it</b>, by choosing a caller, a threshold and a control.
-      Change any of those and the peaks move, split, merge or disappear, and your "same" region is a
-      different object. That is why peak-based results are harder to compare across studies than
-      expression results, and why the methods section of an ATAC or ChIP paper has to say far more
-      than "we called peaks".
-    </div>
-  </div>
-  </div>
-  </details>
 
   <div class="nb" id="nb">
     <div class="nb-head">
@@ -779,8 +631,10 @@ function alignStar(){
   var out = document.getElementById('aln-out');
   out.innerHTML = '';
   out.appendChild(el('p','',
-    'STAR is allowed to split a read across a large gap, provided the edges of that gap look like a '
-  + 'splice site. Here the intron begins GT and ends AG, so the split is permitted and both halves match.'));
+    'STAR can represent a read as two segments separated by a long skipped stretch of reference. '
+  + 'Canonical splice boundaries support that placement and are favoured: here the intron begins GT '
+  + 'and ends AG, so the split is well supported and both halves match. STAR can also discover '
+  + 'noncanonical junctions, at a higher evidence bar.'));
 
   var mA = {}, mB = {};
   for (var i = 0; i < 38; i++) mA[i] = 'ok';
@@ -939,6 +793,13 @@ function buildGenes(){
   }
   var n = document.getElementById('n-genes');
   if (n) n.textContent = DE_SUMMARY.nTested.toLocaleString();
+  /* The multiple-testing tiles are computed from the same summary, so the
+     arithmetic cannot drift from the dataset. The first version hard-coded
+     20,000 tests and 1,000 false positives against a 2,000-gene dataset. */
+  var mtT = document.getElementById('mt-tests');
+  var mtF = document.getElementById('mt-fp');
+  if (mtT) mtT.textContent = DE_SUMMARY.nTested.toLocaleString();
+  if (mtF) mtF.textContent = String(Math.round(DE_SUMMARY.nTested * 0.05));
 }
 
 var V = { W:900, H:400, L:60, R:20, T:18, B:52 };

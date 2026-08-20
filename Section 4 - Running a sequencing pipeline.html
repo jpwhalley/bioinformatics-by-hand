@@ -602,12 +602,14 @@
   <!-- Edge-case reveal -->
   <div class="panel-card" id="edge-panel">
     <h3>② What the caller actually did</h3>
-    <p>A variant caller does something far less clever than its output suggests. It stacks the reads
-    that cover a position, <b>counts the letters in that column</b>, and decides what genotype would
-    best explain the counts. Everything else is bookkeeping.</p>
-    <p class="fine">One pattern worth a glance on any call set: tally the substitution types
-    (<code>bcftools query -f '%REF>%ALT\n' | sort | uniq -c</code>). Here no class dominates, which is
-    what germline DNA should look like; a skewed spectrum is a processing signature, not biology.</p>
+    <p>This page's simplified caller stacks the reads that cover a position, <b>counts the letters
+    in that column</b>, and chooses the genotype that best explains those counts. Real callers keep
+    that core idea and add more: they model base and mapping uncertainty, and may locally assemble
+    candidate haplotypes or apply learned error models to the read evidence.</p>
+    <p class="fine">One summary worth computing on any call set is its substitution spectrum, for
+    example the transition/transversion ratio. It can reveal unusual technical or biological
+    patterns, but only against an appropriate expectation for the assay and genomic context: real
+    germline spectra are not flat, with transitions enriched over transversions.</p>
 
     <div class="pv-picker" id="pv-picker" role="group" aria-label="Choose a position to inspect"></div>
 
@@ -646,7 +648,7 @@
   <!-- ================================================================= -->
   <div class="panel-card" id="map-panel">
     <h3>③ One more question: where could this pipeline even look?</h3>
-    <p>You filtered 26 calls down to one you could defend. That whole exercise assumed something nobody
+    <p>You applied a depth filter to the call set. That whole exercise assumed something nobody
     stated: that the pipeline could see everywhere it was pointed. It could not, and where it could not
     see, <b>it reported nothing rather than reporting that it could not see</b>.</p>
 
@@ -676,19 +678,19 @@
       <table class="data mapq-tbl">
         <thead><tr><th scope="col">Caller</th><th scope="col">Default minimum MAPQ</th><th scope="col">This read</th></tr></thead>
         <tbody>
-          <tr><td class="tool">bcftools mpileup</td><td>0</td><td class="kept">kept, and it will pile up somewhere wrong</td></tr>
+          <tr><td class="tool">bcftools mpileup</td><td>0</td><td class="kept">retained at the reported location, which is not uniquely supported</td></tr>
           <tr><td class="tool">DeepVariant</td><td>5</td><td class="dropped">discarded</td></tr>
           <tr><td class="tool">GATK HaplotypeCaller</td><td>20</td><td class="dropped">discarded</td></tr>
         </tbody>
       </table>
       </div>
-      <p><small>Three tools, one BAM, three different answers in this region, and none of them mentions
-      it in the output. GATK is the awkward one to look up: its standalone mapping-quality filter
-      documents a default of 10, and HaplotypeCaller overrides it to 20.</small></p>
+      <p><small>Illustrative defaults for the stated tools and workflows; they vary by version, model
+      and input type. Three tools, one BAM, different answers in this region, and none of them
+      mentions it in the output.</small></p>
       <p><b>You ran <code>bcftools mpileup</code>, whose default minimum is 0.</b> So in your pipeline
-      the ambiguous read was <i>not</i> discarded. It was kept, and piled up at whichever of the three
-      equally good locations the aligner happened to report. Had you run DeepVariant or HaplotypeCaller
-      on the same BAM, it would have been thrown away before the caller saw it.</p>
+      the ambiguous read was <i>not</i> discarded: it was retained at whichever of the three equally
+      good locations the aligner reported, a placement the data cannot uniquely support. Under a
+      caller with a higher default it would have been thrown away before the caller saw it.</p>
       <div class="takeaway"><b>Uncertainty does not disappear; it changes form.</b> A permissive
       pipeline attaches the read to an arbitrary reported location and shows you a result. A stricter one
       discards it and shows you silence. A filter you did not set, in a tool you did not write, decided
@@ -741,105 +743,15 @@
     </div>
 
     <details class="teach deeper-panel" id="scale-teach" style="display:none">
-      <summary><b>Go deeper:</b> so make the reads longer, how far does that get you?</summary>
+      <summary><b>Go deeper:</b> would longer reads fix this?</summary>
       <div class="deeper-body">
-      <p>This is the obvious fix and it is worth knowing exactly how much it buys, because the answer is
-      not what most people guess. Each point is the fraction of the human genome where a read of that
-      length occurs exactly once.</p>
-      <div class="chartwrap" tabindex="0" role="group"
-           aria-label="Mappability chart. Scrolls sideways on a narrow screen.">
-        <svg id="mapchart" width="100%" viewBox="0 0 900 210" role="img" aria-label="Uniquely mappable fraction of the genome by read length"
-             preserveAspectRatio="xMidYMid meet"><title>Uniquely mappable fraction of the genome by read length</title></svg>
-      </div>
-      <div class="table-scroll" tabindex="0" role="group"
-           aria-label="The same figures as a table.">
-        <table class="data" id="mapchart-table">
-          <caption class="fine" style="text-align:left;padding:4px 0">The same figures as a table, which is
-          the reliable route on a narrow screen or with a screen reader.</caption>
-          <thead><tr><th scope="col">Read length</th><th scope="col">Uniquely mappable</th></tr></thead>
-          <tbody id="mapchart-rows"></tbody>
-        </table>
-      </div>
-      <div class="prov">Li, Freudenberg and Miramontes 2014, BMC Bioinformatics 15:2. GRCh37, exact-match k-mer
-      singletons, so this is the ceiling: no mismatches allowed at all.</div>
-      <p style="margin-top:12px">Going from 20 bases to 150 buys you <b>26 percentage points</b>. Going
-      from 150 all the way to 1000 buys <b>1.6</b>. The curve flattens around 200 bases, and the authors
-      say so: above that, "smaller gains in mappability are expected".</p>
-      <p><b>Read length is not where the remaining problem lives.</b> A LINE-1 element is about 6,000
-      bases long and makes up roughly 17% of the genome. A 150 base read sitting inside one has no
-      unique anchor anywhere within it, and neither does a 1000 base read. The repeats do not get
-      shorter when you buy a better sequencer.</p>
-
-      <h4 style="margin-top:18px">Now the part you asked about: errors</h4>
-      <p>Everything above assumes a perfect read. Real reads carry errors, so the aligner has to allow
-      mismatches, and allowing mismatches is what destroys uniqueness. Held at <b>75 bases</b>, changing
-      only the tolerance:</p>
-      <div class="tiles">
-        <div class="tile"><div class="k">Exact match only</div><div class="v">7%</div>
-          <div class="kk">of the genome not uniquely mappable</div></div>
-        <div class="tile hero"><div class="k">Allowing 2 mismatches</div><div class="v">20%</div>
-          <div class="kk">of the genome not uniquely mappable</div></div>
-      </div>
-      <div class="prov">Derrien et al. 2012, PLoS ONE 7:e30377 (GEM mappability), 75 bases in both
-      columns. The variable is the <b>mismatch tolerance the aligner is asked to allow</b>, not a measured
-      sequencing error rate: these are two settings of the same calculation, not two datasets.</div>
-      <p style="margin-top:12px">Nearly <b>three times</b> as much of the genome goes dark from
-      loosening the tolerance alone, at a read length that never changed. Resist comparing that with the
-      read-length figures above: those are a different study, a different reference build and a different
-      definition of mappable, and the panel below this one explains why the two do not belong on one
-      axis. The mechanism here is the one in the BWA line above: an error costs you score at the
-      true locus, the margin over the second-best placement narrows, and confidence collapses. The same
-      thing happens for a genuinely divergent haplotype, which is why an unusual genome is as hard to
-      map as a noisy read.</p>
-      <details class="deeper">
-        <summary>↓ Go deeper: why these are two separate findings and not one smooth curve</summary>
-        <div class="body">
-          <p>You probably want a surface: uniqueness as a function of read length and error rate
-          together. It would be easy to draw and it would be invented. These are two studies, on two
-          reference builds, using two different definitions of mappability. Interpolating between them
-          would produce a confident-looking picture that nobody measured.</p>
-          <p>Showing two anchors and the gap between them is the honest version, and noticing that gap
-          is a more useful habit than reading a number off a curve that was made up.</p>
-        </div>
-      </details>
-      </div>
-    </details>
-
-    <details class="teach deeper-panel" id="bites-teach" style="display:none">
-      <summary><b>Go deeper:</b> where this actually bites, and the genes it lands on</summary>
-      <div class="deeper-body">
-      <p>This is not a curiosity about junk DNA. It lands on genes people are tested for.</p>
-      <ul class="genelist">
-        <li><b>SMN1 and SMN2</b>, spinal muscular atrophy. Two 28,000 base paralogues that
-        "generally differ by only 5 intronic and 3 exonic nucleotides".</li>
-        <li><b>NEB</b>, nemaline myopathy. Contains a 32,000 base triplicated region: exons 82 to 105
-        present in three near-identical copies.</li>
-        <li><b>PMS2</b>, Lynch syndrome, and its pseudogene <i>PMS2CL</i>. <b>CYP2D6</b>, which decides
-        how you metabolise a long list of drugs, and its pseudogene <i>CYP2D7</i>. <b>HBA1/HBA2</b>,
-        <b>STRC</b>, <b>GBA</b>: all gene and pseudogene pairs inside segmental duplications.</li>
-      </ul>
-      <p>A 2016 survey found <b>619 genes</b> with regions identical to somewhere else in the genome,
-      and a problem list of <b>1,168 genes</b> for short-read sequencing. Of the clinically relevant ones
-      on that list, 44% were already well-established disease genes.</p>
-      <div class="teach editnote" style="margin-top:14px">
-        <h4>And sometimes the reference itself is the bug</h4>
-        <p>GRCh38 contains false duplications: sequence that does not exist twice in a real genome but
-        does in the reference. Reads belonging to the real gene get pulled to the spurious copy, and the
-        real gene reports nothing. Masking those false duplications improved variant recall in the
-        affected genes <b>from 8% to 100%</b>.</p>
-        <p>The pipeline was fine. The tools were fine. The map was wrong.</p>
-      </div>
-      <div class="takeaway"><b>The closing turn.</b> About <b>21%</b> of GRCh38 falls inside GIAB's
-      union of "difficult" stratifications. On the complete T2T reference it is about <b>26%</b>. The
-      number went <i>up</i> with the better reference, because the old one was not easier: it represented
-      its hardest sequence as gaps, and nobody was counting what was inside them.
-      <br><br>
-      <span class="fine">Two caveats on those figures, because they are easy to over-read.
-      <b>They are calculated for this page</b> from the GIAB v3.6 union stratification BED files, by
-      summing the covered bases and dividing by the reference length; they are not a published headline
-      number, and the derivation is the previous sentence. And <b>difficult does not mean invisible</b>:
-      most of that 21% is callable, just with lower confidence or with a caveat attached. It is the
-      fraction where you should want to know how the call was made, not the fraction that is dark.</span></div>
+      <p>Partly. Longer reads generally improve unique placement because they carry more context, and
+      that is a real reason long-read sequencing exists. They do not solve every repeat: a read wholly
+      contained within a long, highly similar repeated region may remain ambiguous even when it is
+      much longer. And errors cut the other way: a sequencing error, or a genuine difference between
+      this genome and the reference, costs score at the true locus, narrows the margin over the
+      second-best placement, and can collapse the aligner's confidence without the read moving at
+      all. Which is why an unusual genome can be as hard to map as a noisy read.</p>
       </div>
     </details>
   </div>
@@ -1964,76 +1876,12 @@ function pickHome(i){
     document.getElementById('mapq-teach').style.display = 'block';
     document.getElementById('silence-teach').style.display = 'block';
     document.getElementById('scale-teach').style.display = 'block';
-    document.getElementById('bites-teach').style.display = 'block';
-    drawMapChart();
     recordNb('Tried to place a multi-mapping read: three equally good locations, MAPQ 0.');
     mapSeen = true;
     checkDone();
   }
 }
 
-/* Li, Freudenberg and Miramontes 2014, BMC Bioinformatics 15:2. GRCh37, exact-match
-   k-mer singletons. These are quoted values, not a fitted curve. */
-var MAP_CURVE = [
-  { len:20,   pct:71.65 }, { len:50,  pct:91.84 }, { len:100, pct:96.60 },
-  { len:150,  pct:97.56 }, { len:400, pct:98.67 }, { len:1000, pct:99.18 }
-];
-
-function drawMapChart(){
-  // The table twin. Every figure in this module has one, and this chart did not:
-  // it was the only route to these six numbers, on a chart that renders its axis
-  // labels at about 3px on a 320px screen.
-  var rows = document.getElementById('mapchart-rows');
-  if (rows) rows.innerHTML = MAP_CURVE.map(function(p){
-    return '<tr><td>' + p.len + ' bases</td><td>' + p.pct.toFixed(2) + '%</td></tr>';
-  }).join('');
-  var svg = document.getElementById('mapchart');
-  if (!svg) return;
-  /* A DOT PLOT, not bars, and deliberately so. The interesting differences all
-     sit between 70% and 100%, which needs a truncated axis to be visible at
-     all. A bar chart may not have one: bar LENGTH encodes the value, so cutting
-     the baseline makes 20bp look like a sixth of 1000bp when it is 72% of it.
-     A dot encodes by POSITION, where a non-zero axis is legitimate as long as
-     it is labelled, which it is below. (2026-08-14.) */
-  var W = 900, H = 210, PADL = 46, PADR = 30, PADT = 22, AXIS = 44;
-  var plotH = H - PADT - AXIS;
-  var lo = 65, hi = 100;
-  var step = (W - PADL - PADR) / (MAP_CURVE.length - 1);
-  var x = function(i){ return PADL + i * step; };
-  var y = function(v){ return PADT + plotH - (v - lo) / (hi - lo) * plotH; };
-  var g = '';
-
-  [70, 80, 90, 100].forEach(function(t){
-    g += '<line class="mapgrid" x1="' + PADL + '" y1="' + y(t).toFixed(1)
-      +  '" x2="' + (W - PADR) + '" y2="' + y(t).toFixed(1) + '"></line>';
-    g += '<text class="maptext" x="' + (PADL - 6) + '" y="' + (y(t) + 3.5).toFixed(1)
-      +  '" text-anchor="end">' + t + '%</text>';
-  });
-
-  var pts = MAP_CURVE.map(function(d, i){ return x(i).toFixed(1) + ',' + y(d.pct).toFixed(1); });
-  g += '<polyline class="mapline" points="' + pts.join(' ') + '"></polyline>';
-
-  MAP_CURVE.forEach(function(d, i){
-    g += '<circle class="mapdot" cx="' + x(i).toFixed(1) + '" cy="' + y(d.pct).toFixed(1) + '" r="5"></circle>';
-    g += '<text class="mapval" x="' + x(i).toFixed(1) + '" y="' + (y(d.pct) - 11).toFixed(1)
-      +  '" text-anchor="middle">' + d.pct.toFixed(2) + '%</text>';
-    g += '<text class="maptext" x="' + x(i).toFixed(1) + '" y="' + (PADT + plotH + 17)
-      +  '" text-anchor="middle">' + d.len + ' bp</text>';
-  });
-
-  g += '<line class="mapaxis" x1="' + PADL + '" y1="' + (PADT + plotH) + '" x2="' + (W - PADR)
-    +  '" y2="' + (PADT + plotH) + '"></line>';
-  g += '<line class="mapaxis" x1="' + PADL + '" y1="' + PADT + '" x2="' + PADL
-    +  '" y2="' + (PADT + plotH) + '"></line>';
-  g += '<text class="maptext" x="' + PADL + '" y="' + (PADT + plotH + 34)
-    +  '">vertical axis starts at 65%, not 0</text>';
-
-  var desc = 'Fraction of the human genome where a read occurs exactly once, by read length: '
-    + MAP_CURVE.map(function(d){ return d.len + ' bases ' + d.pct.toFixed(2) + ' percent'; }).join(', ')
-    + '. The gain flattens above about 200 bases. The vertical axis starts at 65 percent, not zero.';
-  svg.innerHTML = '<title>' + desc + '</title>' + g;
-  svg.setAttribute('aria-label', desc);
-}
 
 buildHomes();
 
