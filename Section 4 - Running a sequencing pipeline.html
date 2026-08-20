@@ -344,6 +344,12 @@
   .sectnav a.home{flex:0 1 auto;text-align:center;display:flex;align-items:center;
     justify-content:center;color:var(--text-dim)}
   .sectnav a.home:hover{color:var(--accent)}
+  /* Finishing the section promotes the next-section card. Reinforcement only:
+     the closing panel says in words that the section is done, and the card
+     already said where next is, so nothing here is carried by colour alone. */
+  .sectnav a.nav-next.ready{border-color:var(--accent);background:var(--panel-2);
+    box-shadow:0 0 0 1px var(--accent)}
+  .sectnav a.nav-next.ready .k{color:var(--accent)}
   @media (max-width:700px){ .sectnav a{flex:1 1 100%} }
 
   /* --- pileup viewer, 2026-08-17 --- */
@@ -1743,6 +1749,7 @@ function checkDone(){
   var p = document.getElementById('done-panel');
   if (p && !p.classList.contains('active')){
     p.classList.add('active');
+    markNextReady();
     recordNb('Section 4 complete.');
     // No scrollIntoView. The panel is at the end of the page and the student
     // arrives at it by reading, which is the point.
@@ -2057,6 +2064,19 @@ buildVcf(); updatePs1(); loadStep(0); buildHomes();
 wireQcDecision(); wireSilenceDecision(); checkDone();
 printLine('dim', "You're on your laptop. Connect to the cluster to begin. Type the suggested command or click the chip.");
 input.focus();
+
+/* Finishing a section promotes the next-section card in the footer nav, so
+   "you are done, go on" is shown where the student is going rather than said
+   by a button (Justin, 2026-08-20: "the next section button highlighted when
+   they finish the current section"). The link was always there and always
+   worked; only its appearance changes. Nothing is stored, so the highlight
+   belongs to this visit: it marks work done in this session, not a record of
+   a course completed. In the working copies there is no nav yet, because
+   make_release.sh wires it at build time, so this is a no-op there. */
+function markNextReady(){
+  var a = document.querySelector('.sectnav a.nav-next');
+  if (a) a.classList.add('ready');
+}
 </script>
 </body>
 </html>

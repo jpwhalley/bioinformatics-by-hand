@@ -286,6 +286,12 @@
   .sectnav a.home{flex:0 1 auto;text-align:center;display:flex;align-items:center;
     justify-content:center;color:var(--text-dim)}
   .sectnav a.home:hover{color:var(--accent)}
+  /* Finishing the section promotes the next-section card. Reinforcement only:
+     the closing panel says in words that the section is done, and the card
+     already said where next is, so nothing here is carried by colour alone. */
+  .sectnav a.nav-next.ready{border-color:var(--accent);background:var(--panel-2);
+    box-shadow:0 0 0 1px var(--accent)}
+  .sectnav a.nav-next.ready .k{color:var(--accent)}
   @media (max-width:700px){ .sectnav a{flex:1 1 100%} }
   /* The course spine, added 2026-08-17. Justin: "we are building up from the
      simplest thing a bioinformatician can do - match a set of letters to
@@ -1012,6 +1018,7 @@ function updateProgress(){
     var panel = document.getElementById('section-done');
     if (panel && !panel.classList.contains('show')) {
       panel.classList.add('show');
+      markNextReady();
       if (panel.scrollIntoView) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }
@@ -1082,6 +1089,19 @@ document.getElementById("finish").onclick = () => {
   scrollTo_("debrief");
 };
 
+
+/* Finishing a section promotes the next-section card in the footer nav, so
+   "you are done, go on" is shown where the student is going rather than said
+   by a button (Justin, 2026-08-20: "the next section button highlighted when
+   they finish the current section"). The link was always there and always
+   worked; only its appearance changes. Nothing is stored, so the highlight
+   belongs to this visit: it marks work done in this session, not a record of
+   a course completed. In the working copies there is no nav yet, because
+   make_release.sh wires it at build time, so this is a no-op there. */
+function markNextReady(){
+  var a = document.querySelector('.sectnav a.nav-next');
+  if (a) a.classList.add('ready');
+}
 </script>
 </body>
 </html>

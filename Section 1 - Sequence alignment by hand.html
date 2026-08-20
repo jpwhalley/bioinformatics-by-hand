@@ -475,6 +475,12 @@
   .sectnav a.home{flex:0 1 auto;text-align:center;display:flex;align-items:center;
     justify-content:center;color:var(--text-dim)}
   .sectnav a.home:hover{color:var(--accent)}
+  /* Finishing the section promotes the next-section card. Reinforcement only:
+     the closing panel says in words that the section is done, and the card
+     already said where next is, so nothing here is carried by colour alone. */
+  .sectnav a.nav-next.ready{border-color:var(--accent);background:var(--panel-2);
+    box-shadow:0 0 0 1px var(--accent)}
+  .sectnav a.nav-next.ready .k{color:var(--accent)}
   @media (max-width:700px){ .sectnav a{flex:1 1 100%} }
   /* The course spine, added 2026-08-17. Justin: "we are building up from the
      simplest thing a bioinformatician can do - match a set of letters to
@@ -529,8 +535,8 @@
       <button id="left-btn" title="Move read 1 base left (← arrow key)">◀ Left</button>
       <button id="right-btn" title="Move read 1 base right (→ arrow key)">Right ▶</button>
       <button id="gap-btn" style="display:none;" title="Insert a gap into the read at the current cursor">＋ Insert gap</button>
-      <button id="reveal-btn" disabled
-              title="Unlocks after several genuine attempts. Using it is a way forward, not a penalty.">Show best position</button>
+      <button id="reveal-btn"
+              title="Places the read at the best position. Using it is a way forward, not a penalty.">Show best position</button>
       <div class="position-display" title="Zero-based: the first base is position 0. Formats differ; always check the convention.">Read start (0-based): <b id="pos-display">0</b></div>
     </div>
 
@@ -647,7 +653,6 @@ const PHASES = [
     allowGaps: false,
     scoring: { match: 1, mismatch: -1, gap: -3 },
     targetScore: 12,
-    revealAfterAttempts: 6,
     notebookTakeaway: "First principle: compared an observed read with candidate reference positions, scored them, and chose the best-supported placement.",
     debrief: {
       title: "You have just aligned a read.",
@@ -679,13 +684,6 @@ const PHASES = [
     allowGaps: false,
     scoring: { match: 1, mismatch: -1, gap: -3 },
     targetScore: 8,                // 10 matches − 2 mismatches = 8
-    // Three, not six. This phase's answer is four moves from the start, and
-    // arriving there clears the phase, which disables the reveal for good. A
-    // six-attempt threshold could therefore never be reached: the button was
-    // dead in this phase from the day it was written (Justin, 2026-08-20:
-    // "never lights up or is clickable"). The invariant the test now enforces
-    // is that the threshold must be lower than the distance to the answer.
-    revealAfterAttempts: 3,
     notebookTakeaway: "The best placement is optimal under a scoring scheme; changing the scoring can change the answer.",
     debrief: {
       title: "The best placement depends on the rules.",
@@ -716,8 +714,6 @@ const PHASES = [
     gapAt: 7,                      // gap should be inserted at index 7 of the read
     scoring: { match: 1, mismatch: -1, gap: -3 },
     targetScore: 10,               // 13 matches − 1 gap (−3) = 10
-    revealAfterAttempts: 6,
-    revealGapAfterAttempts: 2,
     notebookTakeaway: "A gap can model an insertion or deletion, but the alignment alone does not establish what caused the difference.",
     debrief: {
       title: "The gap rescued the alignment. It did not explain the biology.",
@@ -754,7 +750,6 @@ let selectedReadTile = null;  // for gap insertion in Phase 3
 let gapStep = 1;              // Phase 3 two-part flow: 1 = align (no gap), 2 = place gap
 let focusReadIdx = null;      // keyboard focus survives the renderRead() rebuild
 let step1Reached = false;     // has the student found the best gapless position yet?
-let attemptsTried = 0;        // unlocks the reveal as a genuine stuck path
 
 // =========================================================
 //  Initialise UI
@@ -793,7 +788,6 @@ function loadPhase(idx) {
   gapStep = 1;
   step1Reached = false;
   selectedReadTile = null;
-  attemptsTried = 0;
 
   document.getElementById('phase-title').textContent = phase.title;
   document.getElementById('phase-counter').textContent = `Phase ${idx + 1} / ${PHASES.length}`;
@@ -809,7 +803,7 @@ function loadPhase(idx) {
   document.getElementById('reveal-btn').textContent = phase.allowGaps
     ? 'Show best gapless position'
     : 'Show best position';
-  document.getElementById('reveal-btn').disabled = true;
+  document.getElementById('reveal-btn').disabled = !!phaseCompleted[idx];
   document.getElementById('debrief').classList.remove('active');
 
   renderRead();
@@ -985,12 +979,16 @@ function updateScore() {
 }
 
 function updateRevealButton() {
-  const phase = PHASES[phaseIndex];
-  const threshold = phase.allowGaps && gapStep === 2
-    ? phase.revealGapAfterAttempts
-    : phase.revealAfterAttempts;
-  document.getElementById('reveal-btn').disabled =
-    phaseCompleted[phaseIndex] || attemptsTried < threshold;
+  // Available from the start of every phase, retired the moment the phase is
+  // cleared, because then there is nothing left to reveal. It used to unlock
+  // after a count of "attempts", which was a proxy for being stuck and a bad
+  // one: the counter ticks on mouse-drag events, so a fast drag never reached
+  // the threshold, and in the phase whose answer is four moves from the start
+  // the hint could only arrive one move before the answer, which is no help at
+  // all (Justin, 2026-08-20: "it only lights up and is clickable when it is
+  // the correct alignment"). A hint you have to earn by flailing is worse than
+  // one that is simply there; the notebook records that it was used either way.
+  document.getElementById('reveal-btn').disabled = !!phaseCompleted[phaseIndex];
 }
 
 function moveRead(delta) {
@@ -1000,7 +998,6 @@ function moveRead(delta) {
   const nextPosition = Math.max(0, Math.min(maxPos, readPosition + delta));
   if (nextPosition === readPosition) return;
   readPosition = nextPosition;
-  attemptsTried++;
   renderRead();
   updateScore();
 }
@@ -1011,7 +1008,6 @@ function enterGapStep2() {
   readPosition = phase.optimalPosition;   // lock the read at its best position
   readChars = phase.read.split('');        // clean slate: no stray gaps from Step 1
   selectedReadTile = null;
-  attemptsTried = 0;
   document.getElementById('phase-instructions').innerHTML = phase.instructionsStep2;
   document.getElementById('step-callout').style.display = 'none';
   document.getElementById('gap-btn').style.display = 'inline-block';
@@ -1033,7 +1029,6 @@ function insertGap() {
   // Insert a '-' before the selected tile
   readChars.splice(selectedReadTile, 0, '-');
   selectedReadTile = null;
-  attemptsTried++;
   renderRead();
   updateScore();
 }
@@ -1054,10 +1049,15 @@ function showDebrief() {
   document.getElementById('debrief-deeper').innerHTML = phase.debrief.deeper;
   document.getElementById('debrief').classList.add('active');
 
+  // The last phase has nothing to continue to, so it does not offer a button
+  // that says so (Justin, 2026-08-20: "we probably do not need the finish
+  // button at all now"). Clearing phase three closes the section itself: the
+  // closing panel appears and the next-section card in the footer nav lights
+  // up, which is where the student is actually going.
   const isLast = phaseIndex >= PHASES.length - 1;
-  document.getElementById('next-phase-btn').textContent = isLast
-    ? 'Finish Section 1 →'
-    : 'Continue to next phase →';
+  const nextBtn = document.getElementById('next-phase-btn');
+  nextBtn.style.display = isLast ? 'none' : '';
+  if (isLast) { phasesDone = true; maybeComplete(); }
 }
 
 /* Completion is the three phases. A written-answer requirement lived here from
@@ -1071,6 +1071,7 @@ function maybeComplete(){
   // which is what the closing panels in Sections 5 and 7 do. No scrollIntoView:
   // this module does not move the page under the reader.
   document.getElementById('section-done').classList.add('show');
+  markNextReady();
 }
 
 function recordNotebook(text) {
@@ -1182,12 +1183,7 @@ function bindControls() {
   document.getElementById('reveal-btn').addEventListener('click', revealOptimal);
   document.getElementById('next-phase-btn').addEventListener('click', () => {
     const next = phaseIndex + 1;
-    if (next >= PHASES.length) {
-      phasesDone = true;
-      maybeComplete();
-    } else {
-      loadPhase(next);
-    }
+    if (next < PHASES.length) loadPhase(next);   // the last phase hides this button
   });
   document.getElementById('download-notebook').addEventListener('click', downloadNotebook);
 
@@ -1235,7 +1231,6 @@ function bindControls() {
       const nextPosition = Math.max(0, Math.min(maxPos, newPos));
       if (nextPosition !== readPosition) {
         readPosition = nextPosition;
-        attemptsTried++;
         renderRead();
         updateScore();
       }
@@ -1250,6 +1245,19 @@ function bindControls() {
 }
 
 init();
+
+/* Finishing a section promotes the next-section card in the footer nav, so
+   "you are done, go on" is shown where the student is going rather than said
+   by a button (Justin, 2026-08-20: "the next section button highlighted when
+   they finish the current section"). The link was always there and always
+   worked; only its appearance changes. Nothing is stored, so the highlight
+   belongs to this visit: it marks work done in this session, not a record of
+   a course completed. In the working copies there is no nav yet, because
+   make_release.sh wires it at build time, so this is a no-op there. */
+function markNextReady(){
+  var a = document.querySelector('.sectnav a.nav-next');
+  if (a) a.classList.add('ready');
+}
 </script>
 </body>
 </html>
